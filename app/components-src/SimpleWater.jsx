@@ -10,9 +10,9 @@ extend({ Water });
 const WATER_CONFIG = {
   textureWidth: 512,
   textureHeight: 512,
-  waterColor: 0x004080,
-  distortionScale: 3.7,
-  animationSpeed: 0.4,
+  waterColor: 0x0050aa,
+  distortionScale: 1.2,
+  animationSpeed: 0.3,
 };
 
 const SimpleWater = () => {
@@ -22,7 +22,7 @@ const SimpleWater = () => {
   useEffect(() => {
     const waterGeometry = new THREE.PlaneGeometry(10000, 10000);
     const waterNormals = new THREE.TextureLoader().load(
-      "/textures/water/water-normal.jpg",
+      "/textures/water/Water_1_M_Normal.jpg",
       (texture) => {
         texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
       }
@@ -33,7 +33,6 @@ const SimpleWater = () => {
       textureHeight: WATER_CONFIG.textureHeight,
       waterNormals: waterNormals,
       sunDirection: new THREE.Vector3(),
-      sunColor: 0xffffff,
       waterColor: WATER_CONFIG.waterColor,
       distortionScale: WATER_CONFIG.distortionScale,
       fog: scene.fog !== undefined,
@@ -48,7 +47,7 @@ const SimpleWater = () => {
     };
 
     water.material.transparent = true;
-    water.material.opacity = 1;
+    water.material.opacity = 0.5;
     water.material.depthWrite = false;
     water.material.side = THREE.DoubleSide;
 

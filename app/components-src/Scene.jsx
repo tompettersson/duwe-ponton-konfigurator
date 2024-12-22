@@ -27,18 +27,22 @@ function Scene({
   return (
     <Canvas
       className="w-full h-full"
-      style={{ background: "#E7F8FF" }}
+      style={{ background: "#C7E8FF" }}
       camera={{ position: [0, 5, 10], fov: 75 }}
       onCreated={({ gl }) => {
-        gl.setClearColor(new THREE.Color("#E7F8FF"));
+        gl.setClearColor(new THREE.Color("#C7E8FF"));
         gl.toneMapping = THREE.ACESFilmicToneMapping;
-        gl.toneMappingExposure = 0.5;
+        gl.toneMappingExposure = 0.8;
       }}
     >
       <Suspense fallback={null}>
-        <ambientLight intensity={0.4} />
+        <ambientLight intensity={0.7} color="#0000ff" />
         <Sun position={[10, 10, 10]} />
-        <directionalLight position={[-10, 10, -10]} intensity={0.5} />
+        <directionalLight
+          position={[-10, 10, -10]}
+          intensity={1.6}
+          color="#E1F2FF"
+        />
         {isPerspective ? (
           <PerspectiveCamera makeDefault position={[10, 10, 10]} />
         ) : (
