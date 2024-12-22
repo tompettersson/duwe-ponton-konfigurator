@@ -2,37 +2,77 @@
 
 import React, { useRef, useEffect } from "react";
 import * as THREE from "three";
+import { extend, useThree, useFrame } from "@react-three/fiber";
+import { Water } from "three-stdlib";
+
+extend({ Water });
 
 const WATER_CONFIG = {
+  textureWidth: 512,
+  textureHeight: 512,
   waterColor: 0x004080,
-  opacity: 0.8,
+  distortionScale: 3.7,
+  animationSpeed: 0.4,
 };
 
-const SimpleWater = ({ position = [0, 0, 0] }) => {
-  const meshRef = useRef();
+const SimpleWater = () => {
+  const waterRef = useRef();
+  const { scene } = useThree();
 
   useEffect(() => {
-    if (meshRef.current) {
-      const material = meshRef.current.material;
-      material.needsUpdate = true;
-    }
-  }, []);
+    const waterGeometry = new THREE.PlaneGeometry(10000, 10000);
+    const waterNormals = new THREE.TextureLoader().load(
+      "/textures/water/water-normal.jpg",
+      (texture) => {
+        texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+      }
+    );
 
-  return (
-    <mesh ref={meshRef} position={position} rotation={[-Math.PI / 2, 0, 0]}>
-      <planeGeometry args={[10000, 10000]} />
-      <meshPhysicalMaterial
-        color={WATER_CONFIG.waterColor}
-        transparent={true}
-        opacity={WATER_CONFIG.opacity}
-        side={THREE.DoubleSide}
-        roughness={0.1}
-        metalness={0.1}
-        clearcoat={1.0}
-        clearcoatRoughness={0.2}
-      />
-    </mesh>
-  );
+    const water = new Water(waterGeometry, {
+      textureWidth: WATER_CONFIG.textureWidth,
+      textureHeight: WATER_CONFIG.textureHeight,
+      waterNormals: waterNormals,
+      sunDirection: new THREE.Vector3(),
+      sunColor: 0xffffff,
+      waterColor: WATER_CONFIG.waterColor,
+      distortionScale: WATER_CONFIG.distortionScale,
+      fog: scene.fog !== undefined,
+    });
+
+    // Disable reflections
+    water.material.onBeforeCompile = (shader) => {
+      shader.fragmentShader = shader.fragmentShader.replace(
+        `#include <envmap_fragment>`,
+        ""
+      );
+    };
+
+    water.material.transparent = true;
+    water.material.opacity = 1;
+    water.material.depthWrite = false;
+    water.material.side = THREE.DoubleSide;
+
+    water.rotation.x = -Math.PI / 2;
+    water.position.set(0, -0.45, 0);
+
+    scene.add(water);
+    waterRef.current = water;
+
+    return () => {
+      scene.remove(water);
+      water.geometry.dispose();
+      water.material.dispose();
+    };
+  }, [scene]);
+
+  useFrame((state, delta) => {
+    if (waterRef.current) {
+      waterRef.current.material.uniforms["time"].value +=
+        delta * WATER_CONFIG.animationSpeed;
+    }
+  });
+
+  return null;
 };
 
 export default SimpleWater;

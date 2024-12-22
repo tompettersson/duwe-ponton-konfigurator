@@ -46,8 +46,8 @@ function Scene({
         )}
         <OrbitControls enabled={isPerspective} />
         <Grid size={gridSize} />
-        {gridElements.map((props) => (
-          <GridCell key={props.key} {...props} />
+        {gridElements.map(({ key, ...props }) => (
+          <GridCell key={key} {...props} />
         ))}
         {elements.map((element, index) => (
           <GridElement
