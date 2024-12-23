@@ -14,12 +14,13 @@ function PontoonScene() {
   const [elements, setElements] = useState({
     0: [], // Ground level
     1: [], // First level
+    2: [], // Second level
   });
   const [isPerspective, setIsPerspective] = useState(true);
   const [selectedTool, setSelectedTool] = useState("singlePontoon");
   const gridSize = { width: 40, depth: 30, height: 1 };
   const waterLevel = 0;
-  const levelHeight = 1; // Reduced height between levels
+  const levelHeight = 1; // Height between levels
 
   // Helper function to check if a position is occupied
   const isPositionOccupied = (x, z, level, prevElements) => {

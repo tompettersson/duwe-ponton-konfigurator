@@ -19,7 +19,7 @@ function Toolbar({
   return (
     <div className="fixed z-50 flex flex-col p-2 transform -translate-x-1/2 bg-white shadow-lg bottom-12 left-1/2 rounded-xl">
       <div className="flex mb-2">
-        {[0, 1].map((level) => (
+        {[0, 1, 2].map((level) => (
           <button
             key={level}
             onClick={() => onLevelChange(level)}
