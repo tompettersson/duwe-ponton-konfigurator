@@ -12,6 +12,7 @@ const Scene = dynamic(() => import("./Scene").then((mod) => mod.default), {
 function PontoonScene() {
   const [currentLevel, setCurrentLevel] = useState(0);
   const [elements, setElements] = useState({
+    "-1": [], // Underwater level
     0: [], // Ground level
     1: [], // First level
     2: [], // Second level

@@ -1,7 +1,7 @@
 import React from "react";
 import { RoundedBox } from "@react-three/drei";
 
-function GridElement({ position, opacity = 1, color, type = "single" }) {
+function GridElement({ position, opacity = 1, color, type = "single", level }) {
   // Define colors for different types
   const getColor = () => {
     if (color) return color;
@@ -24,6 +24,10 @@ function GridElement({ position, opacity = 1, color, type = "single" }) {
     adjustedPosition[0] += 0.5;
   }
 
+  // Apply underwater effect if on level -1
+  const isUnderwater = level === -1;
+  const finalOpacity = isUnderwater ? 0.7 : opacity;
+
   return (
     <RoundedBox
       args={getSize()}
@@ -38,8 +42,8 @@ function GridElement({ position, opacity = 1, color, type = "single" }) {
         metalness={0.1}
         clearcoat={0.3}
         clearcoatRoughness={0.25}
-        transparent={opacity < 1}
-        opacity={opacity}
+        transparent={true}
+        opacity={finalOpacity}
       />
     </RoundedBox>
   );
