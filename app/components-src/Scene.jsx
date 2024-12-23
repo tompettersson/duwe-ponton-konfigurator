@@ -23,7 +23,15 @@ function Scene({
   elements,
   gridElements,
   isPerspective,
+  currentLevel,
+  levelHeight,
 }) {
+  // Adjust gridElements positions to be at base level (y=0)
+  const adjustedGridElements = gridElements.map(({ position, ...rest }) => ({
+    ...rest,
+    position: [position[0], 0, position[2]], // Reset Y to 0 as group will handle height
+  }));
+
   return (
     <Canvas
       className="w-full h-full"
@@ -49,18 +57,31 @@ function Scene({
           <OrthographicCamera makeDefault position={[0, 10, 0]} zoom={30} />
         )}
         <OrbitControls enabled={isPerspective} />
-        <Grid size={gridSize} />
-        {gridElements.map(({ key, ...props }) => (
-          <GridCell key={key} {...props} />
-        ))}
+
+        {/* Only render grid and cells for current level */}
+        <group position={[0, currentLevel * levelHeight, 0]}>
+          <Grid size={gridSize} />
+          {adjustedGridElements.map(({ key, ...props }) => (
+            <GridCell
+              key={key}
+              {...props}
+              currentLevel={currentLevel}
+              levelHeight={levelHeight}
+            />
+          ))}
+        </group>
+
+        {/* Render all elements with appropriate opacity */}
         {elements.map((element, index) => (
           <GridElement
             key={index}
             position={element.position}
             type={element.type}
             waterLevel={waterLevel}
+            opacity={element.isCurrentLevel ? 1 : 0.3}
           />
         ))}
+
         <SimpleWater position={[0, waterLevel, 0]} />
       </Suspense>
     </Canvas>

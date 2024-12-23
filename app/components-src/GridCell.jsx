@@ -3,7 +3,14 @@
 import React, { useState } from "react";
 import GridElement from "./GridElement";
 
-function GridCell({ position, onCellClick, selectedTool, elements }) {
+function GridCell({
+  position,
+  onCellClick,
+  selectedTool,
+  elements,
+  currentLevel,
+  levelHeight,
+}) {
   const [hovered, setHovered] = useState(false);
 
   // Helper function to check if a position is occupied (same as in PontoonScene)
@@ -57,14 +64,25 @@ function GridCell({ position, onCellClick, selectedTool, elements }) {
       return null;
     }
 
+    // Create preview position at the base level (y=0)
+    const previewPosition = [position[0], 0, position[2]];
+
     switch (selectedTool) {
       case "singlePontoon":
         return (
-          <GridElement position={position} color="#00ccff" type="single" />
+          <GridElement
+            position={previewPosition}
+            color="#00ccff"
+            type="single"
+          />
         );
       case "doublePontoon":
         return (
-          <GridElement position={position} color="#00ccff" type="double" />
+          <GridElement
+            position={previewPosition}
+            color="#00ccff"
+            type="double"
+          />
         );
       case "deleteTool": {
         // Find if we're hovering over a double pontoon
@@ -89,14 +107,18 @@ function GridCell({ position, onCellClick, selectedTool, elements }) {
           // Show preview for entire double pontoon
           return (
             <GridElement
-              position={hoveredElement.position}
+              position={[
+                hoveredElement.position[0],
+                0,
+                hoveredElement.position[2],
+              ]}
               color="#FF6B6B"
               type="double"
             />
           );
         }
         // Show preview for single pontoon
-        return <GridElement position={position} color="#FF6B6B" />;
+        return <GridElement position={previewPosition} color="#FF6B6B" />;
       }
       default:
         return null;
