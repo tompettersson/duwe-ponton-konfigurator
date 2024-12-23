@@ -8,10 +8,10 @@ import { Water } from "three-stdlib";
 extend({ Water });
 
 const WATER_CONFIG = {
-  textureWidth: 512,
-  textureHeight: 512,
+  textureWidth: 4096,
+  textureHeight: 4096,
   waterColor: 0x0050aa,
-  distortionScale: 1.2,
+  distortionScale: 1,
   animationSpeed: 0.3,
 };
 
