@@ -14,7 +14,7 @@ function Toolbar({ onSelect, onCameraSwitch, isPerspective }) {
     <div className="fixed z-50 flex p-2 transform -translate-x-1/2 bg-white shadow-lg bottom-12 left-1/2 rounded-xl">
       <button
         onClick={() => handleSelect("singlePontoon")}
-        className="flex items-center justify-center m-2 rounded-lg size-12 hover:cursor-pointer"
+        className="flex items-center content-center justify-center p-1 m-2 rounded-lg size-12 hover:cursor-pointer"
         style={{
           background: selectedTool === "singlePontoon" ? "lightblue" : "white",
         }}
@@ -41,12 +41,14 @@ function Toolbar({ onSelect, onCameraSwitch, isPerspective }) {
         <svg
           xmlns="http://www.w3.org/2000/svg"
           className="w-full h-full p-1 size-8"
-          viewBox="0 0 24 24"
+          viewBox="0 0 16 31"
           fill="none"
         >
           <path
-            d="M2 0.5H22C23.933 0.5 25.5 2.067 25.5 4V20C25.5 21.933 23.933 23.5 22 23.5H2C0.067 23.5 -1.5 21.933 -1.5 20V4C-1.5 2.067 0.067 0.5 2 0.5Z"
-            stroke="black"
+            fillRule="evenodd"
+            clipRule="evenodd"
+            d="M2.062 15.5C0.832288 14.8176 0 13.506 0 12V4C0 1.79086 1.79086 0 4 0H12C14.2091 0 16 1.79086 16 4V12C16 13.506 15.1677 14.8176 13.938 15.5C15.1677 16.1824 16 17.494 16 19V27C16 29.2091 14.2091 31 12 31H4C1.79086 31 0 29.2091 0 27V19C0 17.494 0.832288 16.1824 2.062 15.5ZM4 1H12C13.6569 1 15 2.34315 15 4V12C15 13.6569 13.6569 15 12 15H4C2.34315 15 1 13.6569 1 12V4C1 2.34315 2.34315 1 4 1ZM12 16H4C2.34315 16 1 17.3431 1 19V27C1 28.6569 2.34315 30 4 30H12C13.6569 30 15 28.6569 15 27V19C15 17.3431 13.6569 16 12 16Z"
+            fill="black"
           />
         </svg>
       </button>
@@ -94,7 +96,7 @@ function Toolbar({ onSelect, onCameraSwitch, isPerspective }) {
             strokeLinejoin="round"
           />
         </svg>
-        <span className="text-xs text-center transform">
+        <span className="text-xs text-center text-black transform">
           {isPerspective ? "3D" : "2D"}
         </span>
       </button>
