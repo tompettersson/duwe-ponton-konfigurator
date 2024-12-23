@@ -6,6 +6,37 @@ import GridElement from "./GridElement";
 function GridCell({ position, onCellClick, selectedTool, elements }) {
   const [hovered, setHovered] = useState(false);
 
+  // Helper function to check if a position is occupied (same as in PontoonScene)
+  const isPositionOccupied = (x, z) => {
+    return elements?.some((element) => {
+      if (element.type === "double") {
+        const elementStart = element.position[0];
+        const elementEnd = elementStart + 1;
+        return (
+          element.position[2] === z && x >= elementStart && x <= elementEnd
+        );
+      } else {
+        return element.position[0] === x && element.position[2] === z;
+      }
+    });
+  };
+
+  // Check if the current position allows placement
+  const canPlaceHere = () => {
+    const x = position[0];
+    const z = position[2];
+
+    if (selectedTool === "singlePontoon") {
+      return !isPositionOccupied(x, z);
+    } else if (selectedTool === "doublePontoon") {
+      // Check if we're too close to the right edge
+      if (x >= 19) return false; // Using 19 as it's gridSize.width/2 - 1
+      // Check if either position is occupied
+      return !isPositionOccupied(x, z) && !isPositionOccupied(x + 1, z);
+    }
+    return true; // For delete tool, always allow hover
+  };
+
   const handlePointerOver = (e) => {
     e.stopPropagation();
     setHovered(true);
@@ -22,14 +53,15 @@ function GridCell({ position, onCellClick, selectedTool, elements }) {
   };
 
   const renderPreview = () => {
-    if (!hovered) return null;
+    if (!hovered || (selectedTool !== "deleteTool" && !canPlaceHere())) {
+      return null;
+    }
 
     switch (selectedTool) {
       case "singlePontoon":
-        return <GridElement position={position} type="single" />;
-
+        return <GridElement position={position} opacity={0.5} type="single" />;
       case "doublePontoon":
-        return <GridElement position={position} type="double" />;
+        return <GridElement position={position} opacity={0.5} type="double" />;
       case "deleteTool": {
         // Find if we're hovering over a double pontoon
         const hoveredElement = elements?.find((element) => {
@@ -54,13 +86,14 @@ function GridCell({ position, onCellClick, selectedTool, elements }) {
           return (
             <GridElement
               position={hoveredElement.position}
+              opacity={0.5}
               color="red"
               type="double"
             />
           );
         }
         // Show preview for single pontoon
-        return <GridElement position={position} color="red" />;
+        return <GridElement position={position} opacity={0.5} color="red" />;
       }
       default:
         return null;
