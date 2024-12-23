@@ -16,10 +16,32 @@ function PontoonScene() {
   const gridSize = { width: 40, depth: 30, height: 1 };
   const waterLevel = 0;
 
+  // Helper function to check if a position is occupied
+  const isPositionOccupied = (x, z, prevElements) => {
+    return prevElements.some((element) => {
+      if (element.type === "double") {
+        // Check both cells of double pontoon
+        const elementStart = element.position[0];
+        const elementEnd = elementStart + 1;
+        return (
+          element.position[2] === z && x >= elementStart && x <= elementEnd
+        );
+      } else {
+        // Check single pontoon position
+        return element.position[0] === x && element.position[2] === z;
+      }
+    });
+  };
+
   const handleCellClick = useCallback(
     (position) => {
       if (selectedTool === "singlePontoon") {
         setElements((prevElements) => {
+          // Check if position is already occupied
+          if (isPositionOccupied(position[0], position[2], prevElements)) {
+            return prevElements;
+          }
+
           const newElement = {
             position: [position[0], waterLevel, position[2]],
             type: "single",
@@ -31,29 +53,13 @@ function PontoonScene() {
         if (position[0] >= gridSize.width / 2 - 1) return;
 
         setElements((prevElements) => {
-          // Check for existing elements in both cells
-          const hasConflict = prevElements.some((element) => {
-            if (element.type === "double") {
-              // For double elements, check if they overlap with either cell
-              const elementStart = element.position[0];
-              const elementEnd = elementStart + 1;
-              return (
-                element.position[2] === position[2] &&
-                ((position[0] >= elementStart && position[0] <= elementEnd) ||
-                  (position[0] + 1 >= elementStart &&
-                    position[0] + 1 <= elementEnd))
-              );
-            } else {
-              // For single elements, check both cells we want to occupy
-              return (
-                element.position[2] === position[2] &&
-                (element.position[0] === position[0] ||
-                  element.position[0] === position[0] + 1)
-              );
-            }
-          });
-
-          if (hasConflict) return prevElements;
+          // Check if either position is occupied
+          if (
+            isPositionOccupied(position[0], position[2], prevElements) ||
+            isPositionOccupied(position[0] + 1, position[2], prevElements)
+          ) {
+            return prevElements;
+          }
 
           const newElement = {
             position: [position[0], waterLevel, position[2]],
