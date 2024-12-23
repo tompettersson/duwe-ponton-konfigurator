@@ -57,8 +57,8 @@ function Scene({
           <GridElement
             key={index}
             position={element.position}
-            type={element.type}
             waterLevel={waterLevel}
+            type={element.type}
           />
         ))}
         <SimpleWater position={[0, waterLevel, 0]} />

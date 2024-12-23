@@ -45,8 +45,13 @@ function Toolbar({ onSelect, onCameraSwitch, isPerspective }) {
           fill="none"
         >
           <path
-            d="M2 0.5H22C23.933 0.5 25.5 2.067 25.5 4V20C25.5 21.933 23.933 23.5 22 23.5H2C0.067 23.5 -1.5 21.933 -1.5 20V4C-1.5 2.067 0.067 0.5 2 0.5Z"
+            d="M4 0.5H20C21.933 0.5 23.5 2.067 23.5 4V20C23.5 21.933 21.933 23.5 20 23.5H4C2.067 23.5 0.5 21.933 0.5 20V4C0.5 2.067 2.067 0.5 4 0.5Z"
             stroke="black"
+          />
+          <path
+            d="M4 0.5H20C21.933 0.5 23.5 2.067 23.5 4V20C23.5 21.933 21.933 23.5 20 23.5H4C2.067 23.5 0.5 21.933 0.5 20V4C0.5 2.067 2.067 0.5 4 0.5Z"
+            stroke="black"
+            transform="translate(0, -8)"
           />
         </svg>
       </button>
@@ -94,7 +99,7 @@ function Toolbar({ onSelect, onCameraSwitch, isPerspective }) {
             strokeLinejoin="round"
           />
         </svg>
-        <span className="text-xs text-center transform">
+        <span className="text-xs text-center transform text-black">
           {isPerspective ? "3D" : "2D"}
         </span>
       </button>

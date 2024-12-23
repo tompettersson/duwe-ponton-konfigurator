@@ -12,7 +12,7 @@ const Scene = dynamic(() => import("./Scene").then((mod) => mod.default), {
 function PontoonScene() {
   const [elements, setElements] = useState([]);
   const [isPerspective, setIsPerspective] = useState(true);
-  const [selectedTool, setSelectedTool] = useState("singlePontoon");
+  const [selectedTool, setSelectedTool] = useState(null);
   const gridSize = { width: 40, depth: 30, height: 1 };
   const waterLevel = 0;
 
@@ -27,60 +27,31 @@ function PontoonScene() {
           return [...prevElements, newElement];
         });
       } else if (selectedTool === "doublePontoon") {
-        // Check if we're too close to the right edge
-        if (position[0] >= gridSize.width / 2 - 1) return;
-
         setElements((prevElements) => {
-          // Check for existing elements in both cells
-          const hasConflict = prevElements.some((element) => {
-            if (element.type === "double") {
-              // For double elements, check if they overlap with either cell
-              const elementStart = element.position[0];
-              const elementEnd = elementStart + 1;
-              return (
-                element.position[2] === position[2] &&
-                ((position[0] >= elementStart && position[0] <= elementEnd) ||
-                  (position[0] + 1 >= elementStart &&
-                    position[0] + 1 <= elementEnd))
-              );
-            } else {
-              // For single elements, check both cells we want to occupy
-              return (
-                element.position[2] === position[2] &&
-                (element.position[0] === position[0] ||
-                  element.position[0] === position[0] + 1)
-              );
-            }
-          });
+          if (position[0] + 1 >= gridSize.width / 2) return prevElements;
 
-          if (hasConflict) return prevElements;
-
-          const newElement = {
-            position: [position[0], waterLevel, position[2]],
-            type: "double",
-          };
-          return [...prevElements, newElement];
+          const newElements = [
+            {
+              position: [position[0], waterLevel, position[2]],
+              type: "double_left",
+            },
+            {
+              position: [position[0] + 1, waterLevel, position[2]],
+              type: "double_right",
+            },
+          ];
+          return [...prevElements, ...newElements];
         });
       } else if (selectedTool === "deleteTool") {
         setElements((prevElements) =>
-          prevElements.filter((element) => {
-            if (element.type === "double") {
-              // For double pontoons, check both cells it occupies
-              const elementStart = element.position[0];
-              const elementEnd = elementStart + 1;
-              return !(
-                element.position[2] === position[2] &&
-                position[0] >= elementStart &&
-                position[0] <= elementEnd
-              );
-            } else {
-              // For single pontoons, check exact position
-              return !(
-                element.position[0] === position[0] &&
+          prevElements.filter(
+            (element) =>
+              !(
+                (element.position[0] === position[0] ||
+                  element.position[0] === position[0] + 1) &&
                 element.position[2] === position[2]
-              );
-            }
-          })
+              )
+          )
         );
       }
     },
@@ -105,10 +76,9 @@ function PontoonScene() {
           position: [x + 0.5, 0, z + 0.5],
           onCellClick: handleCellClick,
           selectedTool,
-          elements,
         };
       }),
-    [gridSize, handleCellClick, selectedTool, elements]
+    [gridSize, handleCellClick, selectedTool]
   );
 
   return (
