@@ -59,9 +59,13 @@ function GridCell({ position, onCellClick, selectedTool, elements }) {
 
     switch (selectedTool) {
       case "singlePontoon":
-        return <GridElement position={position} opacity={0.5} type="single" />;
+        return (
+          <GridElement position={position} color="#00ccff" type="single" />
+        );
       case "doublePontoon":
-        return <GridElement position={position} opacity={0.5} type="double" />;
+        return (
+          <GridElement position={position} color="#00ccff" type="double" />
+        );
       case "deleteTool": {
         // Find if we're hovering over a double pontoon
         const hoveredElement = elements?.find((element) => {
@@ -86,14 +90,13 @@ function GridCell({ position, onCellClick, selectedTool, elements }) {
           return (
             <GridElement
               position={hoveredElement.position}
-              opacity={0.5}
-              color="red"
+              color="#FF6B6B"
               type="double"
             />
           );
         }
         // Show preview for single pontoon
-        return <GridElement position={position} opacity={0.5} color="red" />;
+        return <GridElement position={position} color="#FF6B6B" />;
       }
       default:
         return null;
