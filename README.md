@@ -1,36 +1,108 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+# Ponton-Konfigurator
 
-## Getting Started
+Ein interaktiver 3D-Konfigurator für Pontons, basierend auf React, Next.js und Three.js mit React Three Fiber.
 
-First, run the development server:
+## Projektübersicht
+
+Der Ponton-Konfigurator ermöglicht es Kunden, maßgeschneiderte Ponton-Konfigurationen zu erstellen und zu visualisieren. Das Tool bietet sowohl eine 2D- als auch eine 3D-Ansicht und erlaubt es, verschiedene Pontontypen in einem Raster zu platzieren, um individuelle Lösungen zu entwerfen.
+
+### Hauptfunktionen
+
+- Interaktive 2D- und 3D-Ansicht des Konfigurators
+- Platzierung von einzelnen und doppelten Pontons auf einem Raster
+- Mehrere Ebenen für komplexe Strukturen (inklusive Unterwasserbereich)
+- Echtzeit-Visualisierung mit realistischer Wasserdarstellung
+- Berechnung von Größen und Kosten basierend auf der Konfiguration
+- Exportierbare Ergebnistabelle für Kunden
+
+## Technologie-Stack
+
+- **Frontend**: Next.js 15 (App Router)
+- **Rendering**: React 19
+- **3D-Visualisierung**: Three.js und React Three Fiber/Drei
+- **UI**: Tailwind CSS
+- **Interaktivität**: React DnD (Drag and Drop)
+
+## Projektstruktur
+
+```
+app/
+├── components-src/      # Hauptkomponenten des Konfigurators
+│   ├── App.jsx          # Hauptanwendungskomponente
+│   ├── PontoonScene.jsx # Steuerung der Szene und Zustand
+│   ├── Scene.jsx        # Three.js Canvas und Kameraeinstellungen
+│   ├── Toolbar.jsx      # Werkzeugleiste für die Interaktion
+│   ├── Grid.jsx         # Rastergitter für Platzierung
+│   ├── GridCell.jsx     # Einzelne Zelle im Raster
+│   ├── GridElement.jsx  # Pontonelemente (Einzeln/Doppelt)
+│   ├── SimpleWater.jsx  # Wasservisualisierung
+│   └── Sun.jsx          # Lichtquelle für die Szene
+```
+
+## Installation und Einrichtung
+
+Zuerst das Repository klonen und in das Projektverzeichnis wechseln:
+
+```bash
+git clone [repository-url]
+cd ponton-konfigurator
+```
+
+Abhängigkeiten installieren:
+
+```bash
+npm install
+```
+
+Entwicklungsserver starten:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Die Anwendung ist nun unter [http://localhost:3000](http://localhost:3000) verfügbar.
 
-You can start editing the page by modifying `app/page.js`. The page auto-updates as you edit the file.
+## Entwicklungsworkflow
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Pontons platzieren und bearbeiten
 
-## Learn More
+Der Konfigurator verwendet ein Raster-basiertes System mit den folgenden Werkzeugen:
 
-To learn more about Next.js, take a look at the following resources:
+- **Einzel-Ponton**: Platziert einen quadratischen 1x1 Ponton
+- **Doppel-Ponton**: Platziert einen rechteckigen 2x1 Ponton
+- **Löschen**: Entfernt platzierte Pontons
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Ebenen
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Der Konfigurator unterstützt verschiedene Ebenen:
 
-## Deploy on Vercel
+- **Ebene -1**: Unterwasserbereich
+- **Ebene 0**: Grundebene (Wasserlinie)
+- **Ebene 1**: Erste Ebene über Wasser
+- **Ebene 2**: Zweite Ebene über Wasser
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Kameraansichten
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- **2D-Ansicht**: Orthografische Top-Down-Ansicht (ideal für präzise Platzierung)
+- **3D-Ansicht**: Perspektivische Ansicht mit OrbitControls (zum Erkunden der Konfiguration)
+
+## Datenmodell
+
+Das Datenmodell für Pontonelemente basiert auf:
+
+- **Position**: [x, y, z] Koordinaten im Raum
+- **Typ**: "single" oder "double" für verschiedene Pontongrößen
+- **Ebene**: Die vertikale Ebene, auf der der Ponton platziert ist
+
+## Zukünftige Funktionen
+
+- Integration realer Daten zu Größen und Kosten
+- Exportfunktion für Kundentabellen
+- Speichern und Laden von Konfigurationen
+- Erweiterte Material- und Farboptionen
+- Physikbasierte Simulation (Schwimmfähigkeit, Balance)
+- Mobile Optimierung
+
+## Lizenz
+
+[Lizenzinformationen einfügen]

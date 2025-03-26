@@ -53,7 +53,7 @@ const SimpleWater = () => {
     water.material.renderOrder = 1;
 
     water.rotation.x = -Math.PI / 2;
-    water.position.set(0, -0.35, 0);
+    water.position.set(0, -0.5, 0);
 
     scene.add(water);
     waterRef.current = water;
