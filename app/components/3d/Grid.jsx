@@ -2,62 +2,52 @@
 
 import React, { memo, useMemo } from "react";
 import * as THREE from "three";
-import { Line } from "@react-three/drei";
 import { COLORS } from "../../constants/grid";
 
 /**
- * Grid component for the pontoon configurator
+ * Grid component – performant implementation using a single LineSegments draw call
  */
 function Grid({
   size = { width: 40, depth: 30, height: 1 },
   color = COLORS.GRID,
-  elevation = 0.01, // Small elevation above water
+  elevation = 0.01, // Slightly above water
 }) {
-  // Calculate grid lines
-  const halfWidth = size.width / 2;
-  const halfDepth = size.depth / 2;
+  // Memoised geometry containing all grid lines
+  const gridGeometry = useMemo(() => {
+    const { width, depth } = size;
+    const halfWidth = width / 2;
+    const halfDepth = depth / 2;
 
-  // Create grid lines using useMemo for performance optimization
-  const gridLines = useMemo(() => {
-    const lines = [];
+    const vertices = [];
 
-    // Horizontal grid lines (along X axis)
-    for (let i = -halfDepth; i <= halfDepth; i++) {
-      const points = [
-        new THREE.Vector3(-halfWidth, elevation, i),
-        new THREE.Vector3(halfWidth, elevation, i),
-      ];
-      lines.push({ key: `h${i}`, points });
+    // Horizontal lines (along X)
+    for (let z = -halfDepth; z <= halfDepth; z++) {
+      vertices.push(-halfWidth, elevation, z, halfWidth, elevation, z);
     }
 
-    // Vertical grid lines (along Z axis)
-    for (let i = -halfWidth; i <= halfWidth; i++) {
-      const points = [
-        new THREE.Vector3(i, elevation, -halfDepth),
-        new THREE.Vector3(i, elevation, halfDepth),
-      ];
-      lines.push({ key: `v${i}`, points });
+    // Vertical lines (along Z)
+    for (let x = -halfWidth; x <= halfWidth; x++) {
+      vertices.push(x, elevation, -halfDepth, x, elevation, halfDepth);
     }
 
-    return lines;
-  }, [halfWidth, halfDepth, elevation]);
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute(
+      "position",
+      new THREE.Float32BufferAttribute(vertices, 3)
+    );
+
+    return geometry;
+  }, [size, elevation]);
 
   return (
-    <group position={[0, 0, 0]}>
-      {gridLines.map(({ key, points }) => (
-        <Line
-          key={key}
-          points={points}
-          color={color}
-          lineWidth={1}
-          opacity={0.5}
-          transparent
-          dashed={true}
-          dashSize={0.3}
-          gapSize={0.2}
-        />
-      ))}
-    </group>
+    <lineSegments geometry={gridGeometry} frustumCulled={false}>
+      <lineBasicMaterial
+        color={color}
+        linewidth={1}
+        transparent
+        opacity={0.5}
+      />
+    </lineSegments>
   );
 }
 

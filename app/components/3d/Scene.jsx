@@ -17,6 +17,9 @@ const GridCell = dynamic(() => import("./GridCell"), { ssr: false });
 const GridElement = dynamic(() => import("./GridElement"), { ssr: false });
 const SimpleWater = dynamic(() => import("./SimpleWater"), { ssr: false });
 const Sun = dynamic(() => import("./Sun"), { ssr: false });
+const PontoonInstances = dynamic(() => import("./PontoonInstances"), {
+  ssr: false,
+});
 
 /**
  * Main 3D scene component for the pontoon configurator
@@ -75,16 +78,15 @@ function Scene({
           ))}
         </group>
 
-        {/* Render all elements with appropriate opacity */}
-        {elements.map((element, index) => (
-          <GridElement
-            key={index}
-            position={element.position}
-            type={element.type}
-            waterLevel={waterLevel}
-            opacity={element.isCurrentLevel ? 1 : 0.3}
-          />
-        ))}
+        {/* Instanced pontoons: split into current vs other levels for opacity */}
+        <PontoonInstances
+          elements={elements.filter((e) => e.isCurrentLevel)}
+          opacity={1}
+        />
+        <PontoonInstances
+          elements={elements.filter((e) => !e.isCurrentLevel)}
+          opacity={0.3}
+        />
 
         <SimpleWater position={[0, waterLevel, 0]} />
       </Suspense>
