@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import React, { Suspense } from "react";
+import React, { Suspense, memo } from "react";
 import { Canvas } from "@react-three/fiber";
 import {
   OrbitControls,
@@ -9,6 +9,7 @@ import {
   PerspectiveCamera,
 } from "@react-three/drei";
 import * as THREE from "three";
+import { COLORS } from "../../constants/grid";
 
 // Dynamically import components that use Three.js
 const Grid = dynamic(() => import("./Grid"), { ssr: false });
@@ -17,6 +18,9 @@ const GridElement = dynamic(() => import("./GridElement"), { ssr: false });
 const SimpleWater = dynamic(() => import("./SimpleWater"), { ssr: false });
 const Sun = dynamic(() => import("./Sun"), { ssr: false });
 
+/**
+ * Main 3D scene component for the pontoon configurator
+ */
 function Scene({
   gridSize,
   waterLevel,
@@ -35,10 +39,10 @@ function Scene({
   return (
     <Canvas
       className="w-full h-full"
-      style={{ background: "#C7E8FF" }}
+      style={{ background: COLORS.SKY }}
       camera={{ position: [0, 5, 10], fov: 75 }}
       onCreated={({ gl }) => {
-        gl.setClearColor(new THREE.Color("#C7E8FF"));
+        gl.setClearColor(new THREE.Color(COLORS.SKY));
         gl.toneMapping = THREE.ACESFilmicToneMapping;
         gl.toneMappingExposure = 0.8;
       }}
@@ -88,4 +92,5 @@ function Scene({
   );
 }
 
-export default Scene;
+// Memoize the Scene component to prevent unnecessary re-renders
+export default memo(Scene);

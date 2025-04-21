@@ -1,9 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
-import styles from "./Toolbar.module.css";
+import React from "react";
 
-const LevelIcon = () => (
+export const LevelIcon = () => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
     width="21"
@@ -20,7 +19,7 @@ const LevelIcon = () => (
   </svg>
 );
 
-const SinglePontoonIcon = () => (
+export const SinglePontoonIcon = () => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
     className="size-8"
@@ -34,7 +33,7 @@ const SinglePontoonIcon = () => (
   </svg>
 );
 
-const DoublePontoonIcon = () => (
+export const DoublePontoonIcon = () => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
     className="size-10"
@@ -50,7 +49,7 @@ const DoublePontoonIcon = () => (
   </svg>
 );
 
-const DeleteIcon = () => (
+export const DeleteIcon = () => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
     viewBox="0 0 18 21"
@@ -66,7 +65,7 @@ const DeleteIcon = () => (
   </svg>
 );
 
-const CameraIcon = () => (
+export const CameraIcon = () => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
     viewBox="0 0 21 18"
@@ -87,102 +86,3 @@ const CameraIcon = () => (
     />
   </svg>
 );
-
-function Toolbar({
-  onSelect,
-  onCameraSwitch,
-  isPerspective,
-  currentLevel,
-  onLevelChange,
-}) {
-  const [selectedTool, setSelectedTool] = useState("");
-  const [isLevelDropdownOpen, setIsLevelDropdownOpen] = useState(false);
-  const levels = [2, 1, 0, -1];
-
-  const handleSelect = (tool) => {
-    setSelectedTool(tool);
-    onSelect(tool);
-  };
-
-  return (
-    <div className={styles.toolbar}>
-      <div className={styles.levelSelector}>
-        <button
-          className={`${styles.toolButton} ${
-            isLevelDropdownOpen ? styles.active : ""
-          }`}
-          onClick={() => setIsLevelDropdownOpen(!isLevelDropdownOpen)}
-          aria-label="Select Level"
-        >
-          <LevelIcon />
-          <span className={styles.levelDisplay}>{currentLevel}</span>
-        </button>
-        {isLevelDropdownOpen && (
-          <div className={styles.levelDropup}>
-            {levels.map((level) => (
-              <div
-                key={level}
-                className={`${styles.levelOption} ${
-                  level === currentLevel ? styles.selected : ""
-                }`}
-                onClick={() => {
-                  onLevelChange(level);
-                  setIsLevelDropdownOpen(false);
-                }}
-                role="button"
-                tabIndex={0}
-              >
-                Level {level}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      <button
-        onClick={() => handleSelect("singlePontoon")}
-        className={`${styles.toolButton} ${
-          selectedTool === "singlePontoon" ? styles.active : ""
-        }`}
-        aria-label="Single Pontoon"
-      >
-        <SinglePontoonIcon />
-      </button>
-
-      <button
-        onClick={() => handleSelect("doublePontoon")}
-        className={`${styles.toolButton} ${
-          selectedTool === "doublePontoon" ? styles.active : ""
-        }`}
-        aria-label="Double Pontoon"
-      >
-        <DoublePontoonIcon />
-      </button>
-
-      <button
-        onClick={() => handleSelect("deleteTool")}
-        className={`${styles.toolButton} ${
-          selectedTool === "deleteTool" ? styles.active : ""
-        }`}
-        aria-label="Delete"
-      >
-        <DeleteIcon />
-      </button>
-
-      <div className={styles.separator} />
-
-      <button
-        onClick={onCameraSwitch}
-        className={styles.toolButton}
-        aria-label="Switch Camera"
-      >
-        <CameraIcon />
-        <span className={styles.cameraLabel}>
-          {isPerspective ? "3D" : "2D"}
-        </span>
-      </button>
-    </div>
-  );
-}
-
-export default Toolbar;

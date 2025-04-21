@@ -1,11 +1,11 @@
 import React from "react";
-import { Box, RoundedBox } from "@react-three/drei";
+import { RoundedBox } from "@react-three/drei";
 
-function GridElement({ position, opacity = 1, color, type = "single" }) {
+function GridElement({ position, opacity = 1, color, type = "single", level }) {
   // Define colors for different types
   const getColor = () => {
     if (color) return color;
-    return "#4D7FFF";
+    return "#6D9FFF";
   };
 
   // Adjust size and position based on type
@@ -24,29 +24,27 @@ function GridElement({ position, opacity = 1, color, type = "single" }) {
     adjustedPosition[0] += 0.5;
   }
 
-  const isPreview = opacity < 1;
+  // Apply underwater effect if on level -1
+  const isUnderwater = level === -1;
+  const finalOpacity = isUnderwater ? 0.7 : opacity;
 
   return (
-    <RoundedBox args={getSize()} position={adjustedPosition}>
-      {isPreview ? (
-        <meshBasicMaterial
-          attach="material"
-          color={getColor()}
-          wireframe={true}
-          wireframeLinewidth={2}
-        />
-      ) : (
-        <meshPhysicalMaterial
-          attach="material"
-          color={getColor()}
-          roughness={0.5}
-          metalness={0.1}
-          clearcoat={0.3}
-          clearcoatRoughness={0.25}
-          transparent={false}
-          depthWrite={true}
-        />
-      )}
+    <RoundedBox
+      args={getSize()}
+      radius={0.1}
+      smoothness={4}
+      position={adjustedPosition}
+    >
+      <meshPhysicalMaterial
+        attach="material"
+        color={getColor()}
+        roughness={0.5}
+        metalness={0.1}
+        clearcoat={0.3}
+        clearcoatRoughness={0.25}
+        transparent={true}
+        opacity={finalOpacity}
+      />
     </RoundedBox>
   );
 }

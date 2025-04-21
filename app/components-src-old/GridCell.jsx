@@ -3,8 +3,46 @@
 import React, { useState } from "react";
 import GridElement from "./GridElement";
 
-function GridCell({ position, onCellClick, selectedTool, elements }) {
+function GridCell({
+  position,
+  onCellClick,
+  selectedTool,
+  elements,
+  currentLevel,
+  levelHeight,
+}) {
   const [hovered, setHovered] = useState(false);
+
+  // Helper function to check if a position is occupied (same as in PontoonScene)
+  const isPositionOccupied = (x, z) => {
+    return elements?.some((element) => {
+      if (element.type === "double") {
+        const elementStart = element.position[0];
+        const elementEnd = elementStart + 1;
+        return (
+          element.position[2] === z && x >= elementStart && x <= elementEnd
+        );
+      } else {
+        return element.position[0] === x && element.position[2] === z;
+      }
+    });
+  };
+
+  // Check if the current position allows placement
+  const canPlaceHere = () => {
+    const x = position[0];
+    const z = position[2];
+
+    if (selectedTool === "singlePontoon") {
+      return !isPositionOccupied(x, z);
+    } else if (selectedTool === "doublePontoon") {
+      // Check if we're too close to the right edge
+      if (x >= 19) return false; // Using 19 as it's gridSize.width/2 - 1
+      // Check if either position is occupied
+      return !isPositionOccupied(x, z) && !isPositionOccupied(x + 1, z);
+    }
+    return true; // For delete tool, always allow hover
+  };
 
   const handlePointerOver = (e) => {
     e.stopPropagation();
@@ -22,13 +60,30 @@ function GridCell({ position, onCellClick, selectedTool, elements }) {
   };
 
   const renderPreview = () => {
-    if (!hovered) return null;
+    if (!hovered || (selectedTool !== "deleteTool" && !canPlaceHere())) {
+      return null;
+    }
+
+    // Create preview position at the base level (y=0)
+    const previewPosition = [position[0], 0, position[2]];
 
     switch (selectedTool) {
       case "singlePontoon":
-        return <GridElement position={position} opacity={0.5} type="single" />;
+        return (
+          <GridElement
+            position={previewPosition}
+            color="#00ccff"
+            type="single"
+          />
+        );
       case "doublePontoon":
-        return <GridElement position={position} opacity={0.5} type="double" />;
+        return (
+          <GridElement
+            position={previewPosition}
+            color="#00ccff"
+            type="double"
+          />
+        );
       case "deleteTool": {
         // Find if we're hovering over a double pontoon
         const hoveredElement = elements?.find((element) => {
@@ -52,15 +107,18 @@ function GridCell({ position, onCellClick, selectedTool, elements }) {
           // Show preview for entire double pontoon
           return (
             <GridElement
-              position={hoveredElement.position}
-              opacity={0.5}
-              color="red"
+              position={[
+                hoveredElement.position[0],
+                0,
+                hoveredElement.position[2],
+              ]}
+              color="#FF6B6B"
               type="double"
             />
           );
         }
         // Show preview for single pontoon
-        return <GridElement position={position} opacity={0.5} color="red" />;
+        return <GridElement position={previewPosition} color="#FF6B6B" />;
       }
       default:
         return null;

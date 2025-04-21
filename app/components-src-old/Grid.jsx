@@ -39,13 +39,7 @@ function Grid({ size }) {
   return (
     <lineSegments>
       <primitive object={gridLines} />
-      <lineDashedMaterial
-        color={0xbbddff}
-        linewidth={1}
-        scale={1}
-        dashSize={0.1}
-        gapSize={0.05}
-      />
+      <lineDashedMaterial color={0xbbddff} linewidth={1} scale={1} />
     </lineSegments>
   );
 }

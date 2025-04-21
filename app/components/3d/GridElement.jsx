@@ -1,17 +1,29 @@
-import React from "react";
-import { RoundedBox } from "@react-three/drei";
+"use client";
 
-function GridElement({ position, opacity = 1, color, type = "single", level }) {
+import React, { memo } from "react";
+import { RoundedBox } from "@react-three/drei";
+import { ELEMENT_TYPES, COLORS } from "../../constants/grid";
+
+/**
+ * Represents a 3D pontoon element in the grid
+ */
+function GridElement({
+  position,
+  opacity = 1,
+  color,
+  type = ELEMENT_TYPES.SINGLE,
+  level,
+}) {
   // Define colors for different types
   const getColor = () => {
     if (color) return color;
-    return "#6D9FFF";
+    return COLORS.PONTOON;
   };
 
   // Adjust size and position based on type
   const getSize = () => {
     switch (type) {
-      case "double":
+      case ELEMENT_TYPES.DOUBLE:
         return [1.96, 0.96, 0.96];
       default:
         return [0.96, 0.96, 0.96];
@@ -20,7 +32,7 @@ function GridElement({ position, opacity = 1, color, type = "single", level }) {
 
   // For double pontoons, center the position between the two grid cells
   const adjustedPosition = [...position];
-  if (type === "double") {
+  if (type === ELEMENT_TYPES.DOUBLE) {
     adjustedPosition[0] += 0.5;
   }
 
@@ -49,4 +61,5 @@ function GridElement({ position, opacity = 1, color, type = "single", level }) {
   );
 }
 
-export default GridElement;
+// Memoize the component to prevent unnecessary re-renders
+export default memo(GridElement);

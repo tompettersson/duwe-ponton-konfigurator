@@ -11,7 +11,7 @@ const WATER_CONFIG = {
   textureWidth: 4096,
   textureHeight: 4096,
   waterColor: 0x0050aa,
-  distortionScale: 1.2,
+  distortionScale: 0.5,
   animationSpeed: 0.3,
 };
 
@@ -22,7 +22,7 @@ const SimpleWater = () => {
   useEffect(() => {
     const waterGeometry = new THREE.PlaneGeometry(10000, 10000);
     const waterNormals = new THREE.TextureLoader().load(
-      "/textures/water/water-normal.jpg",
+      "/textures/water/Water_1_M_Normal.jpg",
       (texture) => {
         texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
       }
@@ -38,7 +38,7 @@ const SimpleWater = () => {
       fog: scene.fog !== undefined,
     });
 
-    // Disable reflections
+    // Disable reflections for better visibility
     water.material.onBeforeCompile = (shader) => {
       shader.fragmentShader = shader.fragmentShader.replace(
         `#include <envmap_fragment>`,
@@ -47,12 +47,13 @@ const SimpleWater = () => {
     };
 
     water.material.transparent = true;
-    water.material.opacity = 0.5;
+    water.material.opacity = 0.3;
     water.material.depthWrite = false;
     water.material.side = THREE.DoubleSide;
+    water.material.renderOrder = 1;
 
     water.rotation.x = -Math.PI / 2;
-    water.position.set(0, -0.45, 0);
+    water.position.set(0, -0.5, 0);
 
     scene.add(water);
     waterRef.current = water;
