@@ -38,7 +38,7 @@ function Toolbar({
             isLevelDropdownOpen ? styles.active : ""
           }`}
           onClick={() => setIsLevelDropdownOpen(!isLevelDropdownOpen)}
-          aria-label="Select Level"
+          aria-label="Ebene auswählen"
         >
           <LevelIcon />
           <span className={styles.levelDisplay}>{currentLevel}</span>
@@ -70,7 +70,7 @@ function Toolbar({
         className={`${styles.toolButton} ${
           selectedTool === TOOLS.SINGLE_PONTOON ? styles.active : ""
         }`}
-        aria-label="Single Pontoon"
+        aria-label="Einzel-Ponton"
       >
         <SinglePontoonIcon />
       </button>
@@ -80,7 +80,7 @@ function Toolbar({
         className={`${styles.toolButton} ${
           selectedTool === TOOLS.DOUBLE_PONTOON ? styles.active : ""
         }`}
-        aria-label="Double Pontoon"
+        aria-label="Doppel-Ponton"
       >
         <DoublePontoonIcon />
       </button>
@@ -90,7 +90,7 @@ function Toolbar({
         className={`${styles.toolButton} ${
           selectedTool === TOOLS.DELETE_TOOL ? styles.active : ""
         }`}
-        aria-label="Delete"
+        aria-label="Löschen"
       >
         <DeleteIcon />
       </button>
@@ -100,11 +100,11 @@ function Toolbar({
       <button
         onClick={onClear}
         className={`${styles.toolButton} ${styles.clearButton}`}
-        aria-label="Clear All"
-        title="Clear all pontoons"
+        aria-label="Alles löschen"
+        title="Alle Pontons löschen"
       >
         <span className={styles.clearIcon}>🗑️</span>
-        <span className={styles.clearLabel}>Clear</span>
+        <span className={styles.clearLabel}>Löschen</span>
       </button>
 
       <div className={styles.separator} />
@@ -112,7 +112,7 @@ function Toolbar({
       <button
         onClick={onCameraSwitch}
         className={styles.toolButton}
-        aria-label="Switch Camera"
+        aria-label="Kamera wechseln"
       >
         <CameraIcon />
         <span className={styles.cameraLabel}>

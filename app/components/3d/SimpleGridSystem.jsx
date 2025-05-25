@@ -15,42 +15,81 @@ function SimpleGridSystem({
   levelHeight 
 }) {
   
-  const handleCellClick = useCallback((x, z) => {
-    // WICHTIG: Absolute Weltkoordinaten für Level-System
-    const absolutePosition = { 
-      x, 
-      y: currentLevel * levelHeight,  // Absolute Y-Position für aktuelles Level
-      z 
-    };
-    console.log("Simple grid click ABSOLUTE:", absolutePosition, "tool:", selectedTool);
-    onCellClick(absolutePosition);
-  }, [onCellClick, selectedTool, currentLevel, levelHeight]);
-
   const isOccupied = useCallback((x, z) => {
     return elements.some(el => 
       el.position.x === x && 
       el.position.z === z && 
-      el.position.z === currentLevel * levelHeight
+      el.position.y === currentLevel * levelHeight
     );
   }, [elements, currentLevel, levelHeight]);
 
+  const hasSupport = useCallback((x, z) => {
+    // Ground level and underwater always have support
+    if (currentLevel <= 0) return true;
+    
+    // Check if there's a pontoon directly below
+    return elements.some(el => 
+      el.position.x === x && 
+      el.position.z === z && 
+      el.position.y === (currentLevel - 1) * levelHeight
+    );
+  }, [elements, currentLevel, levelHeight]);
+
+  const canPlace = useCallback((x, z) => {
+    if (isOccupied(x, z)) return false;
+    return hasSupport(x, z);
+  }, [isOccupied, hasSupport]);
+
+  const handleCellClick = useCallback((x, z) => {
+    // Check if placement is valid before sending to parent
+    const canPlaceHere = canPlace(x, z);
+    
+    const absolutePosition = { 
+      x, 
+      y: currentLevel * levelHeight,
+      z 
+    };
+    
+    // Debug logging removed for cleaner console
+    
+    // Always send click to parent - let PontoonScene handle validation and show toasts
+    onCellClick(absolutePosition);
+  }, [onCellClick, selectedTool, currentLevel, levelHeight, canPlace, isOccupied, hasSupport]);
+
   const getCellColor = useCallback((x, z, hovered) => {
     if (isOccupied(x, z)) {
-      return "rgba(255, 0, 0, 0.3)"; // Red for occupied
+      return "#ff0000"; // Red for occupied
     }
     if (hovered) {
+      const canPlaceHere = canPlace(x, z);
+      
+      if (selectedTool === TOOLS.ERASER) {
+        return "#ff0000"; // Red for eraser
+      }
+      
+      if (!canPlaceHere) {
+        return "#ff6464"; // Light red for invalid placement
+      }
+      
       if (selectedTool === TOOLS.SINGLE_PONTOON) {
-        return "rgba(0, 255, 0, 0.6)"; // Green for single pontoon
+        return "#00ff00"; // Green for valid single pontoon
       }
       if (selectedTool === TOOLS.DOUBLE_PONTOON) {
-        return "rgba(0, 150, 255, 0.6)"; // Blue for double pontoon
-      }
-      if (selectedTool === TOOLS.ERASER) {
-        return "rgba(255, 0, 0, 0.6)"; // Red for eraser
+        return "#0096ff"; // Blue for valid double pontoon
       }
     }
-    return "rgba(255, 255, 255, 0.1)"; // Default
-  }, [selectedTool, isOccupied]);
+    return "#ffffff"; // Default white
+  }, [selectedTool, isOccupied, canPlace]);
+
+  const getCellOpacity = useCallback((x, z, hovered) => {
+    if (isOccupied(x, z)) {
+      return 0.3;
+    }
+    if (hovered) {
+      return 0.6;
+    }
+    return 0.1;
+  }, [isOccupied]);
 
   // Create corner cross markers geometry
   const cornerCrosses = React.useMemo(() => {
@@ -93,6 +132,7 @@ function SimpleGridSystem({
           position={[x, currentLevel * levelHeight, z]}
           onClick={() => handleCellClick(x, z)}
           getCellColor={getCellColor}
+          getCellOpacity={getCellOpacity}
         />
       );
     }
@@ -120,7 +160,7 @@ function SimpleGridSystem({
 /**
  * Individual grid cell component
  */
-function GridCellSimple({ gridX, gridZ, position, onClick, getCellColor }) {
+function GridCellSimple({ gridX, gridZ, position, onClick, getCellColor, getCellOpacity }) {
   const [hovered, setHovered] = React.useState(false);
 
   return (
@@ -137,7 +177,7 @@ function GridCellSimple({ gridX, gridZ, position, onClick, getCellColor }) {
       <meshBasicMaterial
         color={getCellColor(gridX, gridZ, hovered)}
         transparent={true}
-        opacity={hovered ? 0.8 : 0.1}
+        opacity={getCellOpacity(gridX, gridZ, hovered)}
         depthWrite={false}
         toneMapped={false}
       />

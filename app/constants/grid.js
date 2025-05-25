@@ -17,10 +17,10 @@ export const WATER_LEVEL = 0;
 
 // Available levels in the configurator
 export const LEVELS = [
-  { id: 2, name: "Level 2" },
-  { id: 1, name: "Level 1" },
-  { id: 0, name: "Ground Level" },
-  { id: -1, name: "Underwater" },
+  { id: 2, name: "Ebene 2" },
+  { id: 1, name: "Ebene 1" },
+  { id: 0, name: "Grundebene" },
+  { id: -1, name: "Unterwasser" },
 ];
 
 // Tool types

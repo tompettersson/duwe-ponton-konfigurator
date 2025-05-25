@@ -18,6 +18,9 @@ const Sun = dynamic(() => import("./Sun"), { ssr: false });
 const PontoonInstances = dynamic(() => import("./PontoonInstances"), {
   ssr: false,
 });
+const PontoonModels = dynamic(() => import("./PontoonModels"), {
+  ssr: false,
+});
 
 /**
  * Main 3D scene component for the pontoon configurator
@@ -74,10 +77,12 @@ function Scene({
         <PontoonInstances
           elements={elements.filter((e) => e.isCurrentLevel)}
           opacity={1.0}
+          color={null}
         />
         <PontoonInstances
           elements={elements.filter((e) => !e.isCurrentLevel)}
-          opacity={0.15}
+          opacity={1.0}
+          color="#888888"
         />
 
         {/* Simple water without reflections */}

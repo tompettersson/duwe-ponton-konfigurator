@@ -3,6 +3,8 @@
 import dynamic from "next/dynamic";
 import React, { useCallback, useEffect } from "react";
 import Toolbar from "../ui/Toolbar";
+import Toast from "../ui/Toast";
+import { useToast } from "../../hooks/useToast";
 import {
   DEFAULT_GRID_SIZE,
   WATER_LEVEL,
@@ -17,12 +19,16 @@ const Scene = dynamic(() => import("./Scene").then((mod) => mod.default), {
 });
 
 function PontoonScene() {
+  // Toast notifications
+  const { toasts, showToast, removeToast } = useToast();
+  
   // Initialize from localStorage on mount
   const initializeFromStorage = useStore((state) => state.initializeFromStorage);
   
   useEffect(() => {
     initializeFromStorage();
   }, [initializeFromStorage]);
+  
   // Zustand state
   const currentLevel = useStore((state) => state.grid.currentLevel);
   const setCurrentLevel = useStore((state) => state.setCurrentLevel);
@@ -44,38 +50,48 @@ function PontoonScene() {
   // Event handlers
   const handleCellClick = useCallback(
     (position) => {
-      console.log("PontoonScene handleCellClick:", position, "selectedTool:", selectedTool);
       if (selectedTool === TOOLS.ERASER) {
-        // Remove element at position (position ist bereits absolut)
         removeElementAtPosition(position);
       } else if (selectedTool === TOOLS.SINGLE_PONTOON || selectedTool === TOOLS.DOUBLE_PONTOON) {
-        // Add element if position is not occupied (position ist bereits absolut)
+        // Check if position is occupied
         const occupied = storeElements.some(
           el => el.position.x === position.x && 
                el.position.z === position.z && 
                Math.abs(el.position.y - position.y) < 0.1
         );
         
-        console.log("Position occupied:", occupied, "storeElements:", storeElements.length);
-        console.log("Target position:", position);
+        // Check if position has support (for levels above ground)
+        const hasSupport = currentLevel <= 0 || storeElements.some(
+          el => el.position.x === position.x && 
+               el.position.z === position.z && 
+               el.position.y === (currentLevel - 1) * levelHeight
+        );
         
-        if (!occupied) {
+        if (!occupied && hasSupport) {
           const newElement = {
-            position: position,  // Position ist bereits korrekt absolut
+            position: position,
             type: selectedTool === TOOLS.SINGLE_PONTOON ? 'single' : 'double',
             rotation: 0,
           };
-          console.log("Adding element:", newElement);
           addElement(newElement);
+        } else {
+          if (occupied) {
+            showToast("Position bereits belegt", "warning");
+          } else if (!hasSupport) {
+            if (currentLevel > 0) {
+              showToast(`Ebene ${currentLevel} benötigt Unterstützung. Platziere zuerst Pontons auf Ebene 0.`, "info", 4000);
+            } else {
+              showToast("Ponton kann hier nicht platziert werden", "warning");
+            }
+          }
         }
       }
     },
-    [selectedTool, currentLevel, levelHeight, storeElements, addElement, removeElementAtPosition]
+    [selectedTool, currentLevel, levelHeight, storeElements, addElement, removeElementAtPosition, showToast]
   );
 
 
   const handleToolSelect = useCallback((tool) => {
-    console.log("Tool selected:", tool);
     setSelectedTool(tool);
   }, [setSelectedTool]);
 
@@ -93,9 +109,7 @@ function PontoonScene() {
 
   // Clear old elements on component mount (temporary fix)
   useEffect(() => {
-    console.log("Current storeElements:", storeElements);
     if (storeElements.length > 0) {
-      console.log("Auto-clearing old elements:", storeElements.length);
       clearGrid();
     }
   }, []);
@@ -129,6 +143,17 @@ function PontoonScene() {
           levelHeight={levelHeight}
         />
       </div>
+      
+      {/* Toast notifications */}
+      {toasts.map(toast => (
+        <Toast
+          key={toast.id}
+          message={toast.message}
+          type={toast.type}
+          duration={toast.duration}
+          onClose={() => removeToast(toast.id)}
+        />
+      ))}
     </div>
   );
 }

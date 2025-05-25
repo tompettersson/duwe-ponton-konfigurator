@@ -8,7 +8,7 @@ import { ELEMENT_TYPES, COLORS } from "../../constants/grid";
  * PontoonInstances – efficient instanced rendering of single & double pontoons.
  * Accepts an array of elements with {position: [x,y,z], type}.
  */
-function PontoonInstances({ elements = [], opacity = 1 }) {
+function PontoonInstances({ elements = [], opacity = 1, color = null }) {
   // Split elements into single & double
   const singles = useMemo(
     () => elements.filter((e) => e.type !== ELEMENT_TYPES.DOUBLE),
@@ -55,7 +55,7 @@ function PontoonInstances({ elements = [], opacity = 1 }) {
   // Determine material props
   const materialProps = useMemo(
     () => ({
-      color: COLORS.PONTOON,
+      color: color || COLORS.PONTOON,
       transparent: opacity < 1,
       opacity,
       roughness: 0.3,
@@ -63,7 +63,7 @@ function PontoonInstances({ elements = [], opacity = 1 }) {
       depthWrite: opacity >= 1,
       toneMapped: false,
     }),
-    [opacity]
+    [opacity, color]
   );
 
   return (
