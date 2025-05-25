@@ -70,15 +70,14 @@ function Scene({
           levelHeight={levelHeight}
         />
 
-        {/* Instanced pontoons: split into current vs other levels for opacity */}
-        {/* Pontoons */}
+        {/* Pontoons with clear level-based visibility */}
         <PontoonInstances
           elements={elements.filter((e) => e.isCurrentLevel)}
-          opacity={1}
+          opacity={1.0}
         />
         <PontoonInstances
           elements={elements.filter((e) => !e.isCurrentLevel)}
-          opacity={0.3}
+          opacity={0.15}
         />
 
         {/* Simple water without reflections */}

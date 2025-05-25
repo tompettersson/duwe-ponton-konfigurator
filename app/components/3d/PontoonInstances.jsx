@@ -58,10 +58,10 @@ function PontoonInstances({ elements = [], opacity = 1 }) {
       color: COLORS.PONTOON,
       transparent: opacity < 1,
       opacity,
-      roughness: 0.5,
-      metalness: 0.1,
-      clearcoat: 0.3,
-      clearcoatRoughness: 0.25,
+      roughness: 0.3,
+      metalness: 0.0,
+      depthWrite: opacity >= 1,
+      toneMapped: false,
     }),
     [opacity]
   );
@@ -71,13 +71,13 @@ function PontoonInstances({ elements = [], opacity = 1 }) {
       {singles.length > 0 && (
         <instancedMesh ref={singleMeshRef} args={[null, null, singles.length]}>
           <boxGeometry args={[0.96, 0.96, 0.96]} />
-          <meshPhysicalMaterial attach="material" {...materialProps} />
+          <meshStandardMaterial attach="material" {...materialProps} />
         </instancedMesh>
       )}
       {doubles.length > 0 && (
         <instancedMesh ref={doubleMeshRef} args={[null, null, doubles.length]}>
           <boxGeometry args={[1.96, 0.96, 0.96]} />
-          <meshPhysicalMaterial attach="material" {...materialProps} />
+          <meshStandardMaterial attach="material" {...materialProps} />
         </instancedMesh>
       )}
     </>

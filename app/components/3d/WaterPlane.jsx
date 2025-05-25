@@ -8,8 +8,8 @@ import { Water } from "three-stdlib";
 extend({ Water });
 
 /**
- * WaterPlane – realistic but lightweight water surface.
- * Uses the three-stdlib Water shader with minimal reflections.
+ * WaterPlane – realistic water surface with reflections.
+ * Uses the three-stdlib Water shader with optimized settings.
  */
 export default function WaterPlane({ width = 60, depth = 60, y = -0.5 }) {
   const waterRef = useRef();
@@ -27,10 +27,10 @@ export default function WaterPlane({ width = 60, depth = 60, y = -0.5 }) {
       textureWidth: 1024,
       textureHeight: 1024,
       waterNormals: normals,
-      sunDirection: new THREE.Vector3(0, 1, 0),
-      sunColor: 0x000000, // Black sun to minimize reflections
+      sunDirection: new THREE.Vector3(0.2, 1.0, 0.3),
+      sunColor: 0xffffff,
       waterColor: 0x3d9dcc,
-      distortionScale: 0.4, // Reduced distortion
+      distortionScale: 0.3,
       fog: scene.fog !== undefined,
       format: THREE.RGBAFormat,
     });
@@ -38,22 +38,9 @@ export default function WaterPlane({ width = 60, depth = 60, y = -0.5 }) {
     water.rotation.x = -Math.PI / 2;
     water.position.set(0, y, 0);
     water.material.transparent = true;
-    water.material.opacity = 0.7; // Make slightly less transparent
+    water.material.opacity = 0.8;
     water.material.depthWrite = false;
 
-    // Minimize reflections/specular highlights
-    water.material.metalness = 0;
-    water.material.roughness = 1;
-    water.material.envMap = null;
-    water.material.envMapIntensity = 0;
-
-    // Further reduce reflection contribution in shader
-    water.material.onBeforeCompile = (shader) => {
-      shader.fragmentShader = shader.fragmentShader.replace(
-        /#include <envmap_fragment>/g,
-        "vec3 totalEnvMapRadiance = vec3(0.0);"
-      );
-    };
 
     scene.add(water);
     waterRef.current = water;
@@ -62,13 +49,14 @@ export default function WaterPlane({ width = 60, depth = 60, y = -0.5 }) {
       scene.remove(water);
       water.geometry.dispose();
       water.material.dispose();
+      if (normals) normals.dispose();
     };
   }, [scene, width, depth, y]);
 
   // Animate water time uniform
   useFrame((_, delta) => {
     if (waterRef.current) {
-      waterRef.current.material.uniforms.time.value += delta * 0.3;
+      waterRef.current.material.uniforms.time.value += delta * 0.5;
     }
   });
 

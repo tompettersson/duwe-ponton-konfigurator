@@ -52,24 +52,34 @@ function SimpleGridSystem({
     return "rgba(255, 255, 255, 0.1)"; // Default
   }, [selectedTool, isOccupied]);
 
-  // Create grid lines geometry
-  const gridLines = React.useMemo(() => {
+  // Create corner cross markers geometry
+  const cornerCrosses = React.useMemo(() => {
     const vertices = [];
+    const crossSize = 0.15; // Size of each cross
     
-    // Horizontal lines (along X) - align with cell boundaries
-    for (let z = -5.5; z <= 4.5; z++) {
-      vertices.push(-5.5, 0.01, z, 4.5, 0.01, z);
-    }
-    
-    // Vertical lines (along Z) - align with cell boundaries  
+    // Create small cross markers at grid intersections
     for (let x = -5.5; x <= 4.5; x++) {
-      vertices.push(x, 0.01, -5.5, x, 0.01, 4.5);
+      for (let z = -5.5; z <= 4.5; z++) {
+        const y = currentLevel * levelHeight + 0.01;
+        
+        // Horizontal line of cross
+        vertices.push(
+          x - crossSize, y, z,
+          x + crossSize, y, z
+        );
+        
+        // Vertical line of cross
+        vertices.push(
+          x, y, z - crossSize,
+          x, y, z + crossSize
+        );
+      }
     }
     
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
     return geometry;
-  }, []);
+  }, [currentLevel, levelHeight]);
 
   // Create a simple 10x10 grid
   const gridCells = [];
@@ -80,7 +90,7 @@ function SimpleGridSystem({
           key={`${x},${z}`}
           gridX={x}
           gridZ={z}
-          position={[x, 0, z]}
+          position={[x, currentLevel * levelHeight, z]}
           onClick={() => handleCellClick(x, z)}
           getCellColor={getCellColor}
         />
@@ -90,9 +100,15 @@ function SimpleGridSystem({
 
   return (
     <>
-      {/* Grid Lines */}
-      <lineSegments geometry={gridLines}>
-        <lineBasicMaterial color="#ffffff" opacity={0.5} transparent />
+      {/* Corner Cross Markers */}
+      <lineSegments geometry={cornerCrosses}>
+        <lineBasicMaterial 
+          color="#ffffff" 
+          opacity={0.6} 
+          transparent 
+          toneMapped={false}
+          depthWrite={false}
+        />
       </lineSegments>
       
       {/* Interactive Cells */}
@@ -121,7 +137,9 @@ function GridCellSimple({ gridX, gridZ, position, onClick, getCellColor }) {
       <meshBasicMaterial
         color={getCellColor(gridX, gridZ, hovered)}
         transparent={true}
-        opacity={hovered ? 0.8 : 0.2}
+        opacity={hovered ? 0.8 : 0.1}
+        depthWrite={false}
+        toneMapped={false}
       />
     </mesh>
   );
