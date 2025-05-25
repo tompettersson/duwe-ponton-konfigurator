@@ -25,9 +25,10 @@ export const LEVELS = [
 
 // Tool types
 export const TOOLS = {
-  SINGLE_PONTOON: "singlePontoon",
-  DOUBLE_PONTOON: "doublePontoon",
-  DELETE_TOOL: "deleteTool",
+  SINGLE_PONTOON: "single",
+  DOUBLE_PONTOON: "double",
+  DELETE_TOOL: "eraser",
+  ERASER: "eraser",
 };
 
 // Element types

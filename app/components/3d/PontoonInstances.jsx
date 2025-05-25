@@ -28,7 +28,7 @@ function PontoonInstances({ elements = [], opacity = 1 }) {
     const matrix = new THREE.Matrix4();
     const scaleQuat = new THREE.Quaternion();
     items.forEach((el, idx) => {
-      const pos = [...el.position];
+      const pos = [el.position.x, el.position.y, el.position.z];
       if (offset) pos[0] += offset;
       matrix.compose(
         new THREE.Vector3(pos[0], pos[1], pos[2]),
@@ -43,10 +43,13 @@ function PontoonInstances({ elements = [], opacity = 1 }) {
   // Update matrices whenever element arrays change
   useEffect(() => {
     updateMatrices(singleMeshRef.current, singles);
+    // Disable raycast so grid cells receive pointer events
+    if (singleMeshRef.current) singleMeshRef.current.raycast = () => {};
   }, [singles]);
 
   useEffect(() => {
     updateMatrices(doubleMeshRef.current, doubles, 0.5);
+    if (doubleMeshRef.current) doubleMeshRef.current.raycast = () => {};
   }, [doubles]);
 
   // Determine material props

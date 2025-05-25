@@ -12,10 +12,8 @@ import * as THREE from "three";
 import { COLORS } from "../../constants/grid";
 
 // Dynamically import components that use Three.js
-const Grid = dynamic(() => import("./Grid"), { ssr: false });
-const GridCell = dynamic(() => import("./GridCell"), { ssr: false });
-const GridElement = dynamic(() => import("./GridElement"), { ssr: false });
-const SimpleWater = dynamic(() => import("./SimpleWater"), { ssr: false });
+const InteractiveGrid = dynamic(() => import("./SimpleGridSystem"), { ssr: false });
+const WaterPlane = dynamic(() => import("./WaterPlane"), { ssr: false });
 const Sun = dynamic(() => import("./Sun"), { ssr: false });
 const PontoonInstances = dynamic(() => import("./PontoonInstances"), {
   ssr: false,
@@ -28,36 +26,34 @@ function Scene({
   gridSize,
   waterLevel,
   elements,
-  gridElements,
+  onCellClick,
+  selectedTool,
+  storeElements,
   isPerspective,
   currentLevel,
   levelHeight,
 }) {
-  // Adjust gridElements positions to be at base level (y=0)
-  const adjustedGridElements = gridElements.map(({ position, ...rest }) => ({
-    ...rest,
-    position: [position[0], 0, position[2]], // Reset Y to 0 as group will handle height
-  }));
 
   return (
     <Canvas
       className="w-full h-full"
-      style={{ background: COLORS.SKY }}
+      style={{
+        background: "transparent",
+        position: "relative",
+      }}
       camera={{ position: [0, 5, 10], fov: 75 }}
       onCreated={({ gl }) => {
-        gl.setClearColor(new THREE.Color(COLORS.SKY));
-        gl.toneMapping = THREE.ACESFilmicToneMapping;
-        gl.toneMappingExposure = 0.8;
+        gl.setClearColor(new THREE.Color("#a9d8ff"), 0);
+        gl.getContextAttributes().alpha = true;
+        gl.toneMapping = THREE.LinearToneMapping;
       }}
     >
       <Suspense fallback={null}>
-        <ambientLight intensity={0.7} color="#0000ff" />
+        {/* Fallback color if Sky doesn't render */}
+        {/* <color attach="background" args={["#a9d8ff"]} /> */}
+
         <Sun position={[10, 10, 10]} />
-        <directionalLight
-          position={[-10, 10, -10]}
-          intensity={1.6}
-          color="#E1F2FF"
-        />
+
         {isPerspective ? (
           <PerspectiveCamera makeDefault position={[10, 10, 10]} />
         ) : (
@@ -65,20 +61,17 @@ function Scene({
         )}
         <OrbitControls enabled={isPerspective} />
 
-        {/* Only render grid and cells for current level */}
-        <group position={[0, currentLevel * levelHeight, 0]}>
-          <Grid size={gridSize} />
-          {adjustedGridElements.map(({ key, ...props }) => (
-            <GridCell
-              key={key}
-              {...props}
-              currentLevel={currentLevel}
-              levelHeight={levelHeight}
-            />
-          ))}
-        </group>
+        {/* Interactive Grid System */}
+        <InteractiveGrid
+          onCellClick={onCellClick}
+          selectedTool={selectedTool}
+          elements={storeElements}
+          currentLevel={currentLevel}
+          levelHeight={levelHeight}
+        />
 
         {/* Instanced pontoons: split into current vs other levels for opacity */}
+        {/* Pontoons */}
         <PontoonInstances
           elements={elements.filter((e) => e.isCurrentLevel)}
           opacity={1}
@@ -88,7 +81,8 @@ function Scene({
           opacity={0.3}
         />
 
-        <SimpleWater position={[0, waterLevel, 0]} />
+        {/* Simple water without reflections */}
+        <WaterPlane width={gridSize.width + 10} depth={gridSize.depth + 10} />
       </Suspense>
     </Canvas>
   );

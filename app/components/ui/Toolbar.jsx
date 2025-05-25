@@ -20,6 +20,7 @@ function Toolbar({
   isPerspective,
   currentLevel,
   onLevelChange,
+  onClear,
 }) {
   const [selectedTool, setSelectedTool] = useState("");
   const [isLevelDropdownOpen, setIsLevelDropdownOpen] = useState(false);
@@ -92,6 +93,18 @@ function Toolbar({
         aria-label="Delete"
       >
         <DeleteIcon />
+      </button>
+
+      <div className={styles.separator} />
+
+      <button
+        onClick={onClear}
+        className={`${styles.toolButton} ${styles.clearButton}`}
+        aria-label="Clear All"
+        title="Clear all pontoons"
+      >
+        <span className={styles.clearIcon}>🗑️</span>
+        <span className={styles.clearLabel}>Clear</span>
       </button>
 
       <div className={styles.separator} />

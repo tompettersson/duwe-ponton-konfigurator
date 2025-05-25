@@ -121,3 +121,27 @@
   padding: 0 0.25rem;
   box-shadow: 0 2px 4px rgba(0, 102, 204, 0.2);
 }
+
+.clearButton {
+  background: #fee;
+  color: #d32f2f;
+  border: 1px solid #ffcdd2;
+  gap: 0.25rem;
+  width: auto;
+  padding: 0.5rem;
+  min-width: 4rem;
+}
+
+.clearButton:hover {
+  background: #ffebee;
+  border-color: #e57373;
+}
+
+.clearIcon {
+  font-size: 1rem;
+}
+
+.clearLabel {
+  font-size: 0.75rem;
+  font-weight: 500;
+}
