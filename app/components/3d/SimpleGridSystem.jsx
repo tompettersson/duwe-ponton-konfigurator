@@ -15,25 +15,32 @@ function SimpleGridSystem({
   levelHeight 
 }) {
   
+  // Grid spacing for pontoons: 0.5m cells (single pontoon = 0.5x0.5m, double = 1.0x0.5m)
+  const gridSpacing = 0.5; // 500mm spacing (single pontoon size)
+  
   const isOccupied = useCallback((x, z) => {
+    const worldX = x * gridSpacing;
+    const worldZ = z * gridSpacing;
     return elements.some(el => 
-      el.position.x === x && 
-      el.position.z === z && 
-      el.position.y === currentLevel * levelHeight
+      Math.abs(el.position.x - worldX) < 0.1 && 
+      Math.abs(el.position.z - worldZ) < 0.1 && 
+      Math.abs(el.position.y - currentLevel * levelHeight) < 0.1
     );
-  }, [elements, currentLevel, levelHeight]);
+  }, [elements, currentLevel, levelHeight, gridSpacing]);
 
   const hasSupport = useCallback((x, z) => {
     // Ground level and underwater always have support
     if (currentLevel <= 0) return true;
     
     // Check if there's a pontoon directly below
+    const worldX = x * gridSpacing;
+    const worldZ = z * gridSpacing;
     return elements.some(el => 
-      el.position.x === x && 
-      el.position.z === z && 
-      el.position.y === (currentLevel - 1) * levelHeight
+      Math.abs(el.position.x - worldX) < 0.1 && 
+      Math.abs(el.position.z - worldZ) < 0.1 && 
+      Math.abs(el.position.y - (currentLevel - 1) * levelHeight) < 0.1
     );
-  }, [elements, currentLevel, levelHeight]);
+  }, [elements, currentLevel, levelHeight, gridSpacing]);
 
   const canPlace = useCallback((x, z) => {
     if (isOccupied(x, z)) return false;
@@ -45,20 +52,20 @@ function SimpleGridSystem({
     const canPlaceHere = canPlace(x, z);
     
     const absolutePosition = { 
-      x, 
+      x: x * gridSpacing, 
       y: currentLevel * levelHeight,
-      z 
+      z: z * gridSpacing 
     };
     
     // Debug logging removed for cleaner console
     
     // Always send click to parent - let PontoonScene handle validation and show toasts
     onCellClick(absolutePosition);
-  }, [onCellClick, selectedTool, currentLevel, levelHeight, canPlace, isOccupied, hasSupport]);
+  }, [onCellClick, selectedTool, currentLevel, levelHeight, canPlace, isOccupied, hasSupport, gridSpacing]);
 
   const getCellColor = useCallback((x, z, hovered) => {
     if (isOccupied(x, z)) {
-      return "#ff0000"; // Red for occupied
+      return "#ffffff"; // White/invisible for occupied (no need to show under pontoons)
     }
     if (hovered) {
       const canPlaceHere = canPlace(x, z);
@@ -83,7 +90,7 @@ function SimpleGridSystem({
 
   const getCellOpacity = useCallback((x, z, hovered) => {
     if (isOccupied(x, z)) {
-      return 0.3;
+      return 0.0; // Invisible for occupied cells
     }
     if (hovered) {
       return 0.6;
@@ -96,21 +103,23 @@ function SimpleGridSystem({
     const vertices = [];
     const crossSize = 0.15; // Size of each cross
     
-    // Create small cross markers at grid intersections
+    // Create small cross markers at grid intersections  
     for (let x = -5.5; x <= 4.5; x++) {
       for (let z = -5.5; z <= 4.5; z++) {
+        const actualX = x * gridSpacing;
+        const actualZ = z * gridSpacing;
         const y = currentLevel * levelHeight + 0.01;
         
         // Horizontal line of cross
         vertices.push(
-          x - crossSize, y, z,
-          x + crossSize, y, z
+          actualX - crossSize, y, actualZ,
+          actualX + crossSize, y, actualZ
         );
         
         // Vertical line of cross
         vertices.push(
-          x, y, z - crossSize,
-          x, y, z + crossSize
+          actualX, y, actualZ - crossSize,
+          actualX, y, actualZ + crossSize
         );
       }
     }
@@ -118,9 +127,9 @@ function SimpleGridSystem({
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
     return geometry;
-  }, [currentLevel, levelHeight]);
+  }, [currentLevel, levelHeight, gridSpacing]);
 
-  // Create a simple 10x10 grid
+  // Create a grid with smaller spacing for real pontoon dimensions
   const gridCells = [];
   for (let x = -5; x < 5; x++) {
     for (let z = -5; z < 5; z++) {
@@ -129,10 +138,13 @@ function SimpleGridSystem({
           key={`${x},${z}`}
           gridX={x}
           gridZ={z}
-          position={[x, currentLevel * levelHeight, z]}
+          position={[x * gridSpacing, currentLevel * levelHeight, z * gridSpacing]}
           onClick={() => handleCellClick(x, z)}
           getCellColor={getCellColor}
           getCellOpacity={getCellOpacity}
+          selectedTool={selectedTool}
+          canPlace={canPlace}
+          isOccupied={isOccupied}
         />
       );
     }
@@ -160,28 +172,63 @@ function SimpleGridSystem({
 /**
  * Individual grid cell component
  */
-function GridCellSimple({ gridX, gridZ, position, onClick, getCellColor, getCellOpacity }) {
+function GridCellSimple({ 
+  gridX, 
+  gridZ, 
+  position, 
+  onClick, 
+  getCellColor, 
+  getCellOpacity, 
+  selectedTool, 
+  canPlace, 
+  isOccupied 
+}) {
   const [hovered, setHovered] = React.useState(false);
 
+  // Check if this cell can show double pontoon preview
+  const canShowDoublePreview = selectedTool === TOOLS.DOUBLE_PONTOON && 
+                              hovered && 
+                              gridX < 4 && // Not at right edge
+                              canPlace(gridX, gridZ) && 
+                              canPlace(gridX + 1, gridZ) && // Second cell is also valid
+                              !isOccupied(gridX + 1, gridZ); // Second cell not occupied
+
   return (
-    <mesh
-      position={position}
-      onPointerOver={() => setHovered(true)}
-      onPointerOut={() => setHovered(false)}
-      onClick={(e) => {
-        e.stopPropagation();
-        onClick();
-      }}
-    >
-      <boxGeometry args={[0.9, 0.05, 0.9]} />
-      <meshBasicMaterial
-        color={getCellColor(gridX, gridZ, hovered)}
-        transparent={true}
-        opacity={getCellOpacity(gridX, gridZ, hovered)}
-        depthWrite={false}
-        toneMapped={false}
-      />
-    </mesh>
+    <>
+      {/* Main cell */}
+      <mesh
+        position={position}
+        onPointerOver={() => setHovered(true)}
+        onPointerOut={() => setHovered(false)}
+        onClick={(e) => {
+          e.stopPropagation();
+          onClick();
+        }}
+      >
+        <boxGeometry args={[0.5, 0.05, 0.5]} />
+        <meshBasicMaterial
+          color={getCellColor(gridX, gridZ, hovered)}
+          transparent={true}
+          opacity={getCellOpacity(gridX, gridZ, hovered)}
+          depthWrite={false}
+          toneMapped={false}
+        />
+      </mesh>
+
+      {/* Double pontoon preview - second cell */}
+      {canShowDoublePreview && (
+        <mesh position={[position[0] + 0.5, position[1], position[2]]}>
+          <boxGeometry args={[0.5, 0.05, 0.5]} />
+          <meshBasicMaterial
+            color={getCellColor(gridX, gridZ, hovered)}
+            transparent={true}
+            opacity={getCellOpacity(gridX, gridZ, hovered)}
+            depthWrite={false}
+            toneMapped={false}
+          />
+        </mesh>
+      )}
+    </>
   );
 }
 

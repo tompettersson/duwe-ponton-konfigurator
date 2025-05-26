@@ -44,3 +44,18 @@ export const COLORS = {
   SKY: "#C7E8FF",
   GRID: "#ffffff",
 };
+
+// Pontoon color options
+export const PONTOON_COLORS = {
+  BLUE: "#5578B7",
+  BLACK: "#111111", 
+  GREY: "#DFE0E1",
+  YELLOW: "#F6DE91",
+};
+
+export const PONTOON_COLOR_NAMES = {
+  [PONTOON_COLORS.BLUE]: "Blau",
+  [PONTOON_COLORS.BLACK]: "Schwarz",
+  [PONTOON_COLORS.GREY]: "Grau", 
+  [PONTOON_COLORS.YELLOW]: "Gelb",
+};

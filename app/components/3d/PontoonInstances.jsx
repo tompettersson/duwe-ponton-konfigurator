@@ -23,13 +23,17 @@ function PontoonInstances({ elements = [], opacity = 1, color = null }) {
   const doubleMeshRef = useRef();
 
   // Helper to update matrices for an InstancedMesh
-  const updateMatrices = (mesh, items, offset = 0) => {
+  const updateMatrices = (mesh, items, isDouble = false) => {
     if (!mesh) return;
     const matrix = new THREE.Matrix4();
     const scaleQuat = new THREE.Quaternion();
     items.forEach((el, idx) => {
-      const pos = [el.position.x, el.position.y, el.position.z];
-      if (offset) pos[0] += offset;
+      // Simple positioning: center pontoons in their grid cells
+      const pos = [
+        el.position.x + (isDouble ? 0.5 : 0.25), 
+        el.position.y, 
+        el.position.z + 0.25
+      ];
       matrix.compose(
         new THREE.Vector3(pos[0], pos[1], pos[2]),
         scaleQuat,
@@ -42,13 +46,13 @@ function PontoonInstances({ elements = [], opacity = 1, color = null }) {
 
   // Update matrices whenever element arrays change
   useEffect(() => {
-    updateMatrices(singleMeshRef.current, singles);
+    updateMatrices(singleMeshRef.current, singles, false);
     // Disable raycast so grid cells receive pointer events
     if (singleMeshRef.current) singleMeshRef.current.raycast = () => {};
   }, [singles]);
 
   useEffect(() => {
-    updateMatrices(doubleMeshRef.current, doubles, 0.5);
+    updateMatrices(doubleMeshRef.current, doubles, true);
     if (doubleMeshRef.current) doubleMeshRef.current.raycast = () => {};
   }, [doubles]);
 
@@ -70,13 +74,13 @@ function PontoonInstances({ elements = [], opacity = 1, color = null }) {
     <>
       {singles.length > 0 && (
         <instancedMesh ref={singleMeshRef} args={[null, null, singles.length]}>
-          <boxGeometry args={[0.96, 0.96, 0.96]} />
+          <boxGeometry args={[0.5, 0.4, 0.5]} />
           <meshStandardMaterial attach="material" {...materialProps} />
         </instancedMesh>
       )}
       {doubles.length > 0 && (
         <instancedMesh ref={doubleMeshRef} args={[null, null, doubles.length]}>
-          <boxGeometry args={[1.96, 0.96, 0.96]} />
+          <boxGeometry args={[1.0, 0.4, 0.5]} />
           <meshStandardMaterial attach="material" {...materialProps} />
         </instancedMesh>
       )}

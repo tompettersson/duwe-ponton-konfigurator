@@ -9,25 +9,32 @@ import {
   DeleteIcon,
   CameraIcon,
 } from "./Icons";
-import { LEVELS, TOOLS } from "../../constants/grid";
+import { LEVELS, TOOLS, PONTOON_COLORS, PONTOON_COLOR_NAMES } from "../../constants/grid";
+import useStore from "../../store/useStore";
 
 /**
  * Toolbar component for the pontoon configurator
  */
 function Toolbar({
-  onSelect,
   onCameraSwitch,
   isPerspective,
-  currentLevel,
-  onLevelChange,
-  onClear,
 }) {
-  const [selectedTool, setSelectedTool] = useState("");
   const [isLevelDropdownOpen, setIsLevelDropdownOpen] = useState(false);
+  const [isColorDropdownOpen, setIsColorDropdownOpen] = useState(false);
+  
+  // Get state from store
+  const currentTool = useStore(state => state.tool.current);
+  const currentLevel = useStore(state => state.grid.currentLevel);
+  const pontoonColor = useStore(state => state.tool.pontoonColor);
+  
+  // Get actions from store
+  const setCurrentTool = useStore(state => state.setCurrentTool);
+  const setCurrentLevel = useStore(state => state.setCurrentLevel);
+  const setPontoonColor = useStore(state => state.setPontoonColor);
+  const clearGrid = useStore(state => state.clearGrid);
 
   const handleSelect = (tool) => {
-    setSelectedTool(tool);
-    onSelect(tool);
+    setCurrentTool(tool);
   };
 
   return (
@@ -52,7 +59,7 @@ function Toolbar({
                   level.id === currentLevel ? styles.selected : ""
                 }`}
                 onClick={() => {
-                  onLevelChange(level.id);
+                  setCurrentLevel(level.id);
                   setIsLevelDropdownOpen(false);
                 }}
                 role="button"
@@ -65,10 +72,50 @@ function Toolbar({
         )}
       </div>
 
+      {/* Color Selector */}
+      <div className={styles.colorSelector}>
+        <button
+          className={`${styles.toolButton} ${
+            isColorDropdownOpen ? styles.active : ""
+          }`}
+          onClick={() => setIsColorDropdownOpen(!isColorDropdownOpen)}
+          aria-label="Farbe auswählen"
+        >
+          <div
+            className={styles.colorSwatch}
+            style={{ backgroundColor: pontoonColor }}
+          />
+        </button>
+        {isColorDropdownOpen && (
+          <div className={styles.colorDropup}>
+            {Object.entries(PONTOON_COLORS).map(([key, color]) => (
+              <div
+                key={key}
+                className={`${styles.colorOption} ${
+                  color === pontoonColor ? styles.selected : ""
+                }`}
+                onClick={() => {
+                  setPontoonColor(color);
+                  setIsColorDropdownOpen(false);
+                }}
+                role="button"
+                tabIndex={0}
+              >
+                <div
+                  className={styles.colorSwatch}
+                  style={{ backgroundColor: color }}
+                />
+                <span>{PONTOON_COLOR_NAMES[color]}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       <button
         onClick={() => handleSelect(TOOLS.SINGLE_PONTOON)}
         className={`${styles.toolButton} ${
-          selectedTool === TOOLS.SINGLE_PONTOON ? styles.active : ""
+          currentTool === TOOLS.SINGLE_PONTOON ? styles.active : ""
         }`}
         aria-label="Einzel-Ponton"
       >
@@ -78,7 +125,7 @@ function Toolbar({
       <button
         onClick={() => handleSelect(TOOLS.DOUBLE_PONTOON)}
         className={`${styles.toolButton} ${
-          selectedTool === TOOLS.DOUBLE_PONTOON ? styles.active : ""
+          currentTool === TOOLS.DOUBLE_PONTOON ? styles.active : ""
         }`}
         aria-label="Doppel-Ponton"
       >
@@ -88,7 +135,7 @@ function Toolbar({
       <button
         onClick={() => handleSelect(TOOLS.DELETE_TOOL)}
         className={`${styles.toolButton} ${
-          selectedTool === TOOLS.DELETE_TOOL ? styles.active : ""
+          currentTool === TOOLS.DELETE_TOOL ? styles.active : ""
         }`}
         aria-label="Löschen"
       >
@@ -98,7 +145,7 @@ function Toolbar({
       <div className={styles.separator} />
 
       <button
-        onClick={onClear}
+        onClick={clearGrid}
         className={`${styles.toolButton} ${styles.clearButton}`}
         aria-label="Alles löschen"
         title="Alle Pontons löschen"

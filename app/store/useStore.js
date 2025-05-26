@@ -11,7 +11,7 @@ const useStore = create(
       // Grid State
       grid: {
         size: { width: 20, height: 20 },
-        elements: [], // Array of { id, position: {x, y, z}, type: 'single'|'double', rotation: 0|90|180|270 }
+        elements: [], // Array of { id, position: {x, y, z}, type: 'single'|'double', rotation: 0|90|180|270, color: string }
         showGrid: true,
         currentLevel: 0,
       },
@@ -20,6 +20,7 @@ const useStore = create(
       tool: {
         current: 'single', // 'single', 'double', 'eraser', 'pan', 'select'
         rotation: 0, // 0, 90, 180, 270
+        pontoonColor: '#5578B7', // Current pontoon color
       },
 
       // UI State
@@ -50,6 +51,7 @@ const useStore = create(
         if (!exists) {
           state.grid.elements.push({
             id: `element-${Date.now()}`,
+            color: state.tool.pontoonColor, // Add current color to new elements
             ...element,
           });
           state.project.modified = new Date().toISOString();
@@ -91,6 +93,10 @@ const useStore = create(
 
       setToolRotation: (rotation) => set((state) => {
         state.tool.rotation = rotation;
+      }),
+
+      setPontoonColor: (color) => set((state) => {
+        state.tool.pontoonColor = color;
       }),
 
       // UI Actions

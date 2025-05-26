@@ -145,3 +145,60 @@
   font-size: 0.75rem;
   font-weight: 500;
 }
+
+/* Color Selector Styles */
+.colorSelector {
+  position: relative;
+}
+
+.colorSwatch {
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 0.25rem;
+  border: 2px solid #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.colorDropup {
+  position: absolute;
+  bottom: calc(100% + 0.5rem);
+  left: 50%;
+  transform: translateX(-50%);
+  background: white;
+  border-radius: 0.5rem;
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.15);
+  padding: 0.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 8rem;
+}
+
+.colorOption {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  border: none;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 0.25rem;
+  transition: all 0.2s;
+  color: #000;
+  font-size: 0.875rem;
+}
+
+.colorOption:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.colorOption.selected {
+  background: #e6f2ff;
+  color: #000;
+}
+
+.colorOption .colorSwatch {
+  width: 1.25rem;
+  height: 1.25rem;
+}

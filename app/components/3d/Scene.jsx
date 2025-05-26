@@ -44,7 +44,7 @@ function Scene({
         background: "transparent",
         position: "relative",
       }}
-      camera={{ position: [0, 5, 10], fov: 75 }}
+      camera={{ position: [0, 20, 40], fov: 75 }}
       onCreated={({ gl }) => {
         gl.setClearColor(new THREE.Color("#a9d8ff"), 0);
         gl.getContextAttributes().alpha = true;
@@ -55,12 +55,12 @@ function Scene({
         {/* Fallback color if Sky doesn't render */}
         {/* <color attach="background" args={["#a9d8ff"]} /> */}
 
-        <Sun position={[10, 10, 10]} />
+        <Sun position={[50, 50, 50]} />
 
         {isPerspective ? (
-          <PerspectiveCamera makeDefault position={[10, 10, 10]} />
+          <PerspectiveCamera makeDefault position={[40, 40, 40]} />
         ) : (
-          <OrthographicCamera makeDefault position={[0, 10, 0]} zoom={30} />
+          <OrthographicCamera makeDefault position={[0, 40, 0]} zoom={5} />
         )}
         <OrbitControls enabled={isPerspective} />
 
@@ -74,19 +74,34 @@ function Scene({
         />
 
         {/* Pontoons with clear level-based visibility */}
+        {/* MIXED: Single pontoons use boxes, double pontoons use 3D models */}
+        
+        {/* Single pontoons - use simple boxes */}
         <PontoonInstances
-          elements={elements.filter((e) => e.isCurrentLevel)}
+          elements={elements.filter((e) => e.isCurrentLevel && e.type === 'single')}
           opacity={1.0}
           color={null}
         />
         <PontoonInstances
-          elements={elements.filter((e) => !e.isCurrentLevel)}
+          elements={elements.filter((e) => !e.isCurrentLevel && e.type === 'single')}
+          opacity={1.0}
+          color="#888888"
+        />
+        
+        {/* Double pontoons - use 3D models */}
+        <PontoonModels
+          elements={elements.filter((e) => e.isCurrentLevel && e.type === 'double')}
+          opacity={1.0}
+          color={null}
+        />
+        <PontoonModels
+          elements={elements.filter((e) => !e.isCurrentLevel && e.type === 'double')}
           opacity={1.0}
           color="#888888"
         />
 
         {/* Simple water without reflections */}
-        <WaterPlane width={gridSize.width + 10} depth={gridSize.depth + 10} />
+        <WaterPlane width={(gridSize.width + 10) * 2} depth={(gridSize.depth + 10) * 2} />
       </Suspense>
     </Canvas>
   );
