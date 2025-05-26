@@ -123,12 +123,8 @@ function PontoonScene() {
   return (
     <div style={{ display: "flex", height: "100vh", overflow: "hidden" }}>
       <Toolbar
-        onSelect={handleToolSelect}
         onCameraSwitch={handleCameraSwitch}
         isPerspective={isPerspective}
-        onLevelChange={handleLevelChange}
-        currentLevel={currentLevel}
-        onClear={handleClear}
       />
       <div style={{ flex: 1, position: "relative" }}>
         <Scene
