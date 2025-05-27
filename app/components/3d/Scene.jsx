@@ -101,7 +101,7 @@ function Scene({
         />
 
         {/* Simple water without reflections */}
-        <WaterPlane width={(gridSize.width + 10) * 2} depth={(gridSize.depth + 10) * 2} y={-0.2} />
+        <WaterPlane width={(gridSize.width + 10) * 2} depth={(gridSize.depth + 10) * 2} y={-0.04} />
       </Suspense>
     </Canvas>
   );
