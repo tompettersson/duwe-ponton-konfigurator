@@ -58,7 +58,7 @@ function Scene({
         <Sun position={[50, 50, 50]} />
 
         {isPerspective ? (
-          <PerspectiveCamera makeDefault position={[40, 40, 40]} />
+          <PerspectiveCamera makeDefault position={[8, 6, 8]} />
         ) : (
           <OrthographicCamera makeDefault position={[0, 40, 0]} zoom={5} />
         )}
@@ -101,7 +101,7 @@ function Scene({
         />
 
         {/* Simple water without reflections */}
-        <WaterPlane width={(gridSize.width + 10) * 2} depth={(gridSize.depth + 10) * 2} y={-0.04} />
+        <WaterPlane width={(gridSize.width + 10) * 2} depth={(gridSize.depth + 10) * 2} y={-0.02} />
       </Suspense>
     </Canvas>
   );

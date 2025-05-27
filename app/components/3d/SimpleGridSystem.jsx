@@ -93,9 +93,9 @@ function SimpleGridSystem({
       return 0.0; // Invisible for occupied cells
     }
     if (hovered) {
-      return 0.6;
+      return 0.6; // Show on hover
     }
-    return 0.1;
+    return 0.0; // Hide grid cells by default - only show cross markers
   }, [isOccupied]);
 
   // Create corner cross markers geometry
