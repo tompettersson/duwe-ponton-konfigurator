@@ -53,24 +53,91 @@ function PontoonScene() {
       if (selectedTool === TOOLS.ERASER) {
         removeElementAtPosition(position);
       } else if (selectedTool === TOOLS.SINGLE_PONTOON || selectedTool === TOOLS.DOUBLE_PONTOON) {
-        // Check if position is occupied
-        const occupied = storeElements.some(
-          el => el.position.x === position.x && 
-               el.position.z === position.z && 
-               Math.abs(el.position.y - position.y) < 0.1
-        );
+        const isDouble = selectedTool === TOOLS.DOUBLE_PONTOON;
+        
+        // Check for overlaps on the same level
+        const checkOverlap = () => {
+          // Filter elements on the same level
+          const sameLevel = storeElements.filter(
+            el => Math.abs(el.position.y - position.y) < 0.1
+          );
+          
+          if (!isDouble) {
+            // Single pontoon - check exact position match only
+            return sameLevel.some(
+              el => Math.abs(el.position.x - position.x) < 0.1 && 
+                   Math.abs(el.position.z - position.z) < 0.1
+            );
+          }
+          
+          // Double pontoon overlap check - be more precise
+          // New double pontoon spans from position.x to position.x + 1.096
+          const newStart = position.x;
+          const newEnd = position.x + 1.096;
+          
+          return sameLevel.some(el => {
+            if (el.type === 'double') {
+              // Check double-to-double overlap
+              const elStart = el.position.x;
+              const elEnd = el.position.x + 1.096;
+              
+              // Check if they're on the same Z row and if ranges overlap
+              if (Math.abs(el.position.z - position.z) < 0.1) {
+                return !(newEnd <= elStart || newStart >= elEnd); // Ranges overlap
+              }
+              return false;
+            } else {
+              // Check double-to-single overlap
+              // Single pontoon is at el.position.x, occupies 0.5m width
+              const singleStart = el.position.x - 0.25;
+              const singleEnd = el.position.x + 0.25;
+              
+              // Check if they're on the same Z row and if ranges overlap
+              if (Math.abs(el.position.z - position.z) < 0.1) {
+                return !(newEnd <= singleStart || newStart >= singleEnd);
+              }
+              return false;
+            }
+          });
+        };
         
         // Check if position has support (for levels above ground)
-        const hasSupport = currentLevel <= 0 || storeElements.some(
-          el => el.position.x === position.x && 
-               el.position.z === position.z && 
-               el.position.y === (currentLevel - 1) * levelHeight
-        );
+        const checkSupport = () => {
+          if (currentLevel <= 0) return true;
+          
+          if (!isDouble) {
+            // Single pontoon - needs support at its position
+            return storeElements.some(
+              el => el.position.x === position.x && 
+                   el.position.z === position.z && 
+                   el.position.y === (currentLevel - 1) * levelHeight
+            );
+          }
+          
+          // Double pontoon - needs support along its length
+          // Check at least at start and middle positions
+          const hasStartSupport = storeElements.some(
+            el => Math.abs(el.position.x - position.x) < 0.25 && 
+                 el.position.z === position.z && 
+                 el.position.y === (currentLevel - 1) * levelHeight
+          );
+          
+          const hasMiddleSupport = storeElements.some(
+            el => Math.abs(el.position.x - (position.x + 0.5)) < 0.25 && 
+                 el.position.z === position.z && 
+                 el.position.y === (currentLevel - 1) * levelHeight
+          );
+          
+          return hasStartSupport || hasMiddleSupport;
+        };
+        
+        const occupied = checkOverlap();
+        const hasSupport = checkSupport();
         
         if (!occupied && hasSupport) {
           const newElement = {
             position: position,
-            type: selectedTool === TOOLS.SINGLE_PONTOON ? 'single' : 'double',
+            type: isDouble ? 'double' : 'single',
             rotation: 0,
           };
           addElement(newElement);

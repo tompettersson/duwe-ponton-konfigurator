@@ -24,8 +24,8 @@ export default function WaterPlane({ width = 60, depth = 60, y = -0.5 }) {
     });
 
     const water = new Water(geometry, {
-      textureWidth: 1024,
-      textureHeight: 1024,
+      textureWidth: 2048,
+      textureHeight: 2048,
       waterNormals: normals,
       sunDirection: new THREE.Vector3(0.2, 1.0, 0.3),
       sunColor: 0xffffff,
@@ -56,7 +56,7 @@ export default function WaterPlane({ width = 60, depth = 60, y = -0.5 }) {
   // Animate water time uniform
   useFrame((_, delta) => {
     if (waterRef.current) {
-      waterRef.current.material.uniforms.time.value += delta * 0.5;
+      waterRef.current.material.uniforms.time.value += delta * 0.2;
     }
   });
 

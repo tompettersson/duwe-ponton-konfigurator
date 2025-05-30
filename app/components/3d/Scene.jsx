@@ -48,7 +48,7 @@ function Scene({
       onCreated={({ gl }) => {
         gl.setClearColor(new THREE.Color("#a9d8ff"), 0);
         gl.getContextAttributes().alpha = true;
-        gl.toneMapping = THREE.LinearToneMapping;
+        gl.toneMapping = THREE.NoToneMapping;
       }}
     >
       <Suspense fallback={null}>
@@ -101,7 +101,7 @@ function Scene({
         />
 
         {/* Simple water without reflections */}
-        <WaterPlane width={(gridSize.width + 10) * 2} depth={(gridSize.depth + 10) * 2} y={-0.02} />
+        <WaterPlane width={(gridSize.width + 10) * 2} depth={(gridSize.depth + 10) * 2} y={-0.01} />
       </Suspense>
     </Canvas>
   );
