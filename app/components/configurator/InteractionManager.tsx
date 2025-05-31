@@ -8,9 +8,11 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
+import * as React from 'react';
 import { useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { useConfiguratorStore } from '../../store/configuratorStore';
+import { useDebugStore } from '../../store/debugStore';
 import { LAYERS } from '../../lib/constants';
 import type { GridPosition } from '../../types';
 
@@ -34,6 +36,9 @@ export function InteractionManager() {
     getPontoonAt,
   } = useConfiguratorStore();
 
+  // Debug store
+  const { setIntersectCount, setRaycastCoords, setLastClickResult } = useDebugStore();
+
   useEffect(() => {
     const handlePointerMove = (event: PointerEvent) => {
       // Calculate normalized device coordinates
@@ -41,11 +46,15 @@ export function InteractionManager() {
       pointer.current.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
       pointer.current.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
 
+      // Update debug info
+      setRaycastCoords({x: pointer.current.x, y: pointer.current.y});
+
       // Perform raycasting
       raycaster.current.setFromCamera(pointer.current, camera);
       raycaster.current.layers.set(LAYERS.GRID);
 
       const intersects = raycaster.current.intersectObjects(scene.children);
+      setIntersectCount(intersects.length);
 
       if (intersects.length > 0) {
         const intersection = intersects.find(hit => hit.object.userData.isGround);
@@ -53,11 +62,6 @@ export function InteractionManager() {
           // Convert world position to precise grid coordinates
           const gridPos = gridMath.worldToGrid(intersection.point);
           setHoveredCell(gridPos);
-          
-          // Debug output
-          if (process.env.NODE_ENV === 'development') {
-            console.log('Hover at grid:', gridPos, 'world:', intersection.point);
-          }
         } else {
           setHoveredCell(null);
         }
@@ -94,10 +98,6 @@ export function InteractionManager() {
         if (intersection) {
           const gridPos = gridMath.worldToGrid(intersection.point);
           
-          // Debug output
-          if (process.env.NODE_ENV === 'development') {
-            console.log('Click at grid:', gridPos, 'tool:', selectedTool);
-          }
           
           handleGridClick(gridPos, event);
         }
@@ -130,9 +130,7 @@ export function InteractionManager() {
       switch (selectedTool) {
         case 'place':
           const success = addPontoon(gridPos);
-          if (!success) {
-            console.warn('Cannot place pontoon at position:', gridPos);
-          }
+          setLastClickResult(success ? 'SUCCESS' : 'FAILED');
           break;
           
         case 'select':

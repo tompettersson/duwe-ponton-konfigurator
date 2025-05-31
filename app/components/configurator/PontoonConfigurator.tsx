@@ -13,6 +13,7 @@ import { CameraController } from './CameraController';
 import { InteractionManager } from './InteractionManager';
 import { PontoonManager } from './PontoonManager';
 import { useConfiguratorStore } from '../../store/configuratorStore';
+import { useDebugStore } from '../../store/debugStore';
 import { Toolbar } from '../ui/Toolbar';
 import { ViewModeToggle } from '../ui/ViewModeToggle';
 import { COLORS, CAMERA_POSITIONS } from '../../lib/constants';
@@ -80,6 +81,9 @@ function DebugPanel() {
   const pontoonCount = useConfiguratorStore((state) => state.pontoons.size);
   const selectedCount = useConfiguratorStore((state) => state.selectedIds.size);
   const occupiedCells = useConfiguratorStore((state) => state.spatialIndex.getOccupiedCellCount());
+  
+  // Debug information
+  const { intersectCount, raycastCoords, lastClickResult } = useDebugStore();
 
   return (
     <div className="absolute bottom-4 left-4 bg-black bg-opacity-75 text-white p-3 rounded text-sm font-mono">
@@ -87,8 +91,17 @@ function DebugPanel() {
       <div>Pontoons: {pontoonCount}</div>
       <div>Selected: {selectedCount}</div>
       <div>Occupied Cells: {occupiedCells}</div>
-      {hoveredCell && (
-        <div>Hover: ({hoveredCell.x}, {hoveredCell.y}, {hoveredCell.z})</div>
+      {hoveredCell ? (
+        <div className="text-green-400">Hover: ({hoveredCell.x}, {hoveredCell.y}, {hoveredCell.z})</div>
+      ) : (
+        <div className="text-red-400">Hover: none</div>
+      )}
+      <div className="text-blue-400">Intersects: {intersectCount}</div>
+      <div className="text-gray-400">Ray: ({raycastCoords.x.toFixed(2)}, {raycastCoords.y.toFixed(2)})</div>
+      {lastClickResult && (
+        <div className={lastClickResult === 'SUCCESS' ? 'text-green-400' : 'text-red-400'}>
+          Click: {lastClickResult}
+        </div>
       )}
     </div>
   );
