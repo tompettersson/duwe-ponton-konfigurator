@@ -109,6 +109,37 @@ export const useConfiguratorStore = create<ConfiguratorState>()(
         const gridMath = new GridMathematics(GRID_CONSTANTS.CELL_SIZE_MM);
         const collisionDetection = new CollisionDetection(spatialIndex, gridMath);
 
+        // Initialize with test pontoons to verify rendering
+        const initialPontoons = new Map<string, PontoonElement>();
+        const testPositions = [
+          { x: 0, y: 0, z: 0 },
+          { x: 1, y: 0, z: 0 },
+          { x: 2, y: 0, z: 0 },
+          { x: 0, y: 0, z: 1 },
+          { x: 1, y: 0, z: 1 },
+          { x: 2, y: 0, z: 1 },
+          { x: 0, y: 0, z: 2 },
+          { x: 1, y: 0, z: 2 },
+          { x: 2, y: 0, z: 2 },
+          { x: 3, y: 0, z: 1 },
+          { x: 4, y: 0, z: 1 },
+          { x: 5, y: 0, z: 1 },
+          { x: 3, y: 0, z: 2 },
+        ];
+
+        testPositions.forEach((pos, index) => {
+          const id = `test-pontoon-${index}`;
+          const pontoon: PontoonElement = {
+            id,
+            gridPosition: pos,
+            rotation: 0,
+            type: 'standard',
+            metadata: { createdAt: Date.now() },
+          };
+          initialPontoons.set(id, pontoon);
+          spatialIndex.insert(id, pos);
+        });
+
         return {
           // Initial State
           gridSize: { width: 50, height: 50 },
@@ -117,7 +148,7 @@ export const useConfiguratorStore = create<ConfiguratorState>()(
           gridMath,
           collisionDetection,
 
-          pontoons: new Map(),
+          pontoons: initialPontoons,
           selectedIds: new Set(),
           hoveredCell: null,
 

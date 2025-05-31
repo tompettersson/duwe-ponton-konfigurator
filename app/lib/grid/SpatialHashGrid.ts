@@ -6,6 +6,7 @@
  */
 
 import { GridMathematics } from './GridMathematics';
+import { GRID_CONSTANTS } from '../constants';
 import type { GridPosition, SpatialElement } from '../../types';
 
 export class SpatialHashGrid {
@@ -13,7 +14,7 @@ export class SpatialHashGrid {
   private elements: Map<string, SpatialElement>;
   private gridMath: GridMathematics;
 
-  constructor(private cellSize: number = 400) {
+  constructor(private cellSize: number = GRID_CONSTANTS.CELL_SIZE_MM) {
     this.grid = new Map();
     this.elements = new Map();
     this.gridMath = new GridMathematics(cellSize);

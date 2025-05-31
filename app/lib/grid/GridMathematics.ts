@@ -14,7 +14,7 @@ export class GridMathematics {
   private readonly cellSizeMM: number;
   private readonly precision: number;
 
-  constructor(cellSizeMM = GRID_CONSTANTS.CELL_SIZE_MM) {
+  constructor(cellSizeMM: number = GRID_CONSTANTS.CELL_SIZE_MM) {
     this.cellSizeMM = cellSizeMM;
     this.precision = GRID_CONSTANTS.PRECISION_FACTOR;
   }

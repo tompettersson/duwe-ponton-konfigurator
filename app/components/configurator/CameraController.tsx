@@ -30,8 +30,10 @@ export function CameraController({ mode }: CameraControllerProps) {
 
     if (mode === '2d') {
       // Top-down orthographic view
-      camera.position.set(...targetPosition.position);
-      camera.lookAt(...targetPosition.target);
+      const [x, y, z] = targetPosition.position;
+      camera.position.set(x, y, z);
+      const [tx, ty, tz] = targetPosition.target;
+      camera.lookAt(tx, ty, tz);
 
       // Disable rotation for pure 2D experience
       controls.enableRotate = false;
@@ -55,8 +57,10 @@ export function CameraController({ mode }: CameraControllerProps) {
 
     } else {
       // 3D perspective view
-      camera.position.set(...targetPosition.position);
-      camera.lookAt(...targetPosition.target);
+      const [x, y, z] = targetPosition.position;
+      camera.position.set(x, y, z);
+      const [tx, ty, tz] = targetPosition.target;
+      camera.lookAt(tx, ty, tz);
 
       // Enable full 3D navigation
       controls.enableRotate = true;
