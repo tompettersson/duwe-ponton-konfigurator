@@ -55,6 +55,12 @@ export function PontoonConfigurator() {
         <PontoonManager />
         <InteractionManager />
         <CameraController mode={viewMode} />
+        
+        {/* Test Pontoon - Fixed position for debugging */}
+        <mesh position={[0, 0.25, 0]} layers={1}>
+          <boxGeometry args={[0.4, 0.5, 0.4]} />
+          <meshStandardMaterial color="#ff0000" />
+        </mesh>
       </Canvas>
 
       {/* UI Overlay */}
@@ -103,6 +109,7 @@ function DebugPanel() {
           Click: {lastClickResult}
         </div>
       )}
+      <div className="text-purple-400">Rendering: {pontoonCount > 0 ? 'Active' : 'None'}</div>
     </div>
   );
 }

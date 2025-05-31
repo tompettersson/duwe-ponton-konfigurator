@@ -59,13 +59,15 @@ export function GridSystem() {
     if (hoverRef.current && hoveredCell) {
       // Convert grid position to world position
       const worldPos = gridMath.gridToWorld(hoveredCell);
-      hoverRef.current.position.set(worldPos.x, 0.01, worldPos.z);
+      // Position hover box at pontoon height (center of box)
+      const pontoonHeight = 0.5; // 500mm in meters
+      hoverRef.current.position.set(worldPos.x, pontoonHeight / 2, worldPos.z);
 
       // Update hover color based on validity
       const isValid = canPlacePontoon(hoveredCell);
       const material = hoverRef.current.material as THREE.MeshBasicMaterial;
-      material.color.set(isValid ? COLORS.HOVER_VALID : COLORS.HOVER_INVALID);
-      material.opacity = isValid ? 0.3 : 0.2;
+      material.color.set(isValid ? '#4a90e2' : '#ff4444'); // Blue for valid, red for invalid
+      material.opacity = isValid ? 0.5 : 0.3;
     }
   });
 
@@ -96,17 +98,16 @@ export function GridSystem() {
         <meshBasicMaterial transparent opacity={0} />
       </mesh>
 
-      {/* Hover Indicator */}
+      {/* Hover Indicator - 3D Box Preview */}
       <mesh
         ref={hoverRef}
-        rotation={[-Math.PI / 2, 0, 0]}
         layers={LAYERS.HOVER}
         visible={hoveredCell !== null}
       >
-        <planeGeometry args={[cellSize * 0.95, cellSize * 0.95]} />
+        <boxGeometry args={[cellSize, 0.5, cellSize]} />
         <meshBasicMaterial
-          color={COLORS.HOVER_VALID}
-          opacity={0.3}
+          color="#4a90e2"
+          opacity={0.5}
           transparent
           depthWrite={false}
         />
