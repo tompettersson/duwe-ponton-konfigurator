@@ -78,9 +78,9 @@ export function GridSystem() {
       >
         <lineBasicMaterial 
           color={COLORS.GRID_LINE}
-          opacity={0.3} 
-          transparent 
-          depthWrite={false}
+          opacity={0.8} 
+          transparent={false}
+          depthWrite={true}
         />
       </lineSegments>
 
@@ -93,7 +93,7 @@ export function GridSystem() {
         userData={{ isGround: true }}
       >
         <planeGeometry args={[groundSize.width, groundSize.height]} />
-        <meshBasicMaterial />
+        <meshBasicMaterial transparent opacity={0} />
       </mesh>
 
       {/* Hover Indicator */}
@@ -112,17 +112,20 @@ export function GridSystem() {
         />
       </mesh>
 
-      {/* Grid Base */}
+      {/* Grid Base - Minimal background */}
       <mesh
-        position={[0, -0.01, 0]}
+        position={[0, -0.02, 0]}
         rotation={[-Math.PI / 2, 0, 0]}
         receiveShadow={false}
+        layers={10} // Different layer so it doesn't interfere with raycasting
       >
-        <planeGeometry args={[groundSize.width * 1.2, groundSize.height * 1.2]} />
+        <planeGeometry args={[groundSize.width * 1.1, groundSize.height * 1.1]} />
         <meshStandardMaterial 
           color={COLORS.GRID_BACKGROUND} 
-          roughness={0.8}
-          metalness={0.1}
+          roughness={0.9}
+          metalness={0.0}
+          opacity={0.3}
+          transparent
         />
       </mesh>
     </>

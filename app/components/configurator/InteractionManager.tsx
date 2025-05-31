@@ -12,6 +12,7 @@ import { useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { useConfiguratorStore } from '../../store/configuratorStore';
 import { LAYERS } from '../../lib/constants';
+import type { GridPosition } from '../../types';
 
 export function InteractionManager() {
   const { camera, gl, scene } = useThree();
@@ -52,6 +53,11 @@ export function InteractionManager() {
           // Convert world position to precise grid coordinates
           const gridPos = gridMath.worldToGrid(intersection.point);
           setHoveredCell(gridPos);
+          
+          // Debug output
+          if (process.env.NODE_ENV === 'development') {
+            console.log('Hover at grid:', gridPos, 'world:', intersection.point);
+          }
         } else {
           setHoveredCell(null);
         }
@@ -87,6 +93,12 @@ export function InteractionManager() {
         const intersection = gridIntersects.find(hit => hit.object.userData.isGround);
         if (intersection) {
           const gridPos = gridMath.worldToGrid(intersection.point);
+          
+          // Debug output
+          if (process.env.NODE_ENV === 'development') {
+            console.log('Click at grid:', gridPos, 'tool:', selectedTool);
+          }
+          
           handleGridClick(gridPos, event);
         }
       }
@@ -114,7 +126,7 @@ export function InteractionManager() {
       }
     };
 
-    const handleGridClick = (gridPos: THREE.Vector3, event: MouseEvent) => {
+    const handleGridClick = (gridPos: GridPosition, event: MouseEvent) => {
       switch (selectedTool) {
         case 'place':
           const success = addPontoon(gridPos);

@@ -8,6 +8,10 @@
 import { create } from 'zustand';
 import { devtools, subscribeWithSelector } from 'zustand/middleware';
 import { immer } from 'zustand/middleware/immer';
+import { enableMapSet } from 'immer';
+
+// Enable Map/Set support in Immer
+enableMapSet();
 import { SpatialHashGrid } from '../lib/grid/SpatialHashGrid';
 import { GridMathematics } from '../lib/grid/GridMathematics';
 import { CollisionDetection } from '../lib/grid/CollisionDetection';
