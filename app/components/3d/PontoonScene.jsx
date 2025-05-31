@@ -47,114 +47,56 @@ function PontoonScene() {
   const waterLevel = WATER_LEVEL;
   const levelHeight = LEVEL_HEIGHT;
 
-  // Event handlers
+  // Event handlers - Updated for new unit-based system
   const handleCellClick = useCallback(
-    (position) => {
+    (clickData) => {
+      const { gridX, gridZ, level, worldPosition } = clickData;
+      
       if (selectedTool === TOOLS.ERASER) {
-        removeElementAtPosition(position);
-      } else if (selectedTool === TOOLS.SINGLE_PONTOON || selectedTool === TOOLS.DOUBLE_PONTOON) {
-        const isDouble = selectedTool === TOOLS.DOUBLE_PONTOON;
+        // Remove element at grid position
+        const elementToRemove = storeElements.find(el => 
+          Math.abs(el.position.x - worldPosition.x) < 0.1 &&
+          Math.abs(el.position.z - worldPosition.z) < 0.1 &&
+          Math.abs(el.position.y - worldPosition.y) < 0.1
+        );
         
-        // Check for overlaps on the same level
-        const checkOverlap = () => {
-          // Filter elements on the same level
-          const sameLevel = storeElements.filter(
-            el => Math.abs(el.position.y - position.y) < 0.1
-          );
-          
-          if (!isDouble) {
-            // Single pontoon - check exact position match only
-            return sameLevel.some(
-              el => Math.abs(el.position.x - position.x) < 0.1 && 
-                   Math.abs(el.position.z - position.z) < 0.1
-            );
-          }
-          
-          // Double pontoon overlap check - be more precise
-          // New double pontoon spans from position.x to position.x + 1.096
-          const newStart = position.x;
-          const newEnd = position.x + 1.096;
-          
-          return sameLevel.some(el => {
-            if (el.type === 'double') {
-              // Check double-to-double overlap
-              const elStart = el.position.x;
-              const elEnd = el.position.x + 1.096;
-              
-              // Check if they're on the same Z row and if ranges overlap
-              if (Math.abs(el.position.z - position.z) < 0.1) {
-                return !(newEnd <= elStart || newStart >= elEnd); // Ranges overlap
-              }
-              return false;
-            } else {
-              // Check double-to-single overlap
-              // Single pontoon is at el.position.x, occupies 0.5m width
-              const singleStart = el.position.x - 0.25;
-              const singleEnd = el.position.x + 0.25;
-              
-              // Check if they're on the same Z row and if ranges overlap
-              if (Math.abs(el.position.z - position.z) < 0.1) {
-                return !(newEnd <= singleStart || newStart >= singleEnd);
-              }
-              return false;
-            }
-          });
-        };
+        if (elementToRemove) {
+          removeElementAtPosition(elementToRemove.position);
+          showToast("Ponton entfernt", "success");
+        }
+      } else if (selectedTool === TOOLS.SINGLE_PONTOON) {
+        // Check for overlaps at this exact position
+        const occupied = storeElements.some(el => 
+          Math.abs(el.position.x - worldPosition.x) < 0.1 &&
+          Math.abs(el.position.z - worldPosition.z) < 0.1 &&
+          Math.abs(el.position.y - worldPosition.y) < 0.1
+        );
         
-        // Check if position has support (for levels above ground)
-        const checkSupport = () => {
-          if (currentLevel <= 0) return true;
-          
-          if (!isDouble) {
-            // Single pontoon - needs support at its position
-            return storeElements.some(
-              el => el.position.x === position.x && 
-                   el.position.z === position.z && 
-                   el.position.y === (currentLevel - 1) * levelHeight
-            );
-          }
-          
-          // Double pontoon - needs support along its length
-          // Check at least at start and middle positions
-          const hasStartSupport = storeElements.some(
-            el => Math.abs(el.position.x - position.x) < 0.25 && 
-                 el.position.z === position.z && 
-                 el.position.y === (currentLevel - 1) * levelHeight
-          );
-          
-          const hasMiddleSupport = storeElements.some(
-            el => Math.abs(el.position.x - (position.x + 0.5)) < 0.25 && 
-                 el.position.z === position.z && 
-                 el.position.y === (currentLevel - 1) * levelHeight
-          );
-          
-          return hasStartSupport || hasMiddleSupport;
-        };
-        
-        const occupied = checkOverlap();
-        const hasSupport = checkSupport();
+        // Check for support (only needed above ground level)
+        const hasSupport = level <= 0 || storeElements.some(el => 
+          Math.abs(el.position.x - worldPosition.x) < 0.1 &&
+          Math.abs(el.position.z - worldPosition.z) < 0.1 &&
+          Math.abs(el.position.y - (worldPosition.y - levelHeight)) < 0.1
+        );
         
         if (!occupied && hasSupport) {
           const newElement = {
-            position: position,
-            type: isDouble ? 'double' : 'single',
+            position: worldPosition,
+            type: 'single',
             rotation: 0,
           };
           addElement(newElement);
+          showToast("Single Ponton platziert", "success");
         } else {
           if (occupied) {
             showToast("Position bereits belegt", "warning");
           } else if (!hasSupport) {
-            if (currentLevel > 0) {
-              showToast(`Ebene ${currentLevel} benötigt Unterstützung. Platziere zuerst Pontons auf Ebene 0.`, "info", 4000);
-            } else {
-              showToast("Ponton kann hier nicht platziert werden", "warning");
-            }
+            showToast(`Ebene ${level} benötigt Unterstützung von darunter`, "info", 3000);
           }
         }
       }
     },
-    [selectedTool, currentLevel, levelHeight, storeElements, addElement, removeElementAtPosition, showToast]
+    [selectedTool, levelHeight, storeElements, addElement, removeElementAtPosition, showToast]
   );
 
 

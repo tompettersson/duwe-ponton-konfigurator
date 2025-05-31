@@ -112,7 +112,6 @@ function Toolbar({
         )}
       </div>
 
-      {/* Temporarily hidden - single pontoon not working
       <button
         onClick={() => handleSelect(TOOLS.SINGLE_PONTOON)}
         className={`${styles.toolButton} ${
@@ -122,17 +121,19 @@ function Toolbar({
       >
         <SinglePontoonIcon />
       </button>
-      */}
 
-      <button
-        onClick={() => handleSelect(TOOLS.DOUBLE_PONTOON)}
-        className={`${styles.toolButton} ${
-          currentTool === TOOLS.DOUBLE_PONTOON ? styles.active : ""
-        }`}
-        aria-label="Doppel-Ponton"
-      >
-        <DoublePontoonIcon />
-      </button>
+      {/* Double Pontoon temporarily hidden */}
+      {false && (
+        <button
+          onClick={() => handleSelect(TOOLS.DOUBLE_PONTOON)}
+          className={`${styles.toolButton} ${
+            currentTool === TOOLS.DOUBLE_PONTOON ? styles.active : ""
+          }`}
+          aria-label="Doppel-Ponton"
+        >
+          <DoublePontoonIcon />
+        </button>
+      )}
 
       <button
         onClick={() => handleSelect(TOOLS.DELETE_TOOL)}

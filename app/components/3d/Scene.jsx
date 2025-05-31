@@ -46,8 +46,7 @@ function Scene({
       }}
       camera={{ position: [0, 20, 40], fov: 75 }}
       onCreated={({ gl }) => {
-        gl.setClearColor(new THREE.Color("#a9d8ff"), 0);
-        gl.getContextAttributes().alpha = true;
+        gl.setClearColor(new THREE.Color("#87CEEB"), 1); // Sky blue background
         gl.toneMapping = THREE.NoToneMapping;
       }}
     >
@@ -73,10 +72,7 @@ function Scene({
           levelHeight={levelHeight}
         />
 
-        {/* Pontoons with clear level-based visibility */}
-        {/* MIXED: Single pontoons use boxes, double pontoons use 3D models */}
-        
-        {/* Single pontoons - use simple boxes */}
+        {/* Single pontoons only - simple boxes for uniform system */}
         <PontoonInstances
           elements={elements.filter((e) => e.isCurrentLevel && e.type === 'single')}
           opacity={1.0}
@@ -87,21 +83,8 @@ function Scene({
           opacity={1.0}
           color="#888888"
         />
-        
-        {/* Double pontoons - use 3D models */}
-        <PontoonModels
-          elements={elements.filter((e) => e.isCurrentLevel && e.type === 'double')}
-          opacity={1.0}
-          color={null}
-        />
-        <PontoonModels
-          elements={elements.filter((e) => !e.isCurrentLevel && e.type === 'double')}
-          opacity={1.0}
-          color="#888888"
-        />
 
-        {/* Simple water without reflections */}
-        <WaterPlane width={(gridSize.width + 10) * 2} depth={(gridSize.depth + 10) * 2} y={-0.01} />
+        {/* Water removed for cleaner interface */}
       </Suspense>
     </Canvas>
   );

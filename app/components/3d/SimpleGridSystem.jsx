@@ -3,9 +3,13 @@
 import React, { memo, useCallback } from "react";
 import * as THREE from "three";
 import { TOOLS } from "../../constants/grid";
+import { BASE_UNIT, gridToWorld, worldToGrid, GRID_BOUNDS } from "../../constants/units.js";
+import { PontoonElement } from "../../utils/PontoonElement.js";
 
 /**
- * Simplified grid system that works correctly
+ * Unit-Based Grid System - Perfect alignment with pontoon dimensions
+ * Grid cells = exactly Single Pontoon size (0.5m x 0.5m)
+ * All coordinates are mathematical, no trial-and-error offsets
  */
 function SimpleGridSystem({ 
   onCellClick, 
@@ -15,53 +19,65 @@ function SimpleGridSystem({
   levelHeight 
 }) {
   
-  // Grid spacing for pontoons: 0.5m cells (single pontoon = 0.5x0.5m, double = 1.0x0.5m)
-  const gridSpacing = 0.5; // 500mm spacing (single pontoon size)
+  const [hoverPosition, setHoverPosition] = React.useState(null);
   
-  const isOccupied = useCallback((x, z) => {
-    const worldX = x * gridSpacing;
-    const worldZ = z * gridSpacing;
-    return elements.some(el => 
-      Math.abs(el.position.x - worldX) < 0.1 && 
-      Math.abs(el.position.z - worldZ) < 0.1 && 
-      Math.abs(el.position.y - currentLevel * levelHeight) < 0.1
-    );
-  }, [elements, currentLevel, levelHeight, gridSpacing]);
+  const handleCellHover = React.useCallback((gridX, gridZ) => {
+    setHoverPosition({ gridX, gridZ, level: currentLevel });
+  }, [currentLevel]);
 
-  const hasSupport = useCallback((x, z) => {
+  const handleCellHoverEnd = React.useCallback(() => {
+    setHoverPosition(null);
+  }, []);
+  
+  // Grid spacing = Single Pontoon size (BASE_UNIT dimensions)
+  const gridSpacing = BASE_UNIT.width; // 0.5m spacing (exact pontoon size)
+  
+  // Convert legacy elements to PontoonElement format for consistent collision detection
+  const normalizedElements = React.useMemo(() => {
+    return elements.map(element => {
+      if (element instanceof PontoonElement) {
+        return element;
+      }
+      
+      // Convert legacy element format
+      const gridPos = worldToGrid(element.position.x, element.position.z);
+      const type = element.type === 'DOUBLE' ? 'double' : 'single';
+      
+      return new PontoonElement(
+        type,
+        gridPos.x,
+        gridPos.z,
+        element.level || 0,
+        element.color || 'blue'
+      );
+    });
+  }, [elements]);
+
+  const isOccupied = useCallback((gridX, gridZ) => {
+    return normalizedElements.some(element => 
+      element.level === currentLevel && element.occupiesCell(gridX, gridZ)
+    );
+  }, [normalizedElements, currentLevel]);
+
+  const hasSupport = useCallback((gridX, gridZ) => {
     // Ground level and underwater always have support
     if (currentLevel <= 0) return true;
     
-    // Check if there's a pontoon directly below
-    const worldX = x * gridSpacing;
-    const worldZ = z * gridSpacing;
-    return elements.some(el => 
-      Math.abs(el.position.x - worldX) < 0.1 && 
-      Math.abs(el.position.z - worldZ) < 0.1 && 
-      Math.abs(el.position.y - (currentLevel - 1) * levelHeight) < 0.1
+    // Check if there's a pontoon directly below this grid cell
+    return normalizedElements.some(element => 
+      element.level === currentLevel - 1 && element.occupiesCell(gridX, gridZ)
     );
-  }, [elements, currentLevel, levelHeight, gridSpacing]);
+  }, [normalizedElements, currentLevel]);
 
   const canPlace = useCallback((x, z) => {
     if (isOccupied(x, z)) return false;
     return hasSupport(x, z);
   }, [isOccupied, hasSupport]);
 
-  const handleCellClick = useCallback((x, z) => {
-    // Check if placement is valid before sending to parent
-    const canPlaceHere = canPlace(x, z);
-    
-    const absolutePosition = { 
-      x: x * gridSpacing, 
-      y: currentLevel * levelHeight,
-      z: z * gridSpacing 
-    };
-    
-    // Debug logging removed for cleaner console
-    
-    // Always send click to parent - let PontoonScene handle validation and show toasts
-    onCellClick(absolutePosition);
-  }, [onCellClick, selectedTool, currentLevel, levelHeight, canPlace, isOccupied, hasSupport, gridSpacing]);
+  const handleCellClick = useCallback((clickData) => {
+    // Forward the click data to parent component
+    onCellClick(clickData);
+  }, [onCellClick]);
 
   const getCellColor = useCallback((x, z, hovered) => {
     if (isOccupied(x, z)) {
@@ -98,53 +114,53 @@ function SimpleGridSystem({
     return 0.0; // Hide grid cells by default - only show cross markers
   }, [isOccupied]);
 
-  // Create corner cross markers geometry
-  const cornerCrosses = React.useMemo(() => {
-    const vertices = [];
-    const crossSize = 0.15; // Size of each cross
+  // Create point markers at grid intersections (connection points)
+  const connectionPoints = React.useMemo(() => {
+    const points = [];
     
-    // Create small cross markers at grid intersections  
-    for (let x = -5.5; x <= 4.5; x++) {
-      for (let z = -5.5; z <= 4.5; z++) {
-        const actualX = x * gridSpacing;
-        const actualZ = z * gridSpacing;
-        const y = currentLevel * levelHeight + 0.01;
-        
-        // Horizontal line of cross
-        vertices.push(
-          actualX - crossSize, y, actualZ,
-          actualX + crossSize, y, actualZ
-        );
-        
-        // Vertical line of cross
-        vertices.push(
-          actualX, y, actualZ - crossSize,
-          actualX, y, actualZ + crossSize
-        );
+    // Create points at grid intersections - these mark connection points
+    for (let x = GRID_BOUNDS.minX; x <= GRID_BOUNDS.maxX + 1; x++) {
+      for (let z = GRID_BOUNDS.minZ; z <= GRID_BOUNDS.maxZ + 1; z++) {
+        const worldPos = gridToWorld(x - 0.5, z - 0.5, currentLevel);
+        points.push({
+          position: [worldPos.x, worldPos.y + 0.02, worldPos.z],
+          gridX: x - 0.5,
+          gridZ: z - 0.5
+        });
       }
     }
     
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
-    return geometry;
-  }, [currentLevel, levelHeight, gridSpacing]);
+    return points;
+  }, [currentLevel]);
 
-  // Create a grid with smaller spacing for real pontoon dimensions
+  // Create invisible interactive grid cells for hover detection
   const gridCells = [];
-  for (let x = -5; x < 5; x++) {
-    for (let z = -5; z < 5; z++) {
+  for (let x = GRID_BOUNDS.minX; x <= GRID_BOUNDS.maxX; x++) {
+    for (let z = GRID_BOUNDS.minZ; z <= GRID_BOUNDS.maxZ; z++) {
+      const worldPos = gridToWorld(x, z, currentLevel);
+      
       gridCells.push(
-        <GridCellSimple
-          key={`${x},${z}`}
+        <InvisibleGridCell
+          key={`${x},${z},${currentLevel}`}
           gridX={x}
           gridZ={z}
-          position={[x * gridSpacing, currentLevel * levelHeight, z * gridSpacing]}
-          onClick={() => handleCellClick(x, z)}
-          getCellColor={getCellColor}
-          getCellOpacity={getCellOpacity}
-          selectedTool={selectedTool}
-          canPlace={canPlace}
-          isOccupied={isOccupied}
+          position={[worldPos.x, worldPos.y, worldPos.z]}
+          onHover={(isHovered) => {
+            if (isHovered) {
+              handleCellHover(x, z);
+            } else {
+              handleCellHoverEnd();
+            }
+          }}
+          onClick={() => {
+            const clickData = {
+              gridX: x,
+              gridZ: z,
+              level: currentLevel,
+              worldPosition: worldPos
+            };
+            handleCellClick(clickData);
+          }}
         />
       );
     }
@@ -152,83 +168,124 @@ function SimpleGridSystem({
 
   return (
     <>
-      {/* Corner Cross Markers */}
-      <lineSegments geometry={cornerCrosses}>
-        <lineBasicMaterial 
-          color="#ffffff" 
-          opacity={0.6} 
-          transparent 
-          toneMapped={false}
-          depthWrite={false}
-        />
-      </lineSegments>
+      {/* Three.js Grid Helper for better visual reference */}
+      <primitive 
+        object={new THREE.GridHelper(
+          (GRID_BOUNDS.maxX - GRID_BOUNDS.minX + 1) * BASE_UNIT.width, // size
+          (GRID_BOUNDS.maxX - GRID_BOUNDS.minX + 1), // divisions
+          "#cccccc", // center line color
+          "#eeeeee"  // grid color
+        )}
+        position={[0, currentLevel * BASE_UNIT.height + 0.001, 0]}
+      />
       
-      {/* Interactive Cells */}
+      {/* Connection Point Markers - Visual only, no interaction */}
+      {connectionPoints.map((point, index) => (
+        <mesh key={`${index}-${currentLevel}`} position={point.position}>
+          <sphereGeometry args={[0.02, 8, 8]} />
+          <meshBasicMaterial 
+            color="#666666" 
+            transparent 
+            opacity={0.6}
+            toneMapped={false}
+          />
+        </mesh>
+      ))}
+      
+      {/* Interactive Grid Cells - exactly pontoon-sized */}
       {gridCells}
+      
+      {/* Hover Preview - Show pontoon preview when hovering over grid cells */}
+      {hoverPosition && selectedTool === TOOLS.SINGLE_PONTOON && (
+        <HoverPreview
+          gridX={hoverPosition.gridX}
+          gridZ={hoverPosition.gridZ}
+          level={hoverPosition.level}
+          tool={selectedTool}
+        />
+      )}
     </>
   );
 }
 
 /**
- * Individual grid cell component
+ * Invisible Grid Cell - Full pontoon-sized interaction area
  */
-function GridCellSimple({ 
+function InvisibleGridCell({ 
   gridX, 
   gridZ, 
   position, 
-  onClick, 
-  getCellColor, 
-  getCellOpacity, 
-  selectedTool, 
-  canPlace, 
-  isOccupied 
+  onHover,
+  onClick
 }) {
   const [hovered, setHovered] = React.useState(false);
 
-  // Check if this cell can show double pontoon preview
-  const canShowDoublePreview = selectedTool === TOOLS.DOUBLE_PONTOON && 
-                              hovered && 
-                              gridX < 4 && // Not at right edge
-                              canPlace(gridX, gridZ) && 
-                              canPlace(gridX + 1, gridZ) && // Second cell is also valid
-                              !isOccupied(gridX + 1, gridZ); // Second cell not occupied
+  const handlePointerOver = React.useCallback((e) => {
+    e.stopPropagation();
+    setHovered(true);
+    onHover(true);
+  }, [onHover]);
+
+  const handlePointerOut = React.useCallback((e) => {
+    e.stopPropagation();
+    setHovered(false);
+    onHover(false);
+  }, [onHover]);
+
+  const handleClick = React.useCallback((e) => {
+    e.stopPropagation();
+    onClick();
+  }, [onClick]);
 
   return (
-    <>
-      {/* Main cell */}
-      <mesh
-        position={position}
-        onPointerOver={() => setHovered(true)}
-        onPointerOut={() => setHovered(false)}
-        onClick={(e) => {
-          e.stopPropagation();
-          onClick();
-        }}
-      >
-        <boxGeometry args={[0.5, 0.05, 0.5]} />
-        <meshBasicMaterial
-          color={getCellColor(gridX, gridZ, hovered)}
-          transparent={true}
-          opacity={getCellOpacity(gridX, gridZ, hovered)}
-          depthWrite={false}
-          toneMapped={false}
-        />
-      </mesh>
+    <mesh
+      position={position}
+      onPointerOver={handlePointerOver}
+      onPointerOut={handlePointerOut}
+      onClick={handleClick}
+    >
+      {/* Full pontoon-sized invisible interaction box */}
+      <boxGeometry args={[BASE_UNIT.width, BASE_UNIT.height, BASE_UNIT.depth]} />
+      <meshBasicMaterial
+        transparent={true}
+        opacity={0} // Completely invisible
+        depthTest={false}
+        depthWrite={false}
+      />
+    </mesh>
+  );
+}
 
-      {/* Double pontoon preview - second cell */}
-      {canShowDoublePreview && (
-        <mesh position={[position[0] + 0.5, position[1], position[2]]}>
-          <boxGeometry args={[0.5, 0.05, 0.5]} />
-          <meshBasicMaterial
-            color={getCellColor(gridX, gridZ, hovered)}
-            transparent={true}
-            opacity={getCellOpacity(gridX, gridZ, hovered)}
-            depthWrite={false}
-            toneMapped={false}
-          />
-        </mesh>
-      )}
-    </>
+
+/**
+ * Hover Preview Component - Shows light blue pontoon preview
+ */
+function HoverPreview({ gridX, gridZ, level, tool }) {
+  const previewElement = new PontoonElement(tool, gridX, gridZ, level, 'blue');
+  const geometry = previewElement.getGeometry();
+  
+  return (
+    <mesh
+      position={[
+        previewElement.worldPosition.x,
+        previewElement.worldPosition.y,
+        previewElement.worldPosition.z
+      ]}
+    >
+      <boxGeometry 
+        args={[
+          geometry.width,
+          geometry.height,
+          geometry.depth
+        ]} 
+      />
+      <meshBasicMaterial 
+        color="#87CEEB" // Light blue preview
+        transparent={true}
+        opacity={0.6}
+        toneMapped={false}
+      />
+    </mesh>
   );
 }
 
