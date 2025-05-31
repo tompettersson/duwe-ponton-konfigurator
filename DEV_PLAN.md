@@ -1,142 +1,212 @@
-# Ponton‑Konfigurator – Projektplan
+# Ponton-Konfigurator – Technische Grundspezifikation
 
-> Version: 2024‑06‑XX
-> Autor: Act
+> Version: 2025-01-31
+> Autor: Act + Claude Code
+> Status: Mathematische Präzisionsbasis
 
 ---
 
-## 1 · IST‑Stand (06/2024)
+## 1 · IST-Stand (01/2025) - Technische Grundspezifikation
 
-### 1.1 Frontend
+### 1.1 Frontend - Mathematische Präzision
 
-- **Framework**: Next.js 15.1.2 (App Router, Turbopack, React 19 RC)
-- **3D‑Layer**: react‑three‑fiber @8 + drei.js
-- **State**: Zustand (Slice‑basierte Stores) → evtl. Migration zu XState für komplexe Workflows
-- **Aktuelle Features**
-  - 2D‑ & 3D‑Ansicht per Toggle (Orthographic ↔ Perspective)
-  - Vier Ebenen (Level ‑2, ‑1, 0, 1)
-  - Platzierung & Löschen von Single/Double‑Pontons (inkl. Drehung)
-  - Wasser‑ & Himmel‑Shader vorhanden (aber noch Basic‑Optik)
-- **Pain Points**
-  - Grid‑Performance bei großen Flächen (r‑three‑fiber instancing fehlt)
-  - Kein Undo/Redo
-  - VRAM‑Last durch ungecachte Texturen
+- **Framework**: Next.js 15.1.2 (App Router, Turbopack, React 19 RC)
+- **3D-Layer**: react-three-fiber @8 + drei.js
+- **State**: Zustand mit mathematischer Präzision (GridMathematics + SpatialHashGrid)
+- **Architektur**: Mathematisch exakte Implementierung
+  - **Grid System**: 0.4m × 0.4m Zellen (400mm) - Single Pontoon Dimensionen
+  - **Koordinaten**: Millimeter-basiert für 100% Präzision (PRECISION_FACTOR: 1000)
+  - **Spatial Indexing**: O(1) Kollisionserkennung via Hash Grid
+  - **Performance**: Instanced Rendering für große Plattformen
+- **Kern Features**
+  - 2D- & 3D-Ansicht mit mathematisch präzisen Kamerapositionen
+  - Multi-Level Support mit struktureller Validierung  
+  - Snap-to-Grid System mit exakter Positionierung
+  - Undo/Redo via History-basierter State Management
+- **Mathematische Garantien**
+  - Keine Schätzwerte oder Approximationen
+  - Präzise Bounding Box Berechnungen
+  - Exakte Grid-Koordinaten für Fertigung
 
-### 1.2 Backend / Datenhaltung
+### 1.2 Backend / Datenhaltung
 
-- **Datenbank**: Vercel Postgres (Neon) – Schema noch offen
-- **API**: noch keine – keine Persistenz ausser lokalem State
+- **Datenbank**: Vercel Postgres (Neon) – Schema noch offen
+- **API**: noch keine – keine Persistenz ausser lokalem State
 - **Auth**: NextAuth vorgesehen, aber nicht implementiert
 
-### 1.3 Build & Ops
+### 1.3 Build & Ops
 
 - Deployment auf Vercel Preview/Prod
-- Keine Tests, kein CI Workflow
+- Keine Tests, kein CI Workflow
 
 ---
 
-## 2 · Zielsetzung (MVP)
+## 2 · Zielsetzung - Mathematische Basis
 
-1. **Stabiles Grid‑Editing** in 2D & 3D für Single/Double‑Pontons inkl. Rotation
-2. **Performance**: 60 fps auf Desktop & 30 fps auf Tablet (bis Grid 100×100)
-3. **Login & Projektspeicherung** in Postgres (Autosave + „Projekt speichern“‑Button)
-4. **Materialliste** (PDF‑Export) mit allen verbauten Pontons & Accessories
-5. **Rule‑Engine** für Accessory‑Platzierung (Basis: Kollisionsprüfung, Kanten‑Checks)
+### Primäres Ziel: Mathematische Exaktheit
+
+1. **Mathematisch exakte Grid-Basis** mit 0.4m × 0.4m Präzision
+2. **Spatial Hash Grid** für O(1) Performance bei großen Plattformen (100×100+ Zellen)
+3. **100% Präzise Berechnungen** - keine Approximationen oder Schätzwerte
+4. **Instanced Rendering** für 60 fps Performance bei 1000+ Pontoons
+5. **Solid Foundation** für spätere Backend Integration und CAD Export
+
+### MVP Phasen
+
+**Phase 1: Mathematische Basis** (Aktuelle Priorität)
+- GridMathematics + SpatialHashGrid Implementation
+- Millimeter-präzise Koordinaten
+- Snap-to-Grid mit mathematischer Exaktheit
+- Einfache geometrische Repräsentation (keine komplexen 3D Modelle)
+
+**Phase 2: Performance & UI** 
+- Instanced Rendering für große Grids
+- 2D/3D View Modi mit präziser Kamera-Kontrolle
+- Undo/Redo System
+- Erweiterte Interaktion (Multi-Select, Rotation)
+
+**Phase 3: Backend Integration** (Später)
+- Postgres Persistierung mit exakten Koordinaten
+- PDF Export für Materiallisten
+- User Authentication
+- CAD Export Vorbereitung
 
 ---
 
-## 3 · Architektur‑Entwurf
+## 3 · Architektur-Entwurf
 
 ```
 Next.js App Router
 │
-├─ Client Components (r3f)
-│   ├─ Canvas2D (Orthographic)
-│   └─ Canvas3D (Perspective)
+├─ Mathematische Basis (lib/)
+│   ├─ GridMathematics.ts (Koordinaten-Transformation)
+│   ├─ SpatialHashGrid.ts (O(1) Kollisionserkennung)
+│   └─ CollisionDetection.ts (Präzise Validierung)
 │
-├─ Server Components / Server Actions
-│   ├─ saveProject()
-│   └─ loadProject()
+├─ 3D Components (components/configurator/)
+│   ├─ PontoonConfigurator.tsx (Haupt-Orchestrierung)
+│   ├─ GridSystem.tsx (Visueller Grid mit exakten Linien)
+│   ├─ InteractionManager.tsx (Präzise Raycasting)
+│   └─ PontoonManager.tsx (Instanced Rendering)
 │
-├─ API Routes (tRPC)
-│   └─ /projects  ↔  Postgres (Neon)
+├─ State Management (store/)
+│   └─ configuratorStore.ts (Zustand + Spatial Index)
 │
-└─ Auth (NextAuth) → Vercel KV  Session
+└─ Server Components / Server Actions (Später)
+    ├─ saveProject() (Mit exakten Koordinaten)
+    └─ loadProject() (Mathematische Validierung)
 ```
 
-- **State > Store**
-  - `editorStore` (Zustand + Immer) ➜ Grid, Selection, Level
-  - `uiStore` (Zustand) ➜ Panels, Modals, Settings
-  - Option: XState FSM für Mode‑Wechsel (Edit, Accessory, Preview)
-- **Persistenz**
-  - Server Actions (Next.js 15) talken direkt mit prisma @5 + Neon
-  - Autosave via Debounce (5 s) während Editing (Edge Function)
-- **3D‑Optimierung**
-  - InstancedMesh für Pontons
-  - Wasser‑Material: Drei‑std Water + Neben planeDepthWrite false
-  - Grid‑Lines: ThinLineMaterial (troika‑three) oder Shader‑Instancing
+### Technische Kernpunkte
+
+- **State > Store**
+  - `configuratorStore` (Zustand + Immer + SpatialHashGrid) → Grid, Selection, History
+  - Alle Koordinaten in Millimetern für Präzision
+  - Spatial Index für O(1) Abfragen
+- **Grid System**
+  - 0.4m × 0.4m Zellen (400mm) exakt Single Pontoon Größe
+  - Vollständige Raum-Durchdringung
+  - Snap-to-Grid mit mathematischer Exaktheit
+- **3D-Optimierung**
+  - InstancedMesh für identische Pontoons
+  - Minimale Geometrie (Boxes) für Basis-Implementation
+  - Layer-basiertes Rendering (Grid, Pontoons, Hover, UI)
 
 ---
 
-## 4 · Roadmap (High‑Level)
+## 4 · Roadmap (High-Level)
 
-| Phase               | Monat | Deliverables                                                     |
-| ------------------- | ----- | ---------------------------------------------------------------- |
-|  1 Foundation       | 06    |  Refactor r3f Scene, Instancing, Level‑Toggle, Code Cleanup      |
-|  2 Backend + Auth   | 07    |  NextAuth, Postgres Schema, Server Actions save/load + Autosave  |
-|  3 Accessory System | 08    |  Accessory‑Schema, Rule‑Engine v1, UI‑Palette                    |
-|  4 Materialliste    | 09    |  PDF Generator (React‑PDF), Export‑Dialog                        |
-|  5 Mobile & QA      | 10    |  Responsive HUD, P‑WA Audit, Playwright Tests                    |
-
----
-
-## 5 · Aufgabenliste (Detail Next 4 Wochen)
-
-1. **Grid‑Refactor**
-   - [ ] `Grid.tsx` als Instanced‑Plane ersetzen
-   - [ ] Durchgezogene Linien als Shader, Level‑Color / Opacity
-2. **Pontons**
-   - [ ] `Pontoon` InstancedMesh (single)
-   - [ ] `PontoonDouble` = 2 Instanzen + Rotation Logik
-   - [ ] Hit‑Detection via raycaster → Grid‑Koordinaten
-3. **State**
-   - [ ] Zustand Store splitten (editor/ui)
-   - [ ] Undo/Redo History (immer‑based patches)
-4. **UI**
-   - [ ] Top‑Bar Level Selector (Tabs)
-   - [ ] Right‑Slide‑Panel „Materialliste“ (HeadlessUI Dialog)
-5. **Backend**
-   - [ ] Prisma schema.prisma (User, Project, Block, Accessory)
-   - [ ] Server Action `createProject`, `updateProject`
+| Phase                    | Zeitraum | Deliverables                                                     |
+| ------------------------ | -------- | ---------------------------------------------------------------- |
+| 1 Mathematische Basis    | W1-2     | GridMathematics, SpatialHashGrid, exakte Koordinaten            |
+| 2 Core 3D Implementation | W3-4     | R3F Components, Instanced Rendering, Grid System                |
+| 3 Interaktion & UI       | W5-6     | Raycasting, Tool System, Undo/Redo                             |
+| 4 Performance & Polish   | W7-8     | Optimierung, Stress Testing, UI Polish                         |
+| 5 Backend Integration    | Später   | Postgres, Server Actions, PDF Export                           |
 
 ---
 
-## 6 · Tests & CI/CD
+## 5 · Implementierung (Detail - nächste 4 Wochen)
 
-- **Unit** (Vitest, Testing Library)
-- **e2e** (Playwright @Vercel/CI) – 2D & 3D selectors via `data‑testid`
-- **Lint/Format** (ESLint + Prettier + Types‑strict)
-- **CI** (GitHub Actions → Vercel Preview)
+### Woche 1-2: Mathematische Basis
+
+1. **Type Definitions** (types/index.ts)
+   - [ ] GridPosition, PontoonElement, GridCell interfaces
+   - [ ] Mathematische Konstanten (CELL_SIZE_MM: 400, PRECISION_FACTOR: 1000)
+
+2. **Grid Mathematics** (lib/grid/GridMathematics.ts)
+   - [ ] worldToGrid(), gridToWorld() mit millimeter Präzision
+   - [ ] snapToGrid() für exakte Positionierung
+   - [ ] getGridKey(), parseGridKey() für Spatial Hashing
+
+3. **Spatial Hash Grid** (lib/grid/SpatialHashGrid.ts)
+   - [ ] insert(), remove(), query() mit O(1) Performance
+   - [ ] checkCollision() für Validierung
+   - [ ] Bounds-checking für Multi-Cell Elements
+
+### Woche 3-4: Core 3D Implementation
+
+1. **Store Implementation** (store/configuratorStore.ts)
+   - [ ] Zustand + Immer + SpatialHashGrid Integration
+   - [ ] History System für Undo/Redo
+   - [ ] addPontoon(), removePontoon() mit Spatial Index
+
+2. **Grid System** (components/configurator/GridSystem.tsx)
+   - [ ] Visueller Grid mit exakten 0.4m Linien
+   - [ ] Hover Indicator mit präziser Positionierung
+   - [ ] Layer-basiertes Rendering
+
+3. **Pontoon Management** 
+   - [ ] InstancedMesh für Performance
+   - [ ] Einfache Box Geometrie (mathematisch exakt)
+   - [ ] Selection System mit visueller Rückmeldung
+
+### Woche 5-6: Interaktion & UI
+
+1. **Interaction Manager** (components/configurator/InteractionManager.tsx)
+   - [ ] Präzises Raycasting zu Grid-Koordinaten
+   - [ ] Tool System (Select, Place, Delete, Rotate)
+   - [ ] Keyboard Shortcuts (Undo/Redo, Delete, Escape)
+
+2. **UI Components**
+   - [ ] Toolbar mit Tool Selection
+   - [ ] ViewModeToggle (2D/3D) mit präziser Kamera-Kontrolle
+   - [ ] Status Display für Grid-Koordinaten
 
 ---
 
-## 7 · Offene Fragen / Risiken
+## 6 · Tests & Validation
 
-1. **Rule‑Engine** Detailtiefe? (physikalische Prüfung vs. einfache Nachbarschafts‑Checks)
-2. **PDF‑Generation** im Edge Runtime > evtl. heavy (Fallback: Serverless Function region‑US)
-3. **Mobil‑Performance** bei 100×100 Grid + Accessories
-4. **Lizenz** für Texturen / Icons
+### Mathematische Validierung
+- **Unit Tests** für GridMathematics (Koordinaten-Transformation)
+- **Performance Tests** für SpatialHashGrid (1000+ Elements)
+- **Precision Tests** für Snap-to-Grid (Millimeter-Exaktheit)
 
----
-
-## 8 · Glossar
-
-- **Pontoon** = Einzelner Schwimmkörper 1×1 m
-- **Accessory** = Anbauteil (Ring, Cleat, Bollard …)
-- **Level** = Vertikale Ebene (‑2 bis 2)
-- **r3f** = react‑three‑fiber
-- **Instancing** = GPU‑Draw‑Call batching für viele Objekte
+### End-to-End Tests
+- **Placement Accuracy** (Visual Regression Testing)
+- **Performance Benchmarks** (60fps bei 100×100 Grid)
+- **Memory Usage** (Instanced Rendering Effizienz)
 
 ---
 
-**Nächster Schritt**: Phase 1 starten → Grid‑Refactor & Instancing.
+## 7 · Offene Fragen / Risiken
+
+1. **Performance**: Spatial Hash Grid vs. R-Tree für sehr große Grids (1000×1000)?
+2. **Memory**: Instanced Rendering Limits bei extrem großen Plattformen?
+3. **Precision**: Float64 vs. Integer-basierte Koordinaten für absolute Exaktheit?
+4. **Mobile**: Touch-basierte Interaktion mit präziser Grid-Auswahl?
+
+---
+
+## 8 · Glossar
+
+- **Pontoon** = Einzelner Schwimmkörper 0.4×0.4 m (400mm Grid)
+- **Grid Cell** = 0.4m × 0.4m Zelle mit millimeter-präzisen Koordinaten
+- **Spatial Hash** = O(1) räumliche Indexierung für Kollisionserkennung
+- **Instancing** = GPU-optimiertes Rendering für identische Objekte
+- **Snap-to-Grid** = Mathematisch exakte Positionierung auf Grid-Punkten
+- **Precision Factor** = 1000 (Millimeter-Umrechnung für Ganzzahl-Arithmetik)
+
+---
+
+**Nächster Schritt**: Implementation der mathematischen Basis starten → GridMathematics.ts + SpatialHashGrid.ts
