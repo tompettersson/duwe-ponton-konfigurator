@@ -10,9 +10,9 @@
 import { useRef, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
-import { useConfiguratorStore } from '@/store/configuratorStore';
-import { LAYERS, GRID_CONSTANTS, COLORS } from '@/lib/constants';
-import type { PontoonElement } from '@/types';
+import { useConfiguratorStore } from '../../store/configuratorStore';
+import { LAYERS, GRID_CONSTANTS, COLORS } from '../../lib/constants';
+import type { PontoonElement } from '../../types';
 
 interface PontoonProps {
   pontoon: PontoonElement;

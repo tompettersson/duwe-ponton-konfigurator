@@ -11,8 +11,8 @@ import { useRef, useEffect } from 'react';
 import { useThree } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
-import { CAMERA_POSITIONS } from '@/lib/constants';
-import type { ViewMode } from '@/types';
+import { CAMERA_POSITIONS } from '../../lib/constants';
+import type { ViewMode } from '../../types';
 
 interface CameraControllerProps {
   mode: ViewMode;

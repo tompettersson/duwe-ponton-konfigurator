@@ -12,10 +12,10 @@ import { GridSystem } from './GridSystem';
 import { CameraController } from './CameraController';
 import { InteractionManager } from './InteractionManager';
 import { PontoonManager } from './PontoonManager';
-import { useConfiguratorStore } from '@/store/configuratorStore';
+import { useConfiguratorStore } from '../../store/configuratorStore';
 import { Toolbar } from '../ui/Toolbar';
 import { ViewModeToggle } from '../ui/ViewModeToggle';
-import { COLORS, CAMERA_POSITIONS } from '@/lib/constants';
+import { COLORS, CAMERA_POSITIONS } from '../../lib/constants';
 
 export function PontoonConfigurator() {
   const viewMode = useConfiguratorStore((state) => state.viewMode);
@@ -74,16 +74,19 @@ export function PontoonConfigurator() {
 }
 
 function DebugPanel() {
-  const stats = useConfiguratorStore((state) => state.getGridStats());
+  // Get individual values instead of calling getGridStats() which creates new objects
   const selectedTool = useConfiguratorStore((state) => state.selectedTool);
   const hoveredCell = useConfiguratorStore((state) => state.hoveredCell);
+  const pontoonCount = useConfiguratorStore((state) => state.pontoons.size);
+  const selectedCount = useConfiguratorStore((state) => state.selectedIds.size);
+  const occupiedCells = useConfiguratorStore((state) => state.spatialIndex.getOccupiedCellCount());
 
   return (
     <div className="absolute bottom-4 left-4 bg-black bg-opacity-75 text-white p-3 rounded text-sm font-mono">
       <div>Tool: {selectedTool}</div>
-      <div>Pontoons: {stats.pontoonCount}</div>
-      <div>Selected: {stats.selectedCount}</div>
-      <div>Occupied Cells: {stats.occupiedCells}</div>
+      <div>Pontoons: {pontoonCount}</div>
+      <div>Selected: {selectedCount}</div>
+      <div>Occupied Cells: {occupiedCells}</div>
       {hoveredCell && (
         <div>Hover: ({hoveredCell.x}, {hoveredCell.y}, {hoveredCell.z})</div>
       )}

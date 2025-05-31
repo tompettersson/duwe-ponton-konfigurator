@@ -6,7 +6,7 @@
 
 'use client';
 
-import { useConfiguratorStore } from '@/store/configuratorStore';
+import { useConfiguratorStore } from '../../store/configuratorStore';
 import { Maximize2, Box } from 'lucide-react';
 
 export function ViewModeToggle() {

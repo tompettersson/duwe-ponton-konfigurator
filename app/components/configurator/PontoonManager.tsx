@@ -8,7 +8,7 @@
 'use client';
 
 import { useMemo } from 'react';
-import { useConfiguratorStore } from '@/store/configuratorStore';
+import { useConfiguratorStore } from '../../store/configuratorStore';
 import { Pontoon } from '../primitives/Pontoon';
 
 export function PontoonManager() {

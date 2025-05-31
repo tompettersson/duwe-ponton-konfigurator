@@ -6,7 +6,7 @@
 
 'use client';
 
-import { useConfiguratorStore } from '@/store/configuratorStore';
+import { useConfiguratorStore } from '../../store/configuratorStore';
 import {
   MousePointer2,
   Plus,
@@ -29,11 +29,13 @@ export function Toolbar() {
     setGridVisible,
     clearGrid,
     currentPontoonType,
-    setPontoonType,
-    getGridStats
+    setPontoonType
   } = useConfiguratorStore();
 
-  const stats = getGridStats();
+  // Get individual stats to avoid creating new objects on every render
+  const pontoonCount = useConfiguratorStore((state) => state.pontoons.size);
+  const selectedCount = useConfiguratorStore((state) => state.selectedIds.size);
+  const occupiedCells = useConfiguratorStore((state) => state.spatialIndex.getOccupiedCellCount());
 
   const tools = [
     { id: 'select', icon: MousePointer2, label: 'Select', shortcut: '1' },
@@ -144,15 +146,15 @@ export function Toolbar() {
       <div className="text-xs text-gray-600 space-y-1">
         <div className="flex justify-between">
           <span>Pontoons:</span>
-          <span className="font-mono">{stats.pontoonCount}</span>
+          <span className="font-mono">{pontoonCount}</span>
         </div>
         <div className="flex justify-between">
           <span>Selected:</span>
-          <span className="font-mono">{stats.selectedCount}</span>
+          <span className="font-mono">{selectedCount}</span>
         </div>
         <div className="flex justify-between">
           <span>Occupied:</span>
-          <span className="font-mono">{stats.occupiedCells}</span>
+          <span className="font-mono">{occupiedCells}</span>
         </div>
       </div>
 

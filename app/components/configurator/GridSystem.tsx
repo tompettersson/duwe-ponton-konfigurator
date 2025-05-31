@@ -10,8 +10,8 @@
 import { useRef, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
-import { useConfiguratorStore } from '@/store/configuratorStore';
-import { COLORS, LAYERS } from '@/lib/constants';
+import { useConfiguratorStore } from '../../store/configuratorStore';
+import { COLORS, LAYERS } from '../../lib/constants';
 
 export function GridSystem() {
   const { 
