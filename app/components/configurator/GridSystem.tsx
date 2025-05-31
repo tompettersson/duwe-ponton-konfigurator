@@ -25,24 +25,43 @@ export function GridSystem() {
   const groundRef = useRef<THREE.Mesh>(null);
   const hoverRef = useRef<THREE.Mesh>(null);
 
-  // Create grid lines geometry - spans entire space
+  // Create 3D grid lines geometry - multiple levels for depth perception
   const gridGeometry = useMemo(() => {
     const points: THREE.Vector3[] = [];
     const halfWidth = (gridSize.width * cellSize) / 2;
     const halfHeight = (gridSize.height * cellSize) / 2;
+    
+    // Define grid levels for 3D visualization
+    const levels = [-1, 0, 1, 2]; // Y levels in grid units
+    const levelHeight = cellSize; // 0.4m between levels
 
-    // Vertical lines (parallel to Z-axis)
-    for (let i = 0; i <= gridSize.width; i++) {
-      const x = -halfWidth + i * cellSize;
-      points.push(new THREE.Vector3(x, 0, -halfHeight));
-      points.push(new THREE.Vector3(x, 0, halfHeight));
+    for (const level of levels) {
+      const y = level * levelHeight;
+      const isMainLevel = level === 0; // Y=0 is the main building level
+      
+      // Vertical lines (parallel to Z-axis) for each level
+      for (let i = 0; i <= gridSize.width; i++) {
+        const x = -halfWidth + i * cellSize;
+        points.push(new THREE.Vector3(x, y, -halfHeight));
+        points.push(new THREE.Vector3(x, y, halfHeight));
+      }
+
+      // Horizontal lines (parallel to X-axis) for each level
+      for (let i = 0; i <= gridSize.height; i++) {
+        const z = -halfHeight + i * cellSize;
+        points.push(new THREE.Vector3(-halfWidth, y, z));
+        points.push(new THREE.Vector3(halfWidth, y, z));
+      }
     }
 
-    // Horizontal lines (parallel to X-axis)
-    for (let i = 0; i <= gridSize.height; i++) {
-      const z = -halfHeight + i * cellSize;
-      points.push(new THREE.Vector3(-halfWidth, 0, z));
-      points.push(new THREE.Vector3(halfWidth, 0, z));
+    // Vertical connector lines (parallel to Y-axis) at grid intersections
+    for (let i = 0; i <= gridSize.width; i++) {
+      for (let j = 0; j <= gridSize.height; j++) {
+        const x = -halfWidth + i * cellSize;
+        const z = -halfHeight + j * cellSize;
+        points.push(new THREE.Vector3(x, -levelHeight, z));
+        points.push(new THREE.Vector3(x, 2 * levelHeight, z));
+      }
     }
 
     return new THREE.BufferGeometry().setFromPoints(points);
@@ -54,9 +73,9 @@ export function GridSystem() {
     height: gridSize.height * cellSize,
   }), [gridSize, cellSize]);
 
-  // Update hover indicator position and color
+  // Update hover indicator position and color - only on Y=0 level
   useFrame(() => {
-    if (hoverRef.current && hoveredCell) {
+    if (hoverRef.current && hoveredCell && hoveredCell.y === 0) {
       // Convert grid position to world position
       const worldPos = gridMath.gridToWorld(hoveredCell);
       // Position hover box at pontoon height (center of box)
@@ -68,6 +87,11 @@ export function GridSystem() {
       const material = hoverRef.current.material as THREE.MeshBasicMaterial;
       material.color.set(isValid ? '#4a90e2' : '#ff4444'); // Blue for valid, red for invalid
       material.opacity = isValid ? 0.5 : 0.3;
+      hoverRef.current.visible = true;
+    } else {
+      if (hoverRef.current) {
+        hoverRef.current.visible = false;
+      }
     }
   });
 

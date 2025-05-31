@@ -56,11 +56,6 @@ export function PontoonConfigurator() {
         <InteractionManager />
         <CameraController mode={viewMode} />
         
-        {/* Test Pontoon - Fixed position for debugging */}
-        <mesh position={[0, 0.25, 0]} layers={1}>
-          <boxGeometry args={[0.4, 0.5, 0.4]} />
-          <meshStandardMaterial color="#ff0000" />
-        </mesh>
       </Canvas>
 
       {/* UI Overlay */}
@@ -105,7 +100,11 @@ function DebugPanel() {
       <div className="text-blue-400">Intersects: {intersectCount}</div>
       <div className="text-gray-400">Ray: ({raycastCoords.x.toFixed(2)}, {raycastCoords.y.toFixed(2)})</div>
       {lastClickResult && (
-        <div className={lastClickResult === 'SUCCESS' ? 'text-green-400' : 'text-red-400'}>
+        <div className={
+          lastClickResult === 'SUCCESS' ? 'text-green-400' : 
+          lastClickResult === 'WRONG_LEVEL' ? 'text-yellow-400' : 
+          'text-red-400'
+        }>
           Click: {lastClickResult}
         </div>
       )}

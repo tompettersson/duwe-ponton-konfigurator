@@ -127,6 +127,12 @@ export function InteractionManager() {
     };
 
     const handleGridClick = (gridPos: GridPosition, event: MouseEvent) => {
+      // Only allow placement on Y=0 (ground level)
+      if (gridPos.y !== 0) {
+        setLastClickResult('WRONG_LEVEL');
+        return;
+      }
+      
       switch (selectedTool) {
         case 'place':
           const success = addPontoon(gridPos);
