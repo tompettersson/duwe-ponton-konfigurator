@@ -12,6 +12,7 @@ import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { useConfiguratorStore } from '../../store/configuratorStore';
 import { COLORS, LAYERS, GRID_CONSTANTS } from '../../lib/constants';
+import { Pontoon } from '../primitives/Pontoon';
 
 export function GridSystem() {
   const { 
@@ -20,11 +21,11 @@ export function GridSystem() {
     hoveredCell, 
     canPlacePontoon,
     gridMath,
-    currentPontoonType 
+    currentPontoonType,
+    currentPontoonColor 
   } = useConfiguratorStore();
   
   const groundRef = useRef<THREE.Mesh>(null);
-  const hoverRef = useRef<THREE.Mesh>(null);
 
   // Create single level grid with vertical indicators for 3D depth perception
   const gridGeometry = useMemo(() => {
@@ -69,49 +70,6 @@ export function GridSystem() {
     height: gridSize.height * cellSize,
   }), [gridSize, cellSize]);
 
-  // Update hover indicator position, size and color - only on Y=0 level
-  useFrame(() => {
-    if (hoverRef.current && hoveredCell && hoveredCell.y === 0) {
-      // Convert grid position to world position
-      const worldPos = gridMath.gridToWorld(hoveredCell);
-      
-      // Calculate dimensions based on pontoon type
-      const width = currentPontoonType === 'double' ? cellSize * 2 : cellSize;
-      const height = GRID_CONSTANTS.PONTOON_HEIGHT_MM / GRID_CONSTANTS.PRECISION_FACTOR;
-      const depth = cellSize;
-      
-      // For double pontoons, offset position to center between two grid cells
-      if (currentPontoonType === 'double') {
-        worldPos.x += cellSize / 2; // Move right by half a cell to center between two cells
-      }
-      
-      // Update geometry if needed
-      const currentGeometry = hoverRef.current.geometry as THREE.BoxGeometry;
-      const geometryNeedsUpdate = 
-        Math.abs(currentGeometry.parameters.width - width) > 0.001 ||
-        Math.abs(currentGeometry.parameters.height - height) > 0.001 ||
-        Math.abs(currentGeometry.parameters.depth - depth) > 0.001;
-        
-      if (geometryNeedsUpdate) {
-        currentGeometry.dispose();
-        hoverRef.current.geometry = new THREE.BoxGeometry(width, height, depth);
-      }
-      
-      // Position hover box at pontoon height (center of box)
-      hoverRef.current.position.set(worldPos.x, height / 2, worldPos.z);
-
-      // Update hover color based on validity
-      const isValid = canPlacePontoon(hoveredCell);
-      const material = hoverRef.current.material as THREE.MeshBasicMaterial;
-      material.color.set(isValid ? '#4a90e2' : '#ff4444'); // Blue for valid, red for invalid
-      material.opacity = isValid ? 0.5 : 0.3;
-      hoverRef.current.visible = true;
-    } else {
-      if (hoverRef.current) {
-        hoverRef.current.visible = false;
-      }
-    }
-  });
 
   return (
     <>
@@ -140,24 +98,21 @@ export function GridSystem() {
         <meshBasicMaterial transparent opacity={0} />
       </mesh>
 
-      {/* Hover Indicator - 3D Box Preview */}
-      <mesh
-        ref={hoverRef}
-        layers={LAYERS.HOVER}
-        visible={hoveredCell !== null}
-      >
-        <boxGeometry args={[
-          cellSize, 
-          GRID_CONSTANTS.PONTOON_HEIGHT_MM / GRID_CONSTANTS.PRECISION_FACTOR, 
-          cellSize
-        ]} />
-        <meshBasicMaterial
-          color="#4a90e2"
-          opacity={0.5}
-          transparent
-          depthWrite={false}
+      {/* Hover Indicator - Real Pontoon Preview */}
+      {hoveredCell && hoveredCell.y === 0 && (
+        <Pontoon
+          pontoon={{
+            id: 'hover-preview',
+            gridPosition: hoveredCell,
+            type: currentPontoonType,
+            color: currentPontoonColor,
+            rotation: 0,
+            metadata: { isPreview: true }
+          }}
+          isSelected={false}
+          isPreview={true}
         />
-      </mesh>
+      )}
 
       {/* Grid Base - Minimal background */}
       <mesh

@@ -17,9 +17,10 @@ import type { PontoonElement } from '../../types';
 interface PontoonProps {
   pontoon: PontoonElement;
   isSelected: boolean;
+  isPreview?: boolean;
 }
 
-export function Pontoon({ pontoon, isSelected }: PontoonProps) {
+export function Pontoon({ pontoon, isSelected, isPreview = false }: PontoonProps) {
   const meshRef = useRef<THREE.Mesh>(null);
   const outlineRef = useRef<THREE.Mesh>(null);
   const gridMath = useConfiguratorStore((state) => state.gridMath);
@@ -73,7 +74,7 @@ export function Pontoon({ pontoon, isSelected }: PontoonProps) {
       <mesh
         ref={meshRef}
         userData={{ pontoonId: pontoon.id }}
-        layers={LAYERS.PONTOONS}
+        layers={isPreview ? LAYERS.HOVER : LAYERS.PONTOONS}
         castShadow={false} // Disabled for minimal implementation
         receiveShadow={false}
         visible={true} // Force visibility
@@ -81,7 +82,9 @@ export function Pontoon({ pontoon, isSelected }: PontoonProps) {
         <boxGeometry args={[dimensions.width, dimensions.height, dimensions.depth]} />
         <meshBasicMaterial 
           color={pontoonColor}
-          transparent={false}
+          transparent={isPreview}
+          opacity={isPreview ? 0.5 : 1.0}
+          depthWrite={!isPreview}
         />
       </mesh>
 
