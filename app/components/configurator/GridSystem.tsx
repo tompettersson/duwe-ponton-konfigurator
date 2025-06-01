@@ -19,7 +19,8 @@ export function GridSystem() {
     cellSize, 
     hoveredCell, 
     canPlacePontoon,
-    gridMath 
+    gridMath,
+    currentPontoonType 
   } = useConfiguratorStore();
   
   const groundRef = useRef<THREE.Mesh>(null);
@@ -68,14 +69,36 @@ export function GridSystem() {
     height: gridSize.height * cellSize,
   }), [gridSize, cellSize]);
 
-  // Update hover indicator position and color - only on Y=0 level
+  // Update hover indicator position, size and color - only on Y=0 level
   useFrame(() => {
     if (hoverRef.current && hoveredCell && hoveredCell.y === 0) {
       // Convert grid position to world position
       const worldPos = gridMath.gridToWorld(hoveredCell);
+      
+      // Calculate dimensions based on pontoon type
+      const width = currentPontoonType === 'double' ? cellSize * 2 : cellSize;
+      const height = GRID_CONSTANTS.PONTOON_HEIGHT_MM / GRID_CONSTANTS.PRECISION_FACTOR;
+      const depth = cellSize;
+      
+      // For double pontoons, offset position to center between two grid cells
+      if (currentPontoonType === 'double') {
+        worldPos.x += cellSize / 2; // Move right by half a cell to center between two cells
+      }
+      
+      // Update geometry if needed
+      const currentGeometry = hoverRef.current.geometry as THREE.BoxGeometry;
+      const geometryNeedsUpdate = 
+        Math.abs(currentGeometry.parameters.width - width) > 0.001 ||
+        Math.abs(currentGeometry.parameters.height - height) > 0.001 ||
+        Math.abs(currentGeometry.parameters.depth - depth) > 0.001;
+        
+      if (geometryNeedsUpdate) {
+        currentGeometry.dispose();
+        hoverRef.current.geometry = new THREE.BoxGeometry(width, height, depth);
+      }
+      
       // Position hover box at pontoon height (center of box)
-      const pontoonHeight = GRID_CONSTANTS.PONTOON_HEIGHT_MM / GRID_CONSTANTS.PRECISION_FACTOR;
-      hoverRef.current.position.set(worldPos.x, pontoonHeight / 2, worldPos.z);
+      hoverRef.current.position.set(worldPos.x, height / 2, worldPos.z);
 
       // Update hover color based on validity
       const isValid = canPlacePontoon(hoveredCell);

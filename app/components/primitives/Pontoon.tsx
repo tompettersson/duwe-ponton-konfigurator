@@ -27,12 +27,18 @@ export function Pontoon({ pontoon, isSelected }: PontoonProps) {
   // Calculate exact world position
   const worldPosition = useMemo(() => {
     const pos = gridMath.gridToWorld(pontoon.gridPosition);
+    
+    // For double pontoons, offset position to center between two grid cells
+    if (pontoon.type === 'double') {
+      const cellSize = GRID_CONSTANTS.CELL_SIZE_MM / GRID_CONSTANTS.PRECISION_FACTOR;
+      pos.x += cellSize / 2; // Move right by half a cell to center between two cells
+    }
+    
     // Position pontoon so bottom sits on grid plane
     pos.y = (GRID_CONSTANTS.PONTOON_HEIGHT_MM / GRID_CONSTANTS.PRECISION_FACTOR) / 2;
     
-    
     return pos;
-  }, [pontoon.gridPosition, gridMath]);
+  }, [pontoon.gridPosition, pontoon.type, gridMath]);
 
   // Calculate exact pontoon dimensions in meters
   const dimensions = useMemo(() => {
@@ -103,15 +109,6 @@ export function Pontoon({ pontoon, isSelected }: PontoonProps) {
         </mesh>
       )}
 
-      {/* Type Indicator (for debugging/visual feedback) */}
-      {process.env.NODE_ENV === 'development' && pontoon.type === 'double' && (
-        <mesh position={[0, dimensions.height / 2 + 0.05, 0]}>
-          <boxGeometry args={[0.1, 0.05, 0.1]} />
-          <meshBasicMaterial 
-            color="#ff0000"
-          />
-        </mesh>
-      )}
     </group>
   );
 }
