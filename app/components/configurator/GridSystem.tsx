@@ -1,7 +1,7 @@
 /**
  * GridSystem - Mathematical Precision Grid Visualization
  * 
- * Displays exact 0.4m x 0.4m grid with hover indicators
+ * Displays exact 0.5m x 0.5m grid with hover indicators
  * Completely fills the space for spatial reference
  */
 
@@ -11,7 +11,7 @@ import { useRef, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { useConfiguratorStore } from '../../store/configuratorStore';
-import { COLORS, LAYERS } from '../../lib/constants';
+import { COLORS, LAYERS, GRID_CONSTANTS } from '../../lib/constants';
 
 export function GridSystem() {
   const { 
@@ -25,42 +25,37 @@ export function GridSystem() {
   const groundRef = useRef<THREE.Mesh>(null);
   const hoverRef = useRef<THREE.Mesh>(null);
 
-  // Create 3D grid lines geometry - multiple levels for depth perception
+  // Create single level grid with vertical indicators for 3D depth perception
   const gridGeometry = useMemo(() => {
     const points: THREE.Vector3[] = [];
     const halfWidth = (gridSize.width * cellSize) / 2;
     const halfHeight = (gridSize.height * cellSize) / 2;
-    
-    // Define grid levels for 3D visualization
-    const levels = [-1, 0, 1, 2]; // Y levels in grid units
-    const levelHeight = cellSize; // 0.4m between levels
+    const y = 0; // Ground level only
 
-    for (const level of levels) {
-      const y = level * levelHeight;
-      const isMainLevel = level === 0; // Y=0 is the main building level
-      
-      // Vertical lines (parallel to Z-axis) for each level
-      for (let i = 0; i <= gridSize.width; i++) {
-        const x = -halfWidth + i * cellSize;
-        points.push(new THREE.Vector3(x, y, -halfHeight));
-        points.push(new THREE.Vector3(x, y, halfHeight));
-      }
-
-      // Horizontal lines (parallel to X-axis) for each level
-      for (let i = 0; i <= gridSize.height; i++) {
-        const z = -halfHeight + i * cellSize;
-        points.push(new THREE.Vector3(-halfWidth, y, z));
-        points.push(new THREE.Vector3(halfWidth, y, z));
-      }
+    // Horizontal lines (parallel to X-axis) at ground level
+    for (let i = 0; i <= gridSize.height; i++) {
+      const z = -halfHeight + i * cellSize;
+      points.push(new THREE.Vector3(-halfWidth, y, z));
+      points.push(new THREE.Vector3(halfWidth, y, z));
     }
 
-    // Vertical connector lines (parallel to Y-axis) at grid intersections
+    // Vertical lines (parallel to Z-axis) at ground level  
     for (let i = 0; i <= gridSize.width; i++) {
-      for (let j = 0; j <= gridSize.height; j++) {
+      const x = -halfWidth + i * cellSize;
+      points.push(new THREE.Vector3(x, y, -halfHeight));
+      points.push(new THREE.Vector3(x, y, halfHeight));
+    }
+
+    // Add sparse vertical indicators for 3D depth perception
+    // Only at every 5th intersection to avoid clutter
+    const step = 5;
+    for (let i = 0; i <= gridSize.width; i += step) {
+      for (let j = 0; j <= gridSize.height; j += step) {
         const x = -halfWidth + i * cellSize;
         const z = -halfHeight + j * cellSize;
-        points.push(new THREE.Vector3(x, -levelHeight, z));
-        points.push(new THREE.Vector3(x, 2 * levelHeight, z));
+        // Short vertical lines showing 3D space
+        points.push(new THREE.Vector3(x, 0, z));
+        points.push(new THREE.Vector3(x, cellSize, z)); // Up to current cellSize height
       }
     }
 
@@ -79,7 +74,7 @@ export function GridSystem() {
       // Convert grid position to world position
       const worldPos = gridMath.gridToWorld(hoveredCell);
       // Position hover box at pontoon height (center of box)
-      const pontoonHeight = 0.5; // 500mm in meters
+      const pontoonHeight = GRID_CONSTANTS.PONTOON_HEIGHT_MM / GRID_CONSTANTS.PRECISION_FACTOR;
       hoverRef.current.position.set(worldPos.x, pontoonHeight / 2, worldPos.z);
 
       // Update hover color based on validity
@@ -128,7 +123,11 @@ export function GridSystem() {
         layers={LAYERS.HOVER}
         visible={hoveredCell !== null}
       >
-        <boxGeometry args={[cellSize, 0.5, cellSize]} />
+        <boxGeometry args={[
+          cellSize, 
+          GRID_CONSTANTS.PONTOON_HEIGHT_MM / GRID_CONSTANTS.PRECISION_FACTOR, 
+          cellSize
+        ]} />
         <meshBasicMaterial
           color="#4a90e2"
           opacity={0.5}
