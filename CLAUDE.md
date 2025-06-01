@@ -11,151 +11,157 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## High-Level Architecture
 
-This is a 3D pontoon configurator built with Next.js 15 (App Router), React 19, and Three.js/React Three Fiber. The application enables users to design modular pontoon platforms using real 3D models with precise connection hole alignment for real-world manufacturing.
+This is a 3D pontoon configurator built with Next.js 15 (App Router), React 19, and Three.js/React Three Fiber. The application enables users to design modular pontoon platforms using mathematical precision and efficient state management for real-world manufacturing.
 
 ### Key Components Structure
 
-The application uses a modular component architecture:
+The application uses a mathematically-precise component architecture:
 
-- **App.jsx** - Main application component that orchestrates the entire configurator
-- **PontoonScene.jsx** - Manages 3D scene state and element management logic
-- **Scene.jsx** - Three.js canvas setup with camera controls and mixed rendering
-- **SimpleGridSystem.jsx** - Real-world grid system with 0.5m spacing and crosshair markers
-- **PontoonInstances.jsx** - Instanced rendering for single pontoons (blue boxes)
-- **PontoonModels.jsx** - Real 3D model rendering for double pontoons with precise alignment
-- **WaterPlane.jsx** - Water visualization with animated normal maps
-- **Toolbar.jsx** - Tool selection with 4-color pontoon picker and German UI
+- **App.tsx** - Simplified main application component that orchestrates the configurator
+- **PontoonConfigurator.tsx** - Main 3D configurator component with Canvas setup and UI overlay
+- **GridSystem.tsx** - Mathematical precision grid visualization with 0.5m spacing
+- **PontoonManager.tsx** - Efficient pontoon rendering manager for all instances
+- **InteractionManager.tsx** - Precise mouse/touch interaction with raycasting
+- **CameraController.tsx** - View mode management (2D/3D camera positions)
+- **Pontoon.tsx** - Individual pontoon component with exact positioning
+- **Toolbar.tsx** - Tool selection with 4-color pontoon picker and German UI
 
 ### State Management
 
-**Zustand Store** (`app/store/useStore.js`) manages all application state:
-- **Grid state**: Elements with colors, real-world positions, support-based validation
-- **Tool state**: Current tool, rotation, selected pontoon color
-- **UI state**: View mode (2D/3D), panels, selections
-- **Project metadata**: Name, timestamps for cost calculations
-- **LocalStorage persistence**: Auto-save/load functionality
-- **Color tracking**: Each pontoon stores its color for material lists
+**Zustand Store** (`app/store/configuratorStore.ts`) with mathematical precision:
+- **Grid mathematics**: SpatialHashGrid, GridMathematics, CollisionDetection integration
+- **Pontoon management**: Map-based storage with Set for selections
+- **Tool state**: Current tool, pontoon type/color, view mode
+- **History system**: Undo/redo with action tracking
+- **Validation**: Collision detection and placement validation
+- **Performance**: Spatial indexing for optimal rendering
 
-### 3D Rendering Approach - Mixed System ✨
+### 3D Rendering Approach - Mathematical Precision ✨
 
-**MAJOR UPDATE (2025-05-26): Implemented mixed rendering with real 3D models**
+**CURRENT SYSTEM (2025-01-06): Mathematical precision with simple geometry**
 
-- **Single Pontoons**: Blue boxes (0.5m x 0.4m x 0.5m) via PontoonInstances
-- **Double Pontoons**: Real 3D models (1.096m x 0.4m x 0.5m) via PontoonModels
-- **3D Model Integration**: Uses fc/Ponton.obj with material files
-- **Precise Scaling**: 1.096m target size with automatic bounding box calculation
-- **Perfect Alignment**: +0.24 positioning offset for connection hole alignment
-- **Color System**: 4 pontoon colors (Blue #5578B7, Black #111111, Grey #DFE0E1, Yellow #F6DE91)
+- **Single Pontoons**: 0.5m x 0.4m x 0.5m box geometry with exact positioning
+- **Double Pontoons**: 1.0m x 0.4m x 0.5m box geometry (2x single width)
+- **Mathematical Positioning**: GridMathematics system converts grid to world coordinates
+- **Spatial Indexing**: SpatialHashGrid for efficient collision detection and rendering
+- **Color System**: 4 pontoon colors (Blue #6183c2, Black #111111, Grey #e3e4e5, Yellow #f7e295)
+- **Preview System**: Real pontoon preview with transparency on hover
 
-### Grid System - Real-World Dimensions
+### Grid System - Mathematical Precision
 
-**Completely overhauled for real-world accuracy:**
-- **Grid spacing**: 0.5m (500mm) - matches single pontoon size
-- **Grid cells**: Visual 0.5m x 0.5m squares with crosshair markers
-- **Connection alignment**: Crosshairs mark exact positions where pontoon holes connect
-- **Multi-level support**: Levels -1 to 2 with structural support validation
-- **Real coordinates**: All positions in meters for cost/material calculations
+**Real-world accuracy with mathematical foundations:**
+- **Grid spacing**: 0.5m (500mm) - exact single pontoon size
+- **Grid mathematics**: GridMathematics class for precise coordinate conversion
+- **Spatial indexing**: SpatialHashGrid for O(1) collision detection
+- **Ground level only**: Simplified to Y=0 level for minimal implementation
+- **Real coordinates**: All positions in millimeters internally, meters for display
 
-### Recent Major Updates (2025-05-26)
+### Recent Major Updates (2025-01-06)
 
-✅ **3D Model Integration Completed:**
-- Successfully integrated real CAD models (fc/Ponton.obj + materials)
-- Solved model centering issues (off-center origin: -6.87, 14.75, -7.39)
-- Achieved precise scaling: 1.096m pontoons align connection holes with crosshairs
-- Implemented mixed rendering: singles=boxes, doubles=3D models
+✅ **Mathematical Precision Implementation:**
+- Complete architectural refactor from old App.jsx to modern TypeScript structure
+- Implemented SpatialHashGrid for O(1) collision detection and spatial queries
+- GridMathematics system for exact coordinate conversion with millimeter precision
+- CollisionDetection system for placement validation and connectivity checks
 
-✅ **Real-World Grid System:**
-- Migrated from arbitrary units to 0.5m real-world spacing
-- Fixed grid cell visual size to match logical spacing
-- Added crosshair markers at intersection points for connection visualization
-- Implemented support-based building logic (upper levels need lower support)
+✅ **Modern Component Architecture:**
+- Migrated to TypeScript with proper type definitions
+- Modular component structure with clear separation of concerns
+- Zustand store with Immer for immutable state management
+- Debug system with development-only overlays
 
-✅ **User Experience Improvements:**
-- German UI translation with toast notifications
-- 4-color pontoon system with toolbar color picker
-- Fixed hover preview alignment (exactly matches placement)
-- Eliminated transparency confusion (other levels show as opaque gray)
+✅ **Performance Optimizations:**
+- Map/Set based storage for efficient pontoon management
+- Spatial indexing eliminates O(n) searches for large grids
+- Test pontoons distributed across 50x50 grid to verify rendering performance
+- Layer-based raycasting for precise interaction management
 
-✅ **Technical Challenges Solved:**
-- **Model positioning**: Discovered and compensated for off-center model origin
-- **Scale calculation**: Automatic bounding box measurement and precise scaling
-- **Grid alignment**: Fixed coordinate system inconsistencies
-- **Performance**: Mixed rendering reduces complexity while maintaining detail
+✅ **Developer Experience:**
+- Comprehensive debug panel with real-time statistics
+- Keyboard shortcuts for tool switching and operations
+- History system with undo/redo functionality
+- Mathematical validation throughout the stack
 
 ### Current State & Next Priorities
 
-**Current Status (2025-05-26):**
-- ✅ Real 3D model integration working with precise alignment
-- ✅ Mixed rendering system stable (singles=boxes, doubles=3D models)  
-- ✅ 4-color system implemented with German UI
-- ✅ Real-world dimensions (0.5m grid spacing) for cost calculations
-- ✅ Connection holes align with crosshairs (ready for connector system)
+**Current Status (2025-01-06):**
+- ✅ Mathematical precision architecture complete with TypeScript
+- ✅ SpatialHashGrid system providing O(1) performance for large grids
+- ✅ GridMathematics and CollisionDetection systems working correctly  
+- ✅ 4-color pontoon system with simple box geometry
+- ✅ Real-world dimensions (0.5m grid spacing) ready for cost calculations
+- ✅ Debug system and developer tools implemented
 
 **Immediate Next Steps:**
 
-1. **3D Model Optimization**
-   - Find or create dedicated single pontoon model (currently using fc/Einzel-Scheibe.obj)
-   - Test other models in /public/3d/ folder for single pontoons
-   - Consider mathematical positioning approach instead of trial-and-error offsets
-
-2. **Core Functionality**
+1. **User Interface Enhancements**
    - Material list panel with pontoon counts by color
    - JSON export/import for projects with real-world dimensions
    - Clear grid confirmation dialog
-   - Keyboard shortcuts for tool switching
+   - Enhanced toolbar with tool descriptions
 
-3. **Connector System Foundation**
-   - Add connector elements from /public/3d/fc/ folder (Verbinder.obj, etc.)
-   - Implement automatic connector placement between adjacent pontoons
-   - Validate connection compatibility between different pontoon colors
+2. **Advanced Functionality**
+   - Complete rotation system for pontoons
+   - Copy/paste and duplication operations
+   - Multi-level support (if needed beyond ground level)
+   - Advanced selection tools (box select, lasso)
 
-4. **User Experience**
-   - Undo/Redo functionality
-   - Project naming and metadata
-   - Performance optimization for large platforms
+3. **3D Model Integration** (Future)
+   - Integrate real CAD models from /public/3d/ folder
+   - Implement connector system with automatic placement
+   - Advanced rendering optimizations
+
+4. **Production Features**
+   - Cost calculation system based on real dimensions
+   - PDF export for material lists and assembly instructions
+   - Project persistence and cloud storage
 
 ### Technical Documentation
 
-**3D Model Details:**
-- **Double Pontoon**: fc/Ponton.obj (1107.59 x 405.00 x 607.59 mm)
-- **Scaling Formula**: targetSize(1.096m) / originalSize(1107.59mm) = scale factor
-- **Position Compensation**: +0.24 in X-axis to align connection holes
-- **Model Origin Offset**: (-6.87, 14.75, -7.39) must be compensated
+**Mathematical System Architecture:**
+- **GridMathematics**: Converts between grid coordinates and world positions
+- **SpatialHashGrid**: O(1) spatial queries with configurable cell size (500mm)
+- **CollisionDetection**: Validates pontoon placement and connectivity
+- **Precision**: All internal calculations in millimeters, display in meters
 
 **Critical Constants:**
-```javascript
-GRID_SPACING = 0.5; // meters (500mm)
-PONTOON_SCALE = 1.096; // meters target size  
-POSITION_OFFSET_X = 0.24; // meters alignment adjustment
-MODEL_OFFSET = {x: 6.87, y: -14.75, z: 7.39}; // model origin compensation
+```typescript
+GRID_CONSTANTS = {
+  CELL_SIZE_MM: 500,        // 0.5m single pontoon size
+  PONTOON_HEIGHT_MM: 400,   // 0.4m standard height
+  GRID_SIZE: 50,            // 50x50 default grid
+  PRECISION_FACTOR: 1000,   // Convert meters to millimeters
+  EPSILON: 0.001,           // Floating point comparisons
+}
 ```
 
-**Known Issues & Workarounds:**
-- Model positioning uses trial-and-error offsets (should be mathematical)
-- Single pontoons use placeholder boxes (need real 3D model)
-- Connection hole alignment achieved but not validated with real connectors
+**Current Implementation Notes:**
+- Simple box geometry provides mathematical accuracy without complexity
+- Spatial indexing enables 50x50 grids (2500 cells) with optimal performance
+- Type system ensures coordinate consistency throughout application
+- Debug system provides real-time validation of mathematical operations
 
 ### Future Architecture
 
-**Phase 1 - Enhanced 3D Models:**
-- Complete 3D model integration for all pontoon types
-- Connector system with automatic placement
-- Material cost calculations with real dimensions
+**Phase 1 - Enhanced User Experience:**
+- Complete UI/UX implementation with material lists and project management
+- Advanced selection and editing tools
+- Export/import functionality for project persistence
 
-**Phase 2 - Backend Integration:**
-- Symfony API for project persistence
-- User authentication and project management  
-- PDF export for material lists and assembly instructions
+**Phase 2 - 3D Model Integration:**
+- Real CAD model integration from /public/3d/ assets
+- Connector system with automatic placement between pontoons
+- Advanced rendering optimizations for large platforms
 
 **Phase 3 - Manufacturing Integration:**
-- Direct CAD export capabilities
-- Assembly instruction generation
-- Real-world validation with physical pontoons
+- Cost calculation system based on real material dimensions
+- PDF export for assembly instructions and material lists
+- Direct CAD export capabilities for manufacturing
 
 ### Development Notes
 
 **For Future Developers:**
-- All coordinates are in meters for real-world compatibility
-- Model scaling is automatic but positioning needs manual adjustment
-- Grid crosshairs indicate exact connection points for future connector system
-- State management ready for cost calculations and material ordering
+- Mathematical precision is the foundation - maintain millimeter accuracy
+- Spatial indexing enables large grids - don't break the performance model
+- Type safety is enforced throughout - follow the established patterns
+- Debug system provides validation - use it to verify mathematical operations
