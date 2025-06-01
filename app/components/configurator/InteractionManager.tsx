@@ -34,6 +34,7 @@ export function InteractionManager() {
     redo,
     gridMath,
     getPontoonAt,
+    gridSize,
   } = useConfiguratorStore();
 
   // Debug store
@@ -60,7 +61,7 @@ export function InteractionManager() {
         const intersection = intersects.find(hit => hit.object.userData.isGround);
         if (intersection) {
           // Convert world position to precise grid coordinates
-          const gridPos = gridMath.worldToGrid(intersection.point);
+          const gridPos = gridMath.worldToGrid(intersection.point, gridSize);
           setHoveredCell(gridPos);
         } else {
           setHoveredCell(null);
@@ -96,7 +97,7 @@ export function InteractionManager() {
       if (gridIntersects.length > 0) {
         const intersection = gridIntersects.find(hit => hit.object.userData.isGround);
         if (intersection) {
-          const gridPos = gridMath.worldToGrid(intersection.point);
+          const gridPos = gridMath.worldToGrid(intersection.point, gridSize);
           
           
           handleGridClick(gridPos, event);
@@ -263,7 +264,8 @@ export function InteractionManager() {
     undo,
     redo,
     gridMath,
-    getPontoonAt
+    getPontoonAt,
+    gridSize
   ]);
 
   return null; // This component doesn't render anything

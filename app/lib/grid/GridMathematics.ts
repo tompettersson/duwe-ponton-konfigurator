@@ -22,30 +22,40 @@ export class GridMathematics {
   /**
    * Convert world position (THREE.Vector3 in meters) to grid coordinates
    * Returns integer grid position for exact cell addressing
+   * Accounts for grid being centered around world origin
    */
-  worldToGrid(worldPos: THREE.Vector3): GridPosition {
+  worldToGrid(worldPos: THREE.Vector3, gridSize: { width: number; height: number } = { width: 50, height: 50 }): GridPosition {
     // Convert to millimeters for precision
     const xMM = metersToMM(worldPos.x);
     const yMM = metersToMM(worldPos.y);
     const zMM = metersToMM(worldPos.z);
 
-    // Calculate grid coordinates (integer division)
+    // Calculate offset to account for grid centering
+    const halfGridWidthMM = (gridSize.width * this.cellSizeMM) / 2;
+    const halfGridHeightMM = (gridSize.height * this.cellSizeMM) / 2;
+
+    // Calculate grid coordinates (integer division) with centering offset
     return {
-      x: Math.floor(xMM / this.cellSizeMM),
-      y: Math.floor(yMM / this.cellSizeMM),
-      z: Math.floor(zMM / this.cellSizeMM),
+      x: Math.floor((xMM + halfGridWidthMM) / this.cellSizeMM),
+      y: Math.floor(yMM / this.cellSizeMM), // Y unchanged (height)
+      z: Math.floor((zMM + halfGridHeightMM) / this.cellSizeMM),
     };
   }
 
   /**
    * Convert grid coordinates to world position (THREE.Vector3 in meters)
    * Returns exact center position of the grid cell
+   * Grid is centered around world origin (0,0,0)
    */
-  gridToWorld(gridPos: GridPosition): THREE.Vector3 {
-    // Calculate millimeter coordinates (cell center)
-    const xMM = gridPos.x * this.cellSizeMM + this.cellSizeMM / 2;
-    const yMM = gridPos.y * this.cellSizeMM + this.cellSizeMM / 2;
-    const zMM = gridPos.z * this.cellSizeMM + this.cellSizeMM / 2;
+  gridToWorld(gridPos: GridPosition, gridSize: { width: number; height: number } = { width: 50, height: 50 }): THREE.Vector3 {
+    // Calculate offset to center grid around world origin
+    const halfGridWidthMM = (gridSize.width * this.cellSizeMM) / 2;
+    const halfGridHeightMM = (gridSize.height * this.cellSizeMM) / 2;
+    
+    // Calculate millimeter coordinates (cell center) with grid centering
+    const xMM = gridPos.x * this.cellSizeMM + this.cellSizeMM / 2 - halfGridWidthMM;
+    const yMM = gridPos.y * this.cellSizeMM + this.cellSizeMM / 2; // Y stays unchanged (height)
+    const zMM = gridPos.z * this.cellSizeMM + this.cellSizeMM / 2 - halfGridHeightMM;
 
     // Convert to meters
     return new THREE.Vector3(

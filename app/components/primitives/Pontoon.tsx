@@ -24,10 +24,11 @@ export function Pontoon({ pontoon, isSelected, isPreview = false }: PontoonProps
   const meshRef = useRef<THREE.Mesh>(null);
   const outlineRef = useRef<THREE.Mesh>(null);
   const gridMath = useConfiguratorStore((state) => state.gridMath);
+  const gridSize = useConfiguratorStore((state) => state.gridSize);
 
   // Calculate exact world position
   const worldPosition = useMemo(() => {
-    const pos = gridMath.gridToWorld(pontoon.gridPosition);
+    const pos = gridMath.gridToWorld(pontoon.gridPosition, gridSize);
     
     // For double pontoons, offset position to center between two grid cells
     if (pontoon.type === 'double') {
@@ -39,7 +40,7 @@ export function Pontoon({ pontoon, isSelected, isPreview = false }: PontoonProps
     pos.y = (GRID_CONSTANTS.PONTOON_HEIGHT_MM / GRID_CONSTANTS.PRECISION_FACTOR) / 2;
     
     return pos;
-  }, [pontoon.gridPosition, pontoon.type, gridMath]);
+  }, [pontoon.gridPosition, pontoon.type, gridMath, gridSize]);
 
   // Calculate exact pontoon dimensions in meters
   const dimensions = useMemo(() => {

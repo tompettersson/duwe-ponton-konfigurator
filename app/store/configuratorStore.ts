@@ -112,22 +112,22 @@ export const useConfiguratorStore = create<ConfiguratorState>()(
         const gridMath = new GridMathematics(GRID_CONSTANTS.CELL_SIZE_MM);
         const collisionDetection = new CollisionDetection(spatialIndex, gridMath);
 
-        // Initialize with test pontoons to verify rendering
+        // Initialize with test pontoons distributed across entire grid to verify rendering
         const initialPontoons = new Map<string, PontoonElement>();
         const testPositions = [
-          { x: 0, y: 0, z: 0 },
-          { x: 1, y: 0, z: 0 },
-          { x: 2, y: 0, z: 0 },
-          { x: 0, y: 0, z: 1 },
-          { x: 1, y: 0, z: 1 },
-          { x: 2, y: 0, z: 1 },
-          { x: 0, y: 0, z: 2 },
-          { x: 1, y: 0, z: 2 },
-          { x: 2, y: 0, z: 2 },
-          { x: 3, y: 0, z: 1 },
-          { x: 4, y: 0, z: 1 },
-          { x: 5, y: 0, z: 1 },
-          { x: 3, y: 0, z: 2 },
+          { x: 0, y: 0, z: 0 },     // Grid corner
+          { x: 49, y: 0, z: 49 },   // Opposite corner
+          { x: 25, y: 0, z: 25 },   // Grid center  
+          { x: 10, y: 0, z: 10 },   // Lower left quadrant
+          { x: 40, y: 0, z: 10 },   // Lower right quadrant
+          { x: 10, y: 0, z: 40 },   // Upper left quadrant
+          { x: 40, y: 0, z: 40 },   // Upper right quadrant
+          { x: 0, y: 0, z: 25 },    // Left edge center
+          { x: 49, y: 0, z: 25 },   // Right edge center
+          { x: 25, y: 0, z: 0 },    // Bottom edge center
+          { x: 25, y: 0, z: 49 },   // Top edge center
+          { x: 12, y: 0, z: 37 },   // Random position 1
+          { x: 33, y: 0, z: 8 },    // Random position 2
         ];
 
         testPositions.forEach((pos, index) => {
