@@ -35,6 +35,12 @@ export function InteractionManager() {
     gridMath,
     getPontoonAt,
     gridSize,
+    // Multi-Drop
+    isDragging,
+    startDrag,
+    updateDrag,
+    endDrag,
+    cancelDrag,
   } = useConfiguratorStore();
 
   // Debug store
@@ -62,16 +68,30 @@ export function InteractionManager() {
         if (intersection) {
           // Convert world position to precise grid coordinates
           const gridPos = gridMath.worldToGrid(intersection.point, gridSize);
-          setHoveredCell(gridPos);
+          
+          // Handle multi-drop drag update
+          if (selectedTool === 'multi-drop' && isDragging) {
+            const mousePos = {
+              x: event.clientX - rect.left,
+              y: event.clientY - rect.top
+            };
+            updateDrag(gridPos, mousePos);
+          } else {
+            setHoveredCell(gridPos);
+          }
         } else {
-          setHoveredCell(null);
+          if (selectedTool !== 'multi-drop' || !isDragging) {
+            setHoveredCell(null);
+          }
         }
       } else {
-        setHoveredCell(null);
+        if (selectedTool !== 'multi-drop' || !isDragging) {
+          setHoveredCell(null);
+        }
       }
     };
 
-    const handleClick = (event: MouseEvent) => {
+    const handleMouseDown = (event: MouseEvent) => {
       if (event.button !== 0) return; // Left click only
 
       raycaster.current.setFromCamera(pointer.current, camera);
@@ -99,10 +119,30 @@ export function InteractionManager() {
         if (intersection) {
           const gridPos = gridMath.worldToGrid(intersection.point, gridSize);
           
-          
-          handleGridClick(gridPos, event);
+          if (selectedTool === 'multi-drop') {
+            handleMultiDropStart(gridPos, event);
+          } else {
+            handleGridClick(gridPos, event);
+          }
         }
       }
+    };
+
+    const handleMouseUp = (event: MouseEvent) => {
+      if (event.button !== 0) return; // Left click only
+      
+      if (selectedTool === 'multi-drop' && isDragging) {
+        endDrag();
+      }
+    };
+
+    const handleMultiDropStart = (gridPos: GridPosition, event: MouseEvent) => {
+      const rect = gl.domElement.getBoundingClientRect();
+      const mousePos = {
+        x: event.clientX - rect.left,
+        y: event.clientY - rect.top
+      };
+      startDrag(gridPos, mousePos);
     };
 
     const handlePontoonClick = (pontoonId: string, event: MouseEvent) => {
@@ -165,9 +205,6 @@ export function InteractionManager() {
       }
 
       switch (event.key) {
-        case 'Escape':
-          clearSelection();
-          break;
           
         case 'Delete':
         case 'Backspace':
@@ -188,6 +225,10 @@ export function InteractionManager() {
           
         case '4':
           useConfiguratorStore.getState().setTool('rotate');
+          break;
+          
+        case '5':
+          useConfiguratorStore.getState().setTool('multi-drop');
           break;
           
         case 'a':
@@ -224,6 +265,14 @@ export function InteractionManager() {
           useConfiguratorStore.getState().setGridVisible(!isVisible);
           break;
           
+        case 'Escape':
+          if (selectedTool === 'multi-drop' && isDragging) {
+            cancelDrag();
+          } else {
+            clearSelection();
+          }
+          break;
+          
         default:
           break;
       }
@@ -235,7 +284,8 @@ export function InteractionManager() {
 
     // Add event listeners
     gl.domElement.addEventListener('pointermove', handlePointerMove);
-    gl.domElement.addEventListener('click', handleClick);
+    gl.domElement.addEventListener('mousedown', handleMouseDown);
+    gl.domElement.addEventListener('mouseup', handleMouseUp);
     gl.domElement.addEventListener('contextmenu', handleContextMenu);
     window.addEventListener('keydown', handleKeyDown);
 
@@ -245,7 +295,8 @@ export function InteractionManager() {
 
     return () => {
       gl.domElement.removeEventListener('pointermove', handlePointerMove);
-      gl.domElement.removeEventListener('click', handleClick);
+      gl.domElement.removeEventListener('mousedown', handleMouseDown);
+      gl.domElement.removeEventListener('mouseup', handleMouseUp);
       gl.domElement.removeEventListener('contextmenu', handleContextMenu);
       window.removeEventListener('keydown', handleKeyDown);
     };
@@ -265,7 +316,13 @@ export function InteractionManager() {
     redo,
     gridMath,
     getPontoonAt,
-    gridSize
+    gridSize,
+    // Multi-Drop dependencies
+    isDragging,
+    startDrag,
+    updateDrag,
+    endDrag,
+    cancelDrag
   ]);
 
   return null; // This component doesn't render anything

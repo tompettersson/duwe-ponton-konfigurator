@@ -43,7 +43,7 @@ export interface SpatialElement {
 }
 
 // Tool Types
-export type Tool = 'select' | 'place' | 'delete' | 'rotate';
+export type Tool = 'select' | 'place' | 'delete' | 'rotate' | 'multi-drop';
 export type ViewMode = '2d' | '3d';
 export type PontoonType = PontoonElement['type'];
 export type PontoonColor = PontoonElement['color'];

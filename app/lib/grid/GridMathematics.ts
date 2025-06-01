@@ -118,14 +118,22 @@ export class GridMathematics {
    * Get all grid positions in a rectangular area
    */
   getGridPositionsInArea(
-    min: GridPosition,
-    max: GridPosition
+    start: GridPosition,
+    end: GridPosition
   ): GridPosition[] {
     const positions: GridPosition[] = [];
+    
+    // Calculate min/max to handle any drag direction
+    const minX = Math.min(start.x, end.x);
+    const maxX = Math.max(start.x, end.x);
+    const minY = Math.min(start.y, end.y);
+    const maxY = Math.max(start.y, end.y);
+    const minZ = Math.min(start.z, end.z);
+    const maxZ = Math.max(start.z, end.z);
 
-    for (let x = min.x; x <= max.x; x++) {
-      for (let y = min.y; y <= max.y; y++) {
-        for (let z = min.z; z <= max.z; z++) {
+    for (let x = minX; x <= maxX; x++) {
+      for (let y = minY; y <= maxY; y++) {
+        for (let z = minZ; z <= maxZ; z++) {
           positions.push({ x, y, z });
         }
       }

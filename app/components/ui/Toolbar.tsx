@@ -16,7 +16,8 @@ import {
   Redo2,
   Grid3X3,
   Eye,
-  EyeOff
+  EyeOff,
+  Square
 } from 'lucide-react';
 
 export function Toolbar() {
@@ -44,6 +45,7 @@ export function Toolbar() {
     { id: 'place', icon: Plus, label: 'Place', shortcut: '2' },
     { id: 'delete', icon: Trash2, label: 'Delete', shortcut: '3' },
     { id: 'rotate', icon: RotateCw, label: 'Rotate', shortcut: '4' },
+    { id: 'multi-drop', icon: Square, label: 'Multi-Drop', shortcut: '5' },
   ] as const;
 
   const pontoonTypes = [
@@ -64,7 +66,7 @@ export function Toolbar() {
       <div className="flex flex-col gap-1">
         <div className="text-xs font-semibold text-gray-600 mb-1">Tools</div>
         <div className="grid grid-cols-2 gap-1">
-          {tools.map((tool) => (
+          {tools.slice(0, 4).map((tool) => (
             <button
               key={tool.id}
               onClick={() => setTool(tool.id as any)}
@@ -80,6 +82,19 @@ export function Toolbar() {
             </button>
           ))}
         </div>
+        {/* Multi-Drop Tool - Full Width */}
+        <button
+          onClick={() => setTool('multi-drop')}
+          className={`p-2 rounded transition-colors text-sm flex items-center gap-2 ${
+            selectedTool === 'multi-drop'
+              ? 'bg-orange-500 text-white'
+              : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+          }`}
+          title="Multi-Drop (5)"
+        >
+          <Square size={16} />
+          <span className="text-xs">Multi-Drop</span>
+        </button>
       </div>
 
       {/* Pontoon Type Selection */}

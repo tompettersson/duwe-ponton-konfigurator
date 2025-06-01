@@ -49,6 +49,14 @@ interface ConfiguratorState {
   isGridVisible: boolean;
   showCoordinates: boolean;
 
+  // Multi-Drop State
+  dragStart: GridPosition | null;
+  dragEnd: GridPosition | null;
+  dragStartMouse: { x: number; y: number } | null;
+  dragEndMouse: { x: number; y: number } | null;
+  isDragging: boolean;
+  previewPositions: Set<string>;
+
   // History
   history: HistoryAction[];
   historyIndex: number;
@@ -74,6 +82,13 @@ interface ConfiguratorState {
   setPontoonColor: (color: PontoonColor) => void;
   setGridVisible: (visible: boolean) => void;
   setShowCoordinates: (show: boolean) => void;
+  
+  // Actions - Multi-Drop
+  startDrag: (position: GridPosition, mousePos: { x: number; y: number }) => void;
+  updateDrag: (position: GridPosition, mousePos: { x: number; y: number }) => void;
+  endDrag: () => void;
+  cancelDrag: () => void;
+  addPontoonsInArea: (startPos: GridPosition, endPos: GridPosition) => boolean;
   
   // Actions - History
   undo: () => void;
@@ -166,6 +181,14 @@ export const useConfiguratorStore = create<ConfiguratorState>()(
           currentPontoonColor: 'blue',
           isGridVisible: true,
           showCoordinates: false,
+
+          // Multi-Drop State
+          dragStart: null,
+          dragEnd: null,
+          dragStartMouse: null,
+          dragEndMouse: null,
+          isDragging: false,
+          previewPositions: new Set(),
 
           history: [],
           historyIndex: -1,
@@ -376,6 +399,121 @@ export const useConfiguratorStore = create<ConfiguratorState>()(
             set((draft) => {
               draft.showCoordinates = show;
             });
+          },
+
+          // Multi-Drop Actions
+          startDrag: (position, mousePos) => {
+            set((draft) => {
+              draft.isDragging = true;
+              draft.dragStart = position;
+              draft.dragEnd = position;
+              draft.dragStartMouse = mousePos;
+              draft.dragEndMouse = mousePos;
+              draft.previewPositions.clear();
+            });
+          },
+
+          updateDrag: (position, mousePos) => {
+            set((draft) => {
+              if (!draft.isDragging || !draft.dragStart) return;
+              
+              draft.dragEnd = position;
+              draft.dragEndMouse = mousePos;
+              
+              // Calculate preview positions in drag area
+              const { gridMath } = get();
+              const positions = gridMath.getGridPositionsInArea(draft.dragStart, position);
+              draft.previewPositions.clear();
+              positions.forEach(pos => {
+                const key = `${pos.x},${pos.y},${pos.z}`;
+                draft.previewPositions.add(key);
+              });
+            });
+          },
+
+          endDrag: () => {
+            const state = get();
+            if (!state.isDragging || !state.dragStart || !state.dragEnd) return;
+            
+            // Perform batch placement
+            const success = state.addPontoonsInArea(state.dragStart, state.dragEnd);
+            
+            set((draft) => {
+              draft.isDragging = false;
+              draft.dragStart = null;
+              draft.dragEnd = null;
+              draft.dragStartMouse = null;
+              draft.dragEndMouse = null;
+              draft.previewPositions.clear();
+            });
+            
+            return success;
+          },
+
+          cancelDrag: () => {
+            set((draft) => {
+              draft.isDragging = false;
+              draft.dragStart = null;
+              draft.dragEnd = null;
+              draft.dragStartMouse = null;
+              draft.dragEndMouse = null;
+              draft.previewPositions.clear();
+            });
+          },
+
+          addPontoonsInArea: (startPos, endPos) => {
+            const state = get();
+            const positions = state.gridMath.getGridPositionsInArea(startPos, endPos);
+            
+            if (positions.length === 0) return false;
+            
+            set((draft) => {
+              // Remove existing pontoons in area
+              positions.forEach(pos => {
+                const existing = state.getPontoonAt(pos);
+                if (existing) {
+                  draft.pontoons.delete(existing.id);
+                  draft.spatialIndex.remove(existing.id);
+                }
+              });
+              
+              // Add double pontoons at all positions
+              const addedIds: string[] = [];
+              positions.forEach(pos => {
+                const id = generateId('pontoon-multi-');
+                const pontoon: PontoonElement = {
+                  id,
+                  gridPosition: pos,
+                  rotation: 0,
+                  type: 'double',
+                  color: draft.currentPontoonColor,
+                  metadata: { createdAt: Date.now(), multiDrop: true },
+                };
+                
+                draft.pontoons.set(id, pontoon);
+                draft.spatialIndex.insert(id, pos, { x: 2, y: 1, z: 1 });
+                addedIds.push(id);
+              });
+              
+              // Add to history as single action
+              const action: HistoryAction = {
+                action: 'multi-drop' as any,
+                pontoons: positions.map(pos => {
+                  const pontoon = Array.from(draft.pontoons.values()).find(p => 
+                    p.gridPosition.x === pos.x && p.gridPosition.y === pos.y && p.gridPosition.z === pos.z
+                  );
+                  return pontoon!;
+                }),
+                area: { start: startPos, end: endPos },
+                timestamp: Date.now(),
+              };
+              
+              draft.history = draft.history.slice(0, draft.historyIndex + 1);
+              draft.history.push(action);
+              draft.historyIndex++;
+            });
+            
+            return true;
           },
 
           // History Actions

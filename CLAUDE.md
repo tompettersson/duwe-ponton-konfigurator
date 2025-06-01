@@ -9,6 +9,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `npm run lint` - Run ESLint to check code quality
 - `npm start` - Start the production server
 
+**WICHTIGE REGEL**: Claude startet NIEMALS automatisch den Development Server. Immer den User bitten, `npm run dev` selbst zu starten.
+
 ## High-Level Architecture
 
 This is a 3D pontoon configurator built with Next.js 15 (App Router), React 19, and Three.js/React Three Fiber. The application enables users to design modular pontoon platforms using mathematical precision and efficient state management for real-world manufacturing.
@@ -165,3 +167,9 @@ GRID_CONSTANTS = {
 - Spatial indexing enables large grids - don't break the performance model
 - Type safety is enforced throughout - follow the established patterns
 - Debug system provides validation - use it to verify mathematical operations
+
+**Kurzzeitgedächtnis-Regel:**
+- Bei jeder Claude-Antwort wird KURZZEITGEDAECHTNIS.md mit aktuellem Entwicklungsstand aktualisiert
+- Verhindert Kontextverlust bei Stromausfällen oder Unterbrechungen
+- Datei enthält: aktuellen Stand, nächste Schritte, letzte Kommunikation
+- Wird bei jeder Antwort überschrieben mit neuestem Stand

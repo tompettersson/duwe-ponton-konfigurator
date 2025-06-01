@@ -16,11 +16,13 @@ import { useConfiguratorStore } from '../../store/configuratorStore';
 import { useDebugStore } from '../../store/debugStore';
 import { Toolbar } from '../ui/Toolbar';
 import { ViewModeToggle } from '../ui/ViewModeToggle';
+import { SelectionBox } from '../ui/SelectionBox';
 import { COLORS, CAMERA_POSITIONS } from '../../lib/constants';
 
 export function PontoonConfigurator() {
   const viewMode = useConfiguratorStore((state) => state.viewMode);
   const isGridVisible = useConfiguratorStore((state) => state.isGridVisible);
+  const selectedTool = useConfiguratorStore((state) => state.selectedTool);
 
   return (
     <div className="relative w-full h-screen bg-gray-100">
@@ -54,9 +56,12 @@ export function PontoonConfigurator() {
         {isGridVisible && <GridSystem />}
         <PontoonManager />
         <InteractionManager />
-        <CameraController mode={viewMode} />
+        <CameraController mode={viewMode} disableControls={selectedTool === 'multi-drop'} />
         
       </Canvas>
+
+      {/* Selection Box Overlay - Outside Canvas */}
+      <SelectionBox />
 
       {/* UI Overlay */}
       <div className="absolute top-4 left-4 z-10">

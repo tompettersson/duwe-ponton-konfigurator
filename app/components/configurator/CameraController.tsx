@@ -16,9 +16,10 @@ import type { ViewMode } from '../../types';
 
 interface CameraControllerProps {
   mode: ViewMode;
+  disableControls?: boolean;
 }
 
-export function CameraController({ mode }: CameraControllerProps) {
+export function CameraController({ mode, disableControls = false }: CameraControllerProps) {
   const { camera, size } = useThree();
   const controlsRef = useRef<any>(null);
 
@@ -86,10 +87,17 @@ export function CameraController({ mode }: CameraControllerProps) {
       controls.maxDistance = 300;
     }
 
+    // Handle disableControls for multi-drop
+    if (disableControls) {
+      controls.enabled = false;
+    } else {
+      controls.enabled = true;
+    }
+
     // Update controls to apply changes
     controls.update();
 
-  }, [mode, camera]);
+  }, [mode, camera, disableControls]);
 
   return (
     <OrbitControls
