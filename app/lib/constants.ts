@@ -37,9 +37,13 @@ export const COLORS = {
   HOVER_INVALID: '#ff0000',
   SELECTION_OUTLINE: '#ffff00',
   
-  // Pontoons
-  PONTOON_DEFAULT: '#4a90e2',
-  PONTOON_SELECTED: '#ff6b35',
+  // Pontoon Colors (4-color system)
+  PONTOON_COLORS: {
+    black: '#111111',
+    blue: '#6183c2', 
+    gray: '#e3e4e5',
+    yellow: '#f7e295',
+  },
   
   // UI
   BACKGROUND: '#f0f0f0',

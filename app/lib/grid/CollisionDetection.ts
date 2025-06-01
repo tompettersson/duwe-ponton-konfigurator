@@ -93,7 +93,7 @@ export class CollisionDetection {
     };
 
     // Validate new position (excluding current element)
-    return this.validatePlacement(newPosition, 'standard', gridBounds, elementId);
+    return this.validatePlacement(newPosition, 'single', gridBounds, elementId);
   }
 
   /**
@@ -134,21 +134,14 @@ export class CollisionDetection {
     const errors: string[] = [];
 
     switch (type) {
-      case 'corner':
-        // Corner pontoons must be at platform edges
-        if (!this.isAtEdge(position, size)) {
-          errors.push('Corner pontoons must be placed at platform edges');
-        }
+      case 'double':
+        // Double pontoons need extra space validation
+        // No special placement rules currently
         break;
 
-      case 'special':
-        // Special pontoons have custom validation rules
-        // Add specific rules as needed
-        break;
-
-      case 'standard':
+      case 'single':
       default:
-        // Standard pontoons have no special rules
+        // Single pontoons have no special rules
         break;
     }
 
@@ -187,12 +180,10 @@ export class CollisionDetection {
    */
   private getPontoonSize(type: PontoonElement['type']): GridPosition {
     switch (type) {
-      case 'standard':
+      case 'single':
         return { x: 1, y: 1, z: 1 };
-      case 'corner':
-        return { x: 1, y: 1, z: 1 };
-      case 'special':
-        return { x: 2, y: 1, z: 1 }; // Double pontoon
+      case 'double':
+        return { x: 2, y: 1, z: 1 }; // Double pontoon spans 2 grid cells horizontally
       default:
         return { x: 1, y: 1, z: 1 };
     }

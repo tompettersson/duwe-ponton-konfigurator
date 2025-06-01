@@ -15,7 +15,8 @@ export interface PontoonElement {
   id: string;
   gridPosition: GridPosition;
   rotation: number; // 0, 90, 180, 270 degrees
-  type: 'standard' | 'corner' | 'special';
+  type: 'single' | 'double';
+  color: 'black' | 'blue' | 'gray' | 'yellow';
   metadata?: Record<string, unknown>;
 }
 
@@ -45,6 +46,7 @@ export interface SpatialElement {
 export type Tool = 'select' | 'place' | 'delete' | 'rotate';
 export type ViewMode = '2d' | '3d';
 export type PontoonType = PontoonElement['type'];
+export type PontoonColor = PontoonElement['color'];
 
 // History Types
 export interface HistoryAction {

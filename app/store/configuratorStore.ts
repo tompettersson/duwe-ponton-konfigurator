@@ -23,6 +23,7 @@ import type {
   Tool, 
   ViewMode, 
   PontoonType,
+  PontoonColor,
   HistoryAction,
   ValidationResult 
 } from '../types';
@@ -44,6 +45,7 @@ interface ConfiguratorState {
   viewMode: ViewMode;
   selectedTool: Tool;
   currentPontoonType: PontoonType;
+  currentPontoonColor: PontoonColor;
   isGridVisible: boolean;
   showCoordinates: boolean;
 
@@ -69,6 +71,7 @@ interface ConfiguratorState {
   setViewMode: (mode: ViewMode) => void;
   setTool: (tool: Tool) => void;
   setPontoonType: (type: PontoonType) => void;
+  setPontoonColor: (color: PontoonColor) => void;
   setGridVisible: (visible: boolean) => void;
   setShowCoordinates: (show: boolean) => void;
   
@@ -129,15 +132,20 @@ export const useConfiguratorStore = create<ConfiguratorState>()(
 
         testPositions.forEach((pos, index) => {
           const id = `test-pontoon-${index}`;
+          const isDouble = index % 4 === 0; // Every 4th pontoon is double
+          const colors: PontoonColor[] = ['blue', 'black', 'gray', 'yellow'];
           const pontoon: PontoonElement = {
             id,
             gridPosition: pos,
             rotation: 0,
-            type: 'standard',
+            type: isDouble ? 'double' : 'single',
+            color: colors[index % 4],
             metadata: { createdAt: Date.now() },
           };
           initialPontoons.set(id, pontoon);
-          spatialIndex.insert(id, pos);
+          // For double pontoons, insert into spatial index with size 2x1
+          const size = isDouble ? { x: 2, y: 1, z: 1 } : { x: 1, y: 1, z: 1 };
+          spatialIndex.insert(id, pos, size);
         });
 
         return {
@@ -154,7 +162,8 @@ export const useConfiguratorStore = create<ConfiguratorState>()(
 
           viewMode: '3d',
           selectedTool: 'place',
-          currentPontoonType: 'standard',
+          currentPontoonType: 'single',
+          currentPontoonColor: 'blue',
           isGridVisible: true,
           showCoordinates: false,
 
@@ -180,6 +189,7 @@ export const useConfiguratorStore = create<ConfiguratorState>()(
               gridPosition: position,
               rotation: 0,
               type,
+              color: state.currentPontoonColor,
               metadata: {
                 createdAt: Date.now(),
               },
@@ -189,8 +199,9 @@ export const useConfiguratorStore = create<ConfiguratorState>()(
               // Add to pontoons map
               draft.pontoons.set(id, pontoon);
               
-              // Add to spatial index
-              draft.spatialIndex.insert(id, position);
+              // Add to spatial index with correct size
+              const size = type === 'double' ? { x: 2, y: 1, z: 1 } : { x: 1, y: 1, z: 1 };
+              draft.spatialIndex.insert(id, position, size);
               
               // Add to history
               const action: HistoryAction = {
@@ -346,6 +357,12 @@ export const useConfiguratorStore = create<ConfiguratorState>()(
           setPontoonType: (type) => {
             set((draft) => {
               draft.currentPontoonType = type;
+            });
+          },
+
+          setPontoonColor: (color) => {
+            set((draft) => {
+              draft.currentPontoonColor = color;
             });
           },
 

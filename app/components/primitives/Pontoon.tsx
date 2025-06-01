@@ -40,11 +40,11 @@ export function Pontoon({ pontoon, isSelected }: PontoonProps) {
     const height = GRID_CONSTANTS.PONTOON_HEIGHT_MM / GRID_CONSTANTS.PRECISION_FACTOR;
     
     return {
-      width: cellSize,
+      width: pontoon.type === 'double' ? cellSize * 2 : cellSize, // Double pontoons are 2x width
       height: height,
       depth: cellSize,
     };
-  }, []);
+  }, [pontoon.type]);
 
   // Update selection outline visibility
   useFrame(() => {
@@ -53,17 +53,10 @@ export function Pontoon({ pontoon, isSelected }: PontoonProps) {
     }
   });
 
-  // Get color based on pontoon type
+  // Get color from pontoon color property
   const pontoonColor = useMemo(() => {
-    switch (pontoon.type) {
-      case 'corner':
-        return '#ff6b35';
-      case 'special':
-        return '#4ecdc4';
-      default:
-        return COLORS.PONTOON_DEFAULT;
-    }
-  }, [pontoon.type]);
+    return COLORS.PONTOON_COLORS[pontoon.color];
+  }, [pontoon.color]);
 
   return (
     <group 
@@ -111,11 +104,11 @@ export function Pontoon({ pontoon, isSelected }: PontoonProps) {
       )}
 
       {/* Type Indicator (for debugging/visual feedback) */}
-      {process.env.NODE_ENV === 'development' && pontoon.type !== 'standard' && (
+      {process.env.NODE_ENV === 'development' && pontoon.type === 'double' && (
         <mesh position={[0, dimensions.height / 2 + 0.05, 0]}>
           <boxGeometry args={[0.1, 0.05, 0.1]} />
           <meshBasicMaterial 
-            color={pontoon.type === 'corner' ? '#ff0000' : '#00ff00'} 
+            color="#ff0000"
           />
         </mesh>
       )}

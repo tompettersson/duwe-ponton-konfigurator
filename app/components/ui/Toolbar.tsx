@@ -29,7 +29,9 @@ export function Toolbar() {
     setGridVisible,
     clearGrid,
     currentPontoonType,
-    setPontoonType
+    setPontoonType,
+    currentPontoonColor,
+    setPontoonColor
   } = useConfiguratorStore();
 
   // Get individual stats to avoid creating new objects on every render
@@ -45,9 +47,15 @@ export function Toolbar() {
   ] as const;
 
   const pontoonTypes = [
-    { id: 'standard', label: 'Standard', color: '#4a90e2' },
-    { id: 'corner', label: 'Corner', color: '#ff6b35' },
-    { id: 'special', label: 'Special', color: '#4ecdc4' },
+    { id: 'single', label: 'Single', icon: '■' },
+    { id: 'double', label: 'Double', icon: '■■' },
+  ] as const;
+
+  const pontoonColors = [
+    { id: 'blue', label: 'Blue', color: '#6183c2' },
+    { id: 'black', label: 'Black', color: '#111111' },
+    { id: 'gray', label: 'Gray', color: '#e3e4e5' },
+    { id: 'yellow', label: 'Yellow', color: '#f7e295' },
   ] as const;
 
   return (
@@ -77,7 +85,7 @@ export function Toolbar() {
       {/* Pontoon Type Selection */}
       <div className="flex flex-col gap-1">
         <div className="text-xs font-semibold text-gray-600 mb-1">Type</div>
-        <div className="flex flex-col gap-1">
+        <div className="grid grid-cols-2 gap-1">
           {pontoonTypes.map((type) => (
             <button
               key={type.id}
@@ -88,11 +96,32 @@ export function Toolbar() {
                   : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
               }`}
             >
-              <div 
-                className="w-4 h-4 rounded" 
-                style={{ backgroundColor: type.color }}
-              />
+              <span className="font-mono text-xs">{type.icon}</span>
               <span className="text-xs">{type.label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Pontoon Color Selection */}
+      <div className="flex flex-col gap-1">
+        <div className="text-xs font-semibold text-gray-600 mb-1">Color</div>
+        <div className="grid grid-cols-2 gap-1">
+          {pontoonColors.map((color) => (
+            <button
+              key={color.id}
+              onClick={() => setPontoonColor(color.id as any)}
+              className={`p-2 rounded transition-colors text-sm flex items-center gap-2 ${
+                currentPontoonColor === color.id
+                  ? 'bg-blue-500 text-white'
+                  : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+              }`}
+            >
+              <div 
+                className="w-4 h-4 rounded border border-gray-300" 
+                style={{ backgroundColor: color.color }}
+              />
+              <span className="text-xs">{color.label}</span>
             </button>
           ))}
         </div>
