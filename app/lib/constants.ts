@@ -6,9 +6,9 @@
  */
 
 export const GRID_CONSTANTS = {
-  // Grid Dimensions (in millimeters)
-  CELL_SIZE_MM: 400, // 0.4m single pontoon size
-  PONTOON_HEIGHT_MM: 500, // 0.5m standard height
+  // Grid Dimensions (in millimeters) - Real Pontoon Maße: 50x50x40cm
+  CELL_SIZE_MM: 500, // 0.5m single pontoon size (50cm x 50cm)
+  PONTOON_HEIGHT_MM: 400, // 0.4m standard height (40cm)
   GRID_SIZE: 50, // Default grid size (50x50 = 2500 cells max)
   
   // Precision & Math
@@ -17,7 +17,7 @@ export const GRID_CONSTANTS = {
   
   // Performance
   MAX_INSTANCES: 10000, // Maximum pontoons for instanced rendering
-  SPATIAL_HASH_CELL_SIZE: 400, // Match grid cell size for optimal performance
+  SPATIAL_HASH_CELL_SIZE: 500, // Match grid cell size for optimal performance
 } as const;
 
 export const LAYERS = {
@@ -48,11 +48,11 @@ export const COLORS = {
 
 export const CAMERA_POSITIONS = {
   '2D': {
-    position: [0, 30, 0] as const,
+    position: [0, 35, 0] as const, // Etwas höher für größeres Grid
     target: [0, 0, 0] as const,
   },
   '3D': {
-    position: [15, 15, 15] as const,
+    position: [18, 18, 18] as const, // Weiter weg für bessere Übersicht
     target: [0, 0, 0] as const,
   },
 } as const;
