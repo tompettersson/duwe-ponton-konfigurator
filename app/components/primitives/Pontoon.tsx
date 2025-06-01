@@ -29,6 +29,8 @@ export function Pontoon({ pontoon, isSelected }: PontoonProps) {
     const pos = gridMath.gridToWorld(pontoon.gridPosition);
     // Position pontoon so bottom sits on grid plane
     pos.y = (GRID_CONSTANTS.PONTOON_HEIGHT_MM / GRID_CONSTANTS.PRECISION_FACTOR) / 2;
+    
+    
     return pos;
   }, [pontoon.gridPosition, gridMath]);
 
@@ -75,37 +77,38 @@ export function Pontoon({ pontoon, isSelected }: PontoonProps) {
         layers={LAYERS.PONTOONS}
         castShadow={false} // Disabled for minimal implementation
         receiveShadow={false}
+        visible={true} // Force visibility
       >
         <boxGeometry args={[dimensions.width, dimensions.height, dimensions.depth]} />
-        <meshStandardMaterial 
+        <meshBasicMaterial 
           color={pontoonColor}
-          roughness={0.6} 
-          metalness={0.2}
           transparent={false}
         />
       </mesh>
 
-      {/* Selection Outline */}
-      <mesh 
-        ref={outlineRef} 
-        visible={false}
-        position={[0, 0, 0]}
-      >
-        <boxGeometry 
-          args={[
-            dimensions.width * 1.05, 
-            dimensions.height * 1.05, 
-            dimensions.depth * 1.05
-          ]} 
-        />
-        <meshBasicMaterial
-          color={COLORS.SELECTION_OUTLINE}
-          wireframe
-          depthTest={false}
-          transparent
-          opacity={0.8}
-        />
-      </mesh>
+      {/* Selection Outline - Temporarily disabled */}
+      {false && (
+        <mesh 
+          ref={outlineRef} 
+          visible={false}
+          position={[0, 0, 0]}
+        >
+          <boxGeometry 
+            args={[
+              dimensions.width * 1.05, 
+              dimensions.height * 1.05, 
+              dimensions.depth * 1.05
+            ]} 
+          />
+          <meshBasicMaterial
+            color={COLORS.SELECTION_OUTLINE}
+            wireframe
+            depthTest={false}
+            transparent
+            opacity={0.8}
+          />
+        </mesh>
+      )}
 
       {/* Type Indicator (for debugging/visual feedback) */}
       {process.env.NODE_ENV === 'development' && pontoon.type !== 'standard' && (

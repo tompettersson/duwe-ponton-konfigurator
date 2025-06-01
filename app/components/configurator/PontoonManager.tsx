@@ -17,7 +17,9 @@ export function PontoonManager() {
 
   // Convert map to array for React rendering
   const pontoonElements = useMemo(() => {
-    return Array.from(pontoons.values()).map((pontoon) => (
+    const pontoonsArray = Array.from(pontoons.values());
+    
+    return pontoonsArray.map((pontoon) => (
       <Pontoon
         key={pontoon.id}
         pontoon={pontoon}

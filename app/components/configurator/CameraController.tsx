@@ -27,6 +27,9 @@ export function CameraController({ mode }: CameraControllerProps) {
 
     const controls = controlsRef.current;
     const targetPosition = CAMERA_POSITIONS[mode.toUpperCase() as keyof typeof CAMERA_POSITIONS];
+    
+    // Enable camera to see all layers
+    camera.layers.enableAll();
 
     if (mode === '2d') {
       // Top-down orthographic view
