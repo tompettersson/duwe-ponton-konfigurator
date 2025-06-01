@@ -52,11 +52,11 @@ export const COLORS = {
 
 export const CAMERA_POSITIONS = {
   '2D': {
-    position: [0, 35, 0] as const, // Etwas höher für größeres Grid
+    position: [0, 50, 0] as const, // Höher für vollständige Grid-Übersicht
     target: [0, 0, 0] as const,
   },
   '3D': {
-    position: [18, 18, 18] as const, // Weiter weg für bessere Übersicht
+    position: [30, 30, 30] as const, // Weiter weg für 50x50 Grid Übersicht
     target: [0, 0, 0] as const,
   },
 } as const;

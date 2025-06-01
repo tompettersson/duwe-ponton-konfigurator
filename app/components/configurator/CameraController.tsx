@@ -55,8 +55,8 @@ export function CameraController({ mode }: CameraControllerProps) {
       controls.minPolarAngle = 0;
 
       // Set zoom limits for 2D view
-      controls.minDistance = 5;
-      controls.maxDistance = 100;
+      controls.minDistance = 10;
+      controls.maxDistance = 200;
 
     } else {
       // 3D perspective view
@@ -82,8 +82,8 @@ export function CameraController({ mode }: CameraControllerProps) {
       controls.minPolarAngle = 0;
 
       // Set zoom limits for 3D view
-      controls.minDistance = 2;
-      controls.maxDistance = 200;
+      controls.minDistance = 5;
+      controls.maxDistance = 300;
     }
 
     // Update controls to apply changes
