@@ -417,12 +417,35 @@ export const useConfiguratorStore = create<ConfiguratorState>()(
             set((draft) => {
               if (!draft.isDragging || !draft.dragStart) return;
               
+              // DEBUG: Log drag updates
+              if (Math.random() < 0.1) { // Only log 10% of updates to avoid spam
+                console.log('🔍 UpdateDrag:', {
+                  dragStart: draft.dragStart,
+                  newPosition: position,
+                  mousePos
+                });
+              }
+              
               draft.dragEnd = position;
               draft.dragEndMouse = mousePos;
               
               // Calculate preview positions in drag area
-              const { gridMath } = get();
-              const positions = gridMath.getGridPositionsInArea(draft.dragStart, position);
+              const { gridMath, currentPontoonType } = get();
+              let positions = gridMath.getGridPositionsInArea(draft.dragStart, position);
+              
+              // Apply spacing logic for double pontoons in preview
+              if (currentPontoonType === 'double') {
+                // Calculate area bounds for relative positioning
+                const minX = Math.min(draft.dragStart.x, position.x);
+                const maxX = Math.max(draft.dragStart.x, position.x);
+                
+                // Filter positions to use every 2nd position WITHIN the drag area
+                positions = positions.filter(pos => {
+                  const relativeX = pos.x - minX;
+                  return relativeX % 2 === 0;
+                });
+              }
+              
               draft.previewPositions.clear();
               positions.forEach(pos => {
                 const key = `${pos.x},${pos.y},${pos.z}`;
@@ -434,6 +457,11 @@ export const useConfiguratorStore = create<ConfiguratorState>()(
           endDrag: () => {
             const state = get();
             if (!state.isDragging || !state.dragStart || !state.dragEnd) return;
+            
+            console.log('🔍 EndDrag Debug:');
+            console.log('dragStart:', state.dragStart);
+            console.log('dragEnd:', state.dragEnd);
+            console.log('isDragging:', state.isDragging);
             
             // Perform batch placement
             const success = state.addPontoonsInArea(state.dragStart, state.dragEnd);
@@ -463,9 +491,44 @@ export const useConfiguratorStore = create<ConfiguratorState>()(
 
           addPontoonsInArea: (startPos, endPos) => {
             const state = get();
-            const positions = state.gridMath.getGridPositionsInArea(startPos, endPos);
+            let positions = state.gridMath.getGridPositionsInArea(startPos, endPos);
+            
+            // DEBUG: Log area calculation
+            console.log('🔍 Multi-Drop Debug:');
+            console.log('Start position:', startPos);
+            console.log('End position:', endPos);
+            console.log('Total positions found:', positions.length);
+            console.log('Area bounds:', {
+              minX: Math.min(startPos.x, endPos.x),
+              maxX: Math.max(startPos.x, endPos.x),
+              minZ: Math.min(startPos.z, endPos.z),
+              maxZ: Math.max(startPos.z, endPos.z)
+            });
             
             if (positions.length === 0) return false;
+            
+            // For double pontoons, apply intelligent spacing to avoid overlaps
+            if (state.currentPontoonType === 'double') {
+              // Calculate area bounds for relative positioning
+              const minX = Math.min(startPos.x, endPos.x);
+              const maxX = Math.max(startPos.x, endPos.x);
+              
+              const positionsBeforeFilter = positions.length;
+              
+              // Filter positions to use every 2nd position WITHIN the drag area
+              // This allows full area coverage while preventing 2x1 overlaps
+              positions = positions.filter(pos => {
+                const relativeX = pos.x - minX;
+                return relativeX % 2 === 0;
+              });
+              
+              console.log('Double pontoon filtering:', {
+                before: positionsBeforeFilter,
+                after: positions.length,
+                minX,
+                maxX
+              });
+            }
             
             set((draft) => {
               // Remove existing pontoons in area
@@ -477,23 +540,37 @@ export const useConfiguratorStore = create<ConfiguratorState>()(
                 }
               });
               
-              // Add double pontoons at all positions
+              // Add pontoons of current type at all positions
               const addedIds: string[] = [];
-              positions.forEach(pos => {
+              console.log('🔍 Adding pontoons at positions:', positions.slice(0, 10), '... (showing first 10)');
+              
+              positions.forEach((pos, index) => {
                 const id = generateId('pontoon-multi-');
                 const pontoon: PontoonElement = {
                   id,
                   gridPosition: pos,
                   rotation: 0,
-                  type: 'double',
+                  type: draft.currentPontoonType,
                   color: draft.currentPontoonColor,
                   metadata: { createdAt: Date.now(), multiDrop: true },
                 };
                 
+                // Use correct size based on pontoon type
+                const size = draft.currentPontoonType === 'double' 
+                  ? { x: 2, y: 1, z: 1 } 
+                  : { x: 1, y: 1, z: 1 };
+                
                 draft.pontoons.set(id, pontoon);
-                draft.spatialIndex.insert(id, pos, { x: 2, y: 1, z: 1 });
+                draft.spatialIndex.insert(id, pos, size);
                 addedIds.push(id);
+                
+                // Debug first few placements
+                if (index < 5) {
+                  console.log(`🔍 Placed pontoon ${index}:`, { pos, id, type: draft.currentPontoonType });
+                }
               });
+              
+              console.log(`🔍 Total pontoons added: ${addedIds.length}`);
               
               // Add to history as single action
               const action: HistoryAction = {

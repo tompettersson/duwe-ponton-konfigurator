@@ -88,11 +88,60 @@ function DebugPanel() {
   const selectedCount = useConfiguratorStore((state) => state.selectedIds.size);
   const occupiedCells = useConfiguratorStore((state) => state.spatialIndex.getOccupiedCellCount());
   
+  // Multi-Drop Debug Info
+  const isDragging = useConfiguratorStore((state) => state.isDragging);
+  const dragStart = useConfiguratorStore((state) => state.dragStart);
+  const dragEnd = useConfiguratorStore((state) => state.dragEnd);
+  const previewPositions = useConfiguratorStore((state) => state.previewPositions);
+  const gridMath = useConfiguratorStore((state) => state.gridMath);
+  const currentPontoonType = useConfiguratorStore((state) => state.currentPontoonType);
+  
   // Debug information
   const { intersectCount, raycastCoords, lastClickResult } = useDebugStore();
 
+  // Calculate affected grid cells for display
+  const getGridVisualization = () => {
+    if (!isDragging || !dragStart || !dragEnd) return null;
+    
+    const positions = gridMath.getGridPositionsInArea(dragStart, dragEnd);
+    
+    // Apply same filtering as the actual placement
+    let filteredPositions = positions;
+    if (currentPontoonType === 'double') {
+      const minX = Math.min(dragStart.x, dragEnd.x);
+      filteredPositions = positions.filter(pos => {
+        const relativeX = pos.x - minX;
+        return relativeX % 2 === 0;
+      });
+    }
+    
+    // Group by Z (rows) for visualization
+    const rows = new Map<number, Array<{x: number, y: number, z: number}>>();
+    filteredPositions.forEach(pos => {
+      if (!rows.has(pos.z)) rows.set(pos.z, []);
+      rows.get(pos.z)!.push(pos);
+    });
+    
+    // Sort rows by Z coordinate
+    const sortedRows = Array.from(rows.entries()).sort((a, b) => a[0] - b[0]);
+    
+    return {
+      totalAll: positions.length,
+      totalFiltered: filteredPositions.length,
+      bounds: {
+        minX: Math.min(dragStart.x, dragEnd.x),
+        maxX: Math.max(dragStart.x, dragEnd.x),
+        minZ: Math.min(dragStart.z, dragEnd.z),
+        maxZ: Math.max(dragStart.z, dragEnd.z)
+      },
+      rows: sortedRows
+    };
+  };
+
+  const gridViz = getGridVisualization();
+
   return (
-    <div className="absolute bottom-4 left-4 bg-black bg-opacity-75 text-white p-3 rounded text-sm font-mono">
+    <div className="absolute bottom-4 left-4 bg-black bg-opacity-75 text-white p-3 rounded text-sm font-mono max-w-md max-h-96 overflow-y-auto">
       <div>Tool: {selectedTool}</div>
       <div>Pontoons: {pontoonCount}</div>
       <div>Selected: {selectedCount}</div>
@@ -114,6 +163,39 @@ function DebugPanel() {
         </div>
       )}
       <div className="text-purple-400">Rendering: {pontoonCount > 0 ? 'Active' : 'None'}</div>
+      
+      {/* Multi-Drop Debug Section */}
+      {selectedTool === 'multi-drop' && (
+        <div className="mt-2 border-t border-gray-600 pt-2">
+          <div className="text-orange-400 font-bold">Multi-Drop Debug:</div>
+          <div>Dragging: {isDragging ? 'YES' : 'NO'}</div>
+          {dragStart && <div className="text-cyan-400">Start: ({dragStart.x}, {dragStart.z})</div>}
+          {dragEnd && <div className="text-cyan-400">End: ({dragEnd.x}, {dragEnd.z})</div>}
+          <div>Type: {currentPontoonType}</div>
+          <div>Preview Cells: {previewPositions.size}</div>
+          
+          {gridViz && (
+            <div className="mt-2">
+              <div className="text-yellow-400">
+                Area: {gridViz.bounds.maxX - gridViz.bounds.minX + 1}x{gridViz.bounds.maxZ - gridViz.bounds.minZ + 1}
+              </div>
+              <div>Total: {gridViz.totalAll} → Filtered: {gridViz.totalFiltered}</div>
+              
+              <div className="mt-1 text-xs">
+                <div className="text-gray-400">Grid Cells (X,Z):</div>
+                {gridViz.rows.map(([z, positions]) => (
+                  <div key={z} className="flex items-center gap-1">
+                    <span className="text-gray-500 w-6">Z{z}:</span>
+                    <span className="text-green-300">
+                      {positions.map(pos => `X${pos.x}`).join(' ')}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

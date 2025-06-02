@@ -229,6 +229,8 @@ export function InteractionManager() {
           
         case '5':
           useConfiguratorStore.getState().setTool('multi-drop');
+          useConfiguratorStore.getState().setPontoonType('double'); // Auto-switch to double
+          useConfiguratorStore.getState().setViewMode('2d'); // Auto-switch to 2D view
           break;
           
         case 'a':

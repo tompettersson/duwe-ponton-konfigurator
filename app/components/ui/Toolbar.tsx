@@ -84,13 +84,17 @@ export function Toolbar() {
         </div>
         {/* Multi-Drop Tool - Full Width */}
         <button
-          onClick={() => setTool('multi-drop')}
+          onClick={() => {
+            setTool('multi-drop');
+            setPontoonType('double'); // Auto-switch to double for multi-drop
+            useConfiguratorStore.getState().setViewMode('2d'); // Auto-switch to 2D view
+          }}
           className={`p-2 rounded transition-colors text-sm flex items-center gap-2 ${
             selectedTool === 'multi-drop'
               ? 'bg-orange-500 text-white'
               : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
           }`}
-          title="Multi-Drop (5)"
+          title="Multi-Drop (5) - Auto Double + 2D View"
         >
           <Square size={16} />
           <span className="text-xs">Multi-Drop</span>

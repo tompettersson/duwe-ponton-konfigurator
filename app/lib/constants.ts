@@ -52,7 +52,7 @@ export const COLORS = {
 
 export const CAMERA_POSITIONS = {
   '2D': {
-    position: [0, 50, 0] as const, // Höher für vollständige Grid-Übersicht
+    position: [50, 0, 0] as const, // Von der Seite für 90° gedrehte Ansicht (Double-Pontons vertikal)
     target: [0, 0, 0] as const,
   },
   '3D': {
