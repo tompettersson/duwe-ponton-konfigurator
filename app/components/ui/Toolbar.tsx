@@ -1,11 +1,12 @@
 /**
  * Toolbar - Minimal Tool Selection for Mathematical Precision Focus
  * 
- * Clean interface for essential pontoon configurator tools
+ * Clean interface with logo and essential pontoon configurator tools
  */
 
 'use client';
 
+import Image from 'next/image';
 import { useConfiguratorStore } from '../../store/configuratorStore';
 import {
   MousePointer2,
@@ -62,6 +63,20 @@ export function Toolbar() {
 
   return (
     <div className="flex flex-col gap-2 bg-white rounded-lg shadow-lg p-3 min-w-48">
+      {/* Logo */}
+      <div className="flex justify-center mb-1">
+        <Image
+          src="/logoheader.png"
+          alt="Logo"
+          width={160}
+          height={50}
+          className="object-contain"
+          priority
+        />
+      </div>
+      
+      <div className="h-px bg-gray-300" />
+      
       {/* Tool Selection */}
       <div className="flex flex-col gap-1">
         <div className="text-xs font-semibold text-gray-600 mb-1">Tools</div>
