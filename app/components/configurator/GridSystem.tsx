@@ -1,8 +1,8 @@
 /**
- * GridSystem - Mathematical Precision Grid Visualization
+ * GridSystem - Multi-Level Mathematical Precision Grid Visualization
  * 
- * Displays exact 0.5m x 0.5m grid with hover indicators
- * Completely fills the space for spatial reference
+ * Displays 0.5m x 0.5m grid at any level with water surface and hover indicators
+ * Grid moves to currentLevel, water surface remains at Y=0
  */
 
 'use client';
@@ -22,35 +22,35 @@ export function GridSystem() {
     canPlacePontoon,
     gridMath,
     currentPontoonType,
-    currentPontoonColor 
+    currentPontoonColor,
+    currentLevel
   } = useConfiguratorStore();
   
   const groundRef = useRef<THREE.Mesh>(null);
 
-  // Create single level grid at ground level only
+  // Create grid at currentLevel Y position
   const gridGeometry = useMemo(() => {
     const points: THREE.Vector3[] = [];
     const halfWidth = (gridSize.width * cellSize) / 2;
     const halfHeight = (gridSize.height * cellSize) / 2;
-    const y = 0; // Ground level only
+    const y = currentLevel; // Grid moves to current level
 
-    // Horizontal lines (parallel to X-axis) at ground level
+    // Horizontal lines (parallel to X-axis) at current level
     for (let i = 0; i <= gridSize.height; i++) {
       const z = -halfHeight + i * cellSize;
       points.push(new THREE.Vector3(-halfWidth, y, z));
       points.push(new THREE.Vector3(halfWidth, y, z));
     }
 
-    // Vertical lines (parallel to Z-axis) at ground level  
+    // Vertical lines (parallel to Z-axis) at current level
     for (let i = 0; i <= gridSize.width; i++) {
       const x = -halfWidth + i * cellSize;
       points.push(new THREE.Vector3(x, y, -halfHeight));
       points.push(new THREE.Vector3(x, y, halfHeight));
     }
 
-
     return new THREE.BufferGeometry().setFromPoints(points);
-  }, [gridSize, cellSize]);
+  }, [gridSize, cellSize, currentLevel]);
 
   // Ground plane dimensions
   const groundSize = useMemo(() => ({
@@ -74,9 +74,10 @@ export function GridSystem() {
         />
       </lineSegments>
 
-      {/* Ground Plane (invisible, for raycasting) */}
+      {/* Level Plane (invisible, for raycasting at current level) */}
       <mesh
         ref={groundRef}
+        position={[0, currentLevel, 0]}
         rotation={[-Math.PI / 2, 0, 0]}
         layers={LAYERS.GRID}
         visible={false}
@@ -86,8 +87,25 @@ export function GridSystem() {
         <meshBasicMaterial transparent opacity={0} />
       </mesh>
 
-      {/* Hover Indicator - Real Pontoon Preview */}
-      {hoveredCell && hoveredCell.y === 0 && (
+      {/* Water Surface (always at Y=0, 50% transparent) */}
+      <mesh
+        position={[0, 0, 0]}
+        rotation={[-Math.PI / 2, 0, 0]}
+        receiveShadow={false}
+        layers={10} // Different layer so it doesn't interfere with raycasting
+      >
+        <planeGeometry args={[groundSize.width * 1.1, groundSize.height * 1.1]} />
+        <meshStandardMaterial 
+          color="#87CEEB" // Sky blue for water
+          roughness={0.1}
+          metalness={0.1}
+          opacity={0.5}
+          transparent
+        />
+      </mesh>
+
+      {/* Hover Indicator - Real Pontoon Preview on Current Level */}
+      {hoveredCell && hoveredCell.y === currentLevel && (
         <Pontoon
           pontoon={{
             id: 'hover-preview',
@@ -102,9 +120,9 @@ export function GridSystem() {
         />
       )}
 
-      {/* Grid Base - Minimal background */}
+      {/* Level Base - Minimal background at current level */}
       <mesh
-        position={[0, -0.02, 0]}
+        position={[0, currentLevel - 0.02, 0]}
         rotation={[-Math.PI / 2, 0, 0]}
         receiveShadow={false}
         layers={10} // Different layer so it doesn't interfere with raycasting
@@ -114,7 +132,7 @@ export function GridSystem() {
           color={COLORS.GRID_BACKGROUND} 
           roughness={0.9}
           metalness={0.0}
-          opacity={0.3}
+          opacity={0.2}
           transparent
         />
       </mesh>
