@@ -27,7 +27,7 @@ export function GridSystem() {
   
   const groundRef = useRef<THREE.Mesh>(null);
 
-  // Create single level grid with vertical indicators for 3D depth perception
+  // Create single level grid at ground level only
   const gridGeometry = useMemo(() => {
     const points: THREE.Vector3[] = [];
     const halfWidth = (gridSize.width * cellSize) / 2;
@@ -48,18 +48,6 @@ export function GridSystem() {
       points.push(new THREE.Vector3(x, y, halfHeight));
     }
 
-    // Add sparse vertical indicators for 3D depth perception
-    // Only at every 5th intersection to avoid clutter
-    const step = 5;
-    for (let i = 0; i <= gridSize.width; i += step) {
-      for (let j = 0; j <= gridSize.height; j += step) {
-        const x = -halfWidth + i * cellSize;
-        const z = -halfHeight + j * cellSize;
-        // Short vertical lines showing 3D space
-        points.push(new THREE.Vector3(x, 0, z));
-        points.push(new THREE.Vector3(x, cellSize, z)); // Up to current cellSize height
-      }
-    }
 
     return new THREE.BufferGeometry().setFromPoints(points);
   }, [gridSize, cellSize]);
