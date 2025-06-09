@@ -7,7 +7,7 @@
 
 'use client';
 
-import { Canvas } from '@react-three/fiber';
+import { Canvas, useThree } from '@react-three/fiber';
 import { GridSystem } from './GridSystem';
 import { CameraController } from './CameraController';
 import { InteractionManager } from './InteractionManager';
@@ -18,6 +18,9 @@ import { Toolbar } from '../ui/Toolbar';
 import { ViewModeToggle } from '../ui/ViewModeToggle';
 import { SelectionBox } from '../ui/SelectionBox';
 import { COLORS, CAMERA_POSITIONS } from '../../lib/constants';
+import { useFrame } from '@react-three/fiber';
+import { useRef, useState } from 'react';
+import * as THREE from 'three';
 
 export function PontoonConfigurator() {
   const viewMode = useConfiguratorStore((state) => state.viewMode);
@@ -57,6 +60,7 @@ export function PontoonConfigurator() {
         <PontoonManager />
         <InteractionManager />
         <CameraController mode={viewMode} disableControls={selectedTool === 'multi-drop'} />
+        {process.env.NODE_ENV === 'development' && <CameraDebugTracker />}
         
       </Canvas>
 
@@ -97,7 +101,7 @@ function DebugPanel() {
   const currentPontoonType = useConfiguratorStore((state) => state.currentPontoonType);
   
   // Debug information
-  const { intersectCount, raycastCoords, lastClickResult } = useDebugStore();
+  const { intersectCount, raycastCoords, lastClickResult, cameraDebugInfo } = useDebugStore();
 
   // Calculate affected grid cells for display
   const getGridVisualization = () => {
@@ -164,6 +168,20 @@ function DebugPanel() {
       )}
       <div className="text-purple-400">Rendering: {pontoonCount > 0 ? 'Active' : 'None'}</div>
       
+      {/* Camera Debug Info */}
+      {cameraDebugInfo && (
+        <div className="mt-2 border-t border-gray-600 pt-2">
+          <div className="text-cyan-400 font-bold">Camera Info:</div>
+          <div className="text-green-300">
+            Pos: ({cameraDebugInfo.position.x.toFixed(1)}, {cameraDebugInfo.position.y.toFixed(1)}, {cameraDebugInfo.position.z.toFixed(1)})
+          </div>
+          <div className="text-yellow-300">Zoom: {cameraDebugInfo.distance.toFixed(1)}</div>
+          <div className="text-orange-300">
+            Rotation: {cameraDebugInfo.rotation.azimuth.toFixed(0)}° / {cameraDebugInfo.rotation.polar.toFixed(0)}°
+          </div>
+        </div>
+      )}
+      
       {/* Multi-Drop Debug Section */}
       {selectedTool === 'multi-drop' && (
         <div className="mt-2 border-t border-gray-600 pt-2">
@@ -198,4 +216,36 @@ function DebugPanel() {
       )}
     </div>
   );
+}
+
+// Camera Debug Tracker - Runs inside Canvas to track camera state
+function CameraDebugTracker() {
+  const { camera } = useThree();
+  const { setCameraDebugInfo } = useDebugStore();
+
+  useFrame(() => {
+    // Calculate distance from target (zoom level)
+    const distance = camera.position.distanceTo({ x: 0, y: 0, z: 0 } as any);
+    
+    // Calculate rotation angles in degrees
+    const spherical = new THREE.Spherical();
+    spherical.setFromVector3(camera.position);
+    const azimuth = (spherical.theta * 180) / Math.PI; // Horizontal rotation
+    const polar = (spherical.phi * 180) / Math.PI;     // Vertical rotation
+
+    setCameraDebugInfo({
+      position: {
+        x: camera.position.x,
+        y: camera.position.y,
+        z: camera.position.z
+      },
+      distance: distance,
+      rotation: {
+        azimuth: azimuth,
+        polar: polar
+      }
+    });
+  });
+
+  return null;
 }
