@@ -56,7 +56,7 @@ export const CAMERA_POSITIONS = {
     target: [0, 0, 0] as const,
   },
   '3D': {
-    position: [30, 30, 30] as const, // Weiter weg für 50x50 Grid Übersicht
+    position: [45, 25, 35] as const, // Optimale schräge Perspektive: weiter weg + leicht gedreht + tiefer
     target: [0, 0, 0] as const,
   },
 } as const;
