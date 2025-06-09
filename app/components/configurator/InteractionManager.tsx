@@ -24,6 +24,7 @@ export function InteractionManager() {
   const {
     selectedTool,
     currentPontoonType,
+    currentLevel,
     addPontoon,
     removePontoon,
     selectPontoon,
@@ -168,8 +169,8 @@ export function InteractionManager() {
     };
 
     const handleGridClick = (gridPos: GridPosition, event: MouseEvent) => {
-      // Only allow placement on Y=0 (ground level)
-      if (gridPos.y !== 0) {
+      // Only allow interaction on current level
+      if (gridPos.y !== currentLevel) {
         setLastClickResult('WRONG_LEVEL');
         return;
       }

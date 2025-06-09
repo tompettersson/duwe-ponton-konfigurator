@@ -16,6 +16,7 @@ import { useConfiguratorStore } from '../../store/configuratorStore';
 import { useDebugStore } from '../../store/debugStore';
 import { Toolbar } from '../ui/Toolbar';
 import { ViewModeToggle } from '../ui/ViewModeToggle';
+import { LevelSelector } from '../ui/LevelSelector';
 import { SelectionBox } from '../ui/SelectionBox';
 import { COLORS, CAMERA_POSITIONS } from '../../lib/constants';
 import { useFrame } from '@react-three/fiber';
@@ -71,8 +72,9 @@ export function PontoonConfigurator() {
         <Toolbar />
       </div>
 
-      <div className="absolute top-4 right-4 z-10">
+      <div className="absolute top-4 right-4 z-10 flex flex-col gap-2">
         <ViewModeToggle />
+        <LevelSelector />
       </div>
 
       {/* Debug Info (Development Only) */}

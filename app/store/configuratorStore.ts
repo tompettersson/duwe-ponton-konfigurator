@@ -46,6 +46,7 @@ interface ConfiguratorState {
   selectedTool: Tool;
   currentPontoonType: PontoonType;
   currentPontoonColor: PontoonColor;
+  currentLevel: number; // -1 (underwater), 0 (surface), 1 (first deck), 2 (second deck)
   isGridVisible: boolean;
   showCoordinates: boolean;
 
@@ -80,6 +81,7 @@ interface ConfiguratorState {
   setTool: (tool: Tool) => void;
   setPontoonType: (type: PontoonType) => void;
   setPontoonColor: (color: PontoonColor) => void;
+  setCurrentLevel: (level: number) => void;
   setGridVisible: (visible: boolean) => void;
   setShowCoordinates: (show: boolean) => void;
   
@@ -179,6 +181,7 @@ export const useConfiguratorStore = create<ConfiguratorState>()(
           selectedTool: 'place',
           currentPontoonType: 'single',
           currentPontoonColor: 'blue',
+          currentLevel: 0, // Default Level 0 (water surface) for backwards compatibility
           isGridVisible: true,
           showCoordinates: false,
 
@@ -386,6 +389,12 @@ export const useConfiguratorStore = create<ConfiguratorState>()(
           setPontoonColor: (color) => {
             set((draft) => {
               draft.currentPontoonColor = color;
+            });
+          },
+
+          setCurrentLevel: (level) => {
+            set((draft) => {
+              draft.currentLevel = level;
             });
           },
 
