@@ -19,7 +19,6 @@ import { ViewModeToggle } from '../ui/ViewModeToggle';
 import { SelectionBox } from '../ui/SelectionBox';
 import { COLORS, CAMERA_POSITIONS } from '../../lib/constants';
 import { useFrame } from '@react-three/fiber';
-import { useRef, useState } from 'react';
 import * as THREE from 'three';
 
 export function PontoonConfigurator() {

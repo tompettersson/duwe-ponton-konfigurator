@@ -56,7 +56,7 @@ export const CAMERA_POSITIONS = {
     target: [0, 0, 0] as const,
   },
   '3D': {
-    position: [45, 25, 35] as const, // Optimale schräge Perspektive: weiter weg + leicht gedreht + tiefer
+    position: [17.6, 12.5, 5.6] as const, // Optimale Start-Perspektive: Zoom 22.3, Rotation 72°/56°
     target: [0, 0, 0] as const,
   },
 } as const;
