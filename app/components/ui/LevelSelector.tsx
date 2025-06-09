@@ -23,7 +23,7 @@ export function LevelSelector() {
   ] as const;
 
   return (
-    <div className="flex gap-1 bg-white rounded-lg shadow-lg p-1">
+    <div className="flex flex-col gap-1 bg-white rounded-lg shadow-lg p-1">
       {levels.map((level) => (
         <button
           key={level.value}
