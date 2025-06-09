@@ -68,8 +68,8 @@ export function Toolbar() {
         <Image
           src="/logoheader.png"
           alt="Logo"
-          width={160}
-          height={50}
+          width={180}
+          height={60}
           className="object-contain"
           priority
         />
