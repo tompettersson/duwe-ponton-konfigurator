@@ -32,7 +32,7 @@ export class CollisionDetection {
 
     // Check bounds
     if (!this.gridMath.isInBounds(position, gridBounds)) {
-      errors.push('Position outside grid bounds');
+      errors.push('Position außerhalb der Rastergrenzen');
     }
 
     // Get pontoon size based on type
@@ -41,12 +41,12 @@ export class CollisionDetection {
     // Check if placement extends beyond grid bounds
     if (position.x + size.x > gridBounds.width ||
         position.z + size.z > gridBounds.height) {
-      errors.push('Pontoon extends beyond grid bounds');
+      errors.push('Ponton erstreckt sich über Rastergrenzen hinaus');
     }
 
     // Check collision with existing pontoons
     if (this.spatialGrid.checkCollision(position, size, excludeId)) {
-      errors.push('Position already occupied');
+      errors.push('Position bereits belegt');
     }
 
     // Validate structural support (for elevated pontoons)
@@ -112,7 +112,7 @@ export class CollisionDetection {
         const supportElements = this.spatialGrid.getElementsAtPosition(supportPosition);
         
         if (supportElements.length === 0) {
-          errors.push(`No structural support at position (${x}, ${position.y - 1}, ${z})`);
+          errors.push(`Keine strukturelle Unterstützung an Position (${x}, ${position.y - 1}, ${z})`);
         }
       }
     }
@@ -280,7 +280,7 @@ export class CollisionDetection {
     
     return {
       valid: isConnected,
-      errors: isConnected ? [] : ['Platform is not fully connected'],
+      errors: isConnected ? [] : ['Plattform ist nicht vollständig verbunden'],
     };
   }
 

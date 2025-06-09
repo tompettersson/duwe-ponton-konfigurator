@@ -47,7 +47,7 @@ export function SelectionBox() {
         className="absolute -top-8 left-0 text-xs bg-orange-500 text-white px-2 py-1 rounded whitespace-nowrap"
         style={{ fontSize: '11px' }}
       >
-        Multi-Drop Area ({width.toFixed(0)}x{height.toFixed(0)})
+        Multi-Drop Bereich ({width.toFixed(0)}x{height.toFixed(0)})
       </div>
     </div>
   );

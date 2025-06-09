@@ -21,7 +21,7 @@ export function ViewModeToggle() {
             ? 'bg-blue-500 text-white'
             : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
         }`}
-        title="2D View (Top-Down)"
+        title="2D Ansicht (Draufsicht)"
       >
         <Maximize2 size={20} />
       </button>
@@ -33,7 +33,7 @@ export function ViewModeToggle() {
             ? 'bg-blue-500 text-white'
             : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
         }`}
-        title="3D View (Perspective)"
+        title="3D Ansicht (Perspektive)"
       >
         <Box size={20} />
       </button>
