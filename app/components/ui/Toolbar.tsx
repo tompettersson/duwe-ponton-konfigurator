@@ -100,9 +100,12 @@ export function Toolbar() {
         {/* Multi-Drop Tool - Full Width */}
         <button
           onClick={() => {
-            setTool('multi-drop');
-            setPontoonType('double'); // Auto-switch to double for multi-drop
-            useConfiguratorStore.getState().setViewMode('2d'); // Auto-switch to 2D view
+            // FIX: Use atomic tool configuration update instead of separate calls
+            useConfiguratorStore.getState().setToolConfiguration({
+              tool: 'multi-drop',
+              pontoonType: 'double',
+              viewMode: '2d'
+            });
           }}
           className={`p-2 rounded transition-colors text-sm flex items-center gap-2 ${
             selectedTool === 'multi-drop'

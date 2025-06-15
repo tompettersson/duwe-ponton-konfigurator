@@ -501,8 +501,9 @@ export const useConfiguratorStore = create<ConfiguratorState>()(
               draft.dragEnd = position;
               draft.dragEndMouse = mousePos;
               
-              // Calculate preview positions in drag area
-              const { gridMath, currentPontoonType } = get();
+              // FIX: Use draft state instead of stale get() call
+              const gridMath = draft.gridMath;
+              const currentPontoonType = draft.currentPontoonType;
               let positions = gridMath.getGridPositionsInArea(draft.dragStart, position);
               
               // Apply spacing logic for double pontoons in preview

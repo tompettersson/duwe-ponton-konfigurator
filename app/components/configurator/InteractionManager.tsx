@@ -24,6 +24,7 @@ export function InteractionManager() {
   const {
     selectedTool,
     currentPontoonType,
+    currentPontoonColor, // FIX: Add missing color import
     currentLevel,
     addPontoon,
     removePontoon,
@@ -42,6 +43,8 @@ export function InteractionManager() {
     updateDrag,
     endDrag,
     cancelDrag,
+    // FIX: Add safe tool switching function
+    safeSetTool,
   } = useConfiguratorStore();
 
   // Debug store
@@ -285,25 +288,30 @@ export function InteractionManager() {
           break;
           
         case '1':
-          useConfiguratorStore.getState().setTool('select');
+          useConfiguratorStore.getState().safeSetTool('select');
           break;
           
         case '2':
-          useConfiguratorStore.getState().setTool('place');
+          useConfiguratorStore.getState().safeSetTool('place');
           break;
           
         case '3':
-          useConfiguratorStore.getState().setTool('delete');
+          useConfiguratorStore.getState().safeSetTool('delete');
           break;
           
         case '4':
-          useConfiguratorStore.getState().setTool('rotate');
+          useConfiguratorStore.getState().safeSetTool('rotate');
           break;
           
         case '5':
-          useConfiguratorStore.getState().setTool('multi-drop');
-          useConfiguratorStore.getState().setPontoonType('double'); // Auto-switch to double
-          useConfiguratorStore.getState().setViewMode('2d'); // Auto-switch to 2D view
+          // FIX: Use atomic configuration and safe tool switching
+          if (!useConfiguratorStore.getState().isDragging) {
+            useConfiguratorStore.getState().setToolConfiguration({
+              tool: 'multi-drop',
+              pontoonType: 'double',
+              viewMode: '2d'
+            });
+          }
           break;
           
         case 'a':
@@ -381,7 +389,8 @@ export function InteractionManager() {
     scene, 
     selectedTool, 
     currentPontoonType,
-    currentLevel, // CRITICAL: Add currentLevel to dependencies!
+    currentPontoonColor, // FIX: Add missing color dependency for correct closures
+    currentLevel,
     addPontoon,
     removePontoon,
     selectPontoon,
