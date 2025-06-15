@@ -28,12 +28,12 @@ export function GridSystem() {
   
   const groundRef = useRef<THREE.Mesh>(null);
 
-  // Create grid at currentLevel Y position
+  // Create grid at currentLevel physical Y position (stacked system)
   const gridGeometry = useMemo(() => {
     const points: THREE.Vector3[] = [];
     const halfWidth = (gridSize.width * cellSize) / 2;
     const halfHeight = (gridSize.height * cellSize) / 2;
-    const y = currentLevel; // Grid moves to current level
+    const y = gridMath.getLevelPhysicalY(currentLevel); // Use stacked physical Y position
 
     // Horizontal lines (parallel to X-axis) at current level
     for (let i = 0; i <= gridSize.height; i++) {
@@ -77,7 +77,7 @@ export function GridSystem() {
       {/* Level Plane (invisible, for raycasting at current level) */}
       <mesh
         ref={groundRef}
-        position={[0, currentLevel, 0]}
+        position={[0, gridMath.getLevelPhysicalY(currentLevel), 0]}
         rotation={[-Math.PI / 2, 0, 0]}
         layers={LAYERS.GRID}
         visible={false}
@@ -130,7 +130,7 @@ export function GridSystem() {
 
       {/* Level Base - Minimal background at current level */}
       <mesh
-        position={[0, currentLevel - 0.02, 0]}
+        position={[0, gridMath.getLevelPhysicalY(currentLevel) - 0.02, 0]}
         rotation={[-Math.PI / 2, 0, 0]}
         receiveShadow={false}
         layers={10} // Different layer so it doesn't interfere with raycasting

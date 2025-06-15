@@ -54,7 +54,7 @@ export class GridMathematics {
     
     // Calculate millimeter coordinates (cell center) with grid centering
     const xMM = gridPos.x * this.cellSizeMM + this.cellSizeMM / 2 - halfGridWidthMM;
-    const yMeters = gridPos.y; // Y coordinate is direct level integer (-1, 0, 1, 2)
+    const yMeters = this.getLevelPhysicalY(gridPos.y); // Use stacked physical Y position
     const zMM = gridPos.z * this.cellSizeMM + this.cellSizeMM / 2 - halfGridHeightMM;
 
     // Convert to meters
@@ -212,6 +212,19 @@ export class GridMathematics {
    */
   rotationStepsToAngle(steps: number): number {
     return (steps * 90) % 360;
+  }
+
+  /**
+   * Get physical Y position for a grid level (stacked system)
+   * Ensures consistent Y-positioning between Grid, Pontoons, and Raycasting
+   * 
+   * Level 0: Y = 0.2m (pontoon center on water surface)
+   * Level 1: Y = 0.6m (stacked on Level 0)  
+   * Level 2: Y = 1.0m (stacked on Level 1)
+   */
+  getLevelPhysicalY(level: number): number {
+    const pontoonHeightM = GRID_CONSTANTS.PONTOON_HEIGHT_MM / GRID_CONSTANTS.PRECISION_FACTOR;
+    return (level * pontoonHeightM) + (pontoonHeightM / 2);
   }
 
   /**

@@ -48,9 +48,9 @@ export function Pontoon({ pontoon, isSelected, isPreview = false }: PontoonProps
       pos.x += cellSize / 2; // Move right by half a cell to center between two cells
     }
     
-    // Position pontoon so bottom sits on grid level (preserve grid Y coordinate)
+    // Position pontoon using shared physical Y calculation for consistency
     const originalY = pos.y;
-    pos.y = pontoon.gridPosition.y + (GRID_CONSTANTS.PONTOON_HEIGHT_MM / GRID_CONSTANTS.PRECISION_FACTOR) / 2;
+    pos.y = gridMath.getLevelPhysicalY(pontoon.gridPosition.y);
     
     console.log('🧊 FINAL POSITION DEBUG:', {
       pontoonId: pontoon.id,

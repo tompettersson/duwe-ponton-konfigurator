@@ -16,7 +16,6 @@ export function LevelSelector() {
   const { currentLevel, setCurrentLevel } = useConfiguratorStore();
 
   const levels = [
-    { value: -1, label: 'Level -1', title: 'Unterwasser-Fundament' },
     { value: 0, label: 'Level 0', title: 'Wasseroberfläche' },
     { value: 1, label: 'Level 1', title: 'Erstes Deck' },
     { value: 2, label: 'Level 2', title: 'Zweites Deck' },

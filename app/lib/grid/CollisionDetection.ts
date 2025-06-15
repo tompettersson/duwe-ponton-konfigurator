@@ -49,7 +49,9 @@ export class CollisionDetection {
       errors.push('Position bereits belegt');
     }
 
-    // Validate structural support based on level semantics
+    // TEMPORARILY DISABLED: Structural support validation for free placement
+    // TODO: Re-enable when basic multi-level functionality is working
+    /*
     if (position.y > 0) {
       // Level 1 and above require support from level below
       const supportValidation = this.validateStructuralSupport(position, size);
@@ -57,7 +59,8 @@ export class CollisionDetection {
         errors.push(...supportValidation.errors);
       }
     }
-    // Level -1 (underwater) and Level 0 (water surface) require no support
+    */
+    // Allow free placement on all levels (0, 1, 2) for now
 
     // Validate pontoon type specific rules
     const typeValidation = this.validatePontoonTypeRules(position, pontoonType, size);
