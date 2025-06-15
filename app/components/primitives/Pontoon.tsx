@@ -52,6 +52,14 @@ export function Pontoon({ pontoon, isSelected, isPreview = false }: PontoonProps
     const originalY = pos.y;
     pos.y = gridMath.getLevelPhysicalY(pontoon.gridPosition.y);
     
+    // Always elevate pontoons slightly above grid lines to prevent Z-fighting
+    pos.y += 0.0005; // 0.5mm base elevation for all pontoons
+    
+    // Additional elevation for preview pontoons to make them clearly distinguishable
+    if (isPreview) {
+      pos.y += 0.001; // Additional 1mm elevation for preview (total 1.5mm)
+    }
+    
     console.log('🧊 FINAL POSITION DEBUG:', {
       pontoonId: pontoon.id,
       gridPositionY: pontoon.gridPosition.y,

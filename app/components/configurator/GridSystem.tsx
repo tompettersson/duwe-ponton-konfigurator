@@ -67,10 +67,10 @@ export function GridSystem() {
         layers={LAYERS.GRID}
       >
         <lineBasicMaterial 
-          color={COLORS.GRID_LINE}
-          opacity={0.8} 
-          transparent={false}
-          depthWrite={true}
+          color="#ffffff"
+          opacity={0.5} 
+          transparent={true}
+          depthWrite={false}
         />
       </lineSegments>
 
@@ -128,22 +128,7 @@ export function GridSystem() {
         />
       )}
 
-      {/* Level Base - Minimal background at current level */}
-      <mesh
-        position={[0, gridMath.getLevelPhysicalY(currentLevel) - 0.02, 0]}
-        rotation={[-Math.PI / 2, 0, 0]}
-        receiveShadow={false}
-        layers={10} // Different layer so it doesn't interfere with raycasting
-      >
-        <planeGeometry args={[groundSize.width * 1.1, groundSize.height * 1.1]} />
-        <meshStandardMaterial 
-          color={COLORS.GRID_BACKGROUND} 
-          roughness={0.9}
-          metalness={0.0}
-          opacity={0.2}
-          transparent
-        />
-      </mesh>
+      {/* Level Base removed - only lines needed */}
     </>
   );
 }
