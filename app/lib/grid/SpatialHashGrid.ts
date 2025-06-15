@@ -134,12 +134,69 @@ export class SpatialHashGrid {
   }
 
   /**
+   * Check for collision at specific level only
+   * Used for level-specific placement validation
+   */
+  checkCollisionAtLevel(
+    position: GridPosition,
+    size: GridPosition = { x: 1, y: 1, z: 1 },
+    excludeId?: string
+  ): boolean {
+    const results = new Set<string>();
+
+    // Only check the specific level (y-coordinate)
+    for (let x = position.x; x < position.x + size.x; x++) {
+      for (let z = position.z; z < position.z + size.z; z++) {
+        const key = this.gridMath.getGridKey({ x, y: position.y, z });
+        const cellElements = this.grid.get(key);
+        
+        if (cellElements) {
+          cellElements.forEach(id => results.add(id));
+        }
+      }
+    }
+
+    const collisions = Array.from(results);
+    return excludeId
+      ? collisions.some(id => id !== excludeId)
+      : collisions.length > 0;
+  }
+
+  /**
    * Get all elements at exact position
    */
   getElementsAtPosition(position: GridPosition): string[] {
     const key = this.gridMath.getGridKey(position);
     const cellElements = this.grid.get(key);
     return cellElements ? Array.from(cellElements) : [];
+  }
+
+  /**
+   * Check if there is support at the level below for all cells of a pontoon
+   * Used for vertical dependency validation
+   */
+  hasVerticalSupport(
+    position: GridPosition,
+    size: GridPosition = { x: 1, y: 1, z: 1 }
+  ): { hasSupport: boolean; missingSupportCells: GridPosition[] } {
+    const missingSupportCells: GridPosition[] = [];
+
+    // Check each cell that the pontoon would occupy
+    for (let x = position.x; x < position.x + size.x; x++) {
+      for (let z = position.z; z < position.z + size.z; z++) {
+        const supportPosition = { x, y: position.y - 1, z };
+        const supportElements = this.getElementsAtPosition(supportPosition);
+        
+        if (supportElements.length === 0) {
+          missingSupportCells.push(supportPosition);
+        }
+      }
+    }
+
+    return {
+      hasSupport: missingSupportCells.length === 0,
+      missingSupportCells
+    };
   }
 
   /**

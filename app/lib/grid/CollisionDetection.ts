@@ -44,23 +44,18 @@ export class CollisionDetection {
       errors.push('Ponton erstreckt sich über Rastergrenzen hinaus');
     }
 
-    // Check collision with existing pontoons
-    if (this.spatialGrid.checkCollision(position, size, excludeId)) {
+    // Check collision with existing pontoons at the same level only
+    if (this.spatialGrid.checkCollisionAtLevel(position, size, excludeId)) {
       errors.push('Position bereits belegt');
     }
 
-    // TEMPORARILY DISABLED: Structural support validation for free placement
-    // TODO: Re-enable when basic multi-level functionality is working
-    /*
+    // VERTICAL DEPENDENCY VALIDATION: Level 1+ requires support from below
     if (position.y > 0) {
-      // Level 1 and above require support from level below
-      const supportValidation = this.validateStructuralSupport(position, size);
+      const supportValidation = this.validateVerticalSupport(position, size);
       if (!supportValidation.valid) {
         errors.push(...supportValidation.errors);
       }
     }
-    */
-    // Allow free placement on all levels (0, 1, 2) for now
 
     // Validate pontoon type specific rules
     const typeValidation = this.validatePontoonTypeRules(position, pontoonType, size);
@@ -102,22 +97,82 @@ export class CollisionDetection {
   }
 
   /**
-   * Validate structural support for elevated pontoons
+   * Validate vertical support for elevated pontoons
+   * Implements the required stacking logic: Level 1+ only over existing pontoons
    */
-  private validateStructuralSupport(
+  private validateVerticalSupport(
     position: GridPosition,
     size: GridPosition
   ): ValidationResult {
     const errors: string[] = [];
 
-    // Check each cell below the pontoon for support
+    // Level 0 (water surface) can be placed anywhere
+    if (position.y === 0) {
+      return { valid: true, errors: [] };
+    }
+
+    // Level 1+ requires complete support from the level below
+    const supportCheck = this.spatialGrid.hasVerticalSupport(position, size);
+    
+    if (!supportCheck.hasSupport) {
+      const levelName = this.getLevelName(position.y);
+      const supportLevelName = this.getLevelName(position.y - 1);
+      
+      errors.push(
+        `${levelName} kann nur über existierenden Pontoons auf ${supportLevelName} platziert werden`
+      );
+      
+      // Add detailed information about missing support
+      supportCheck.missingSupportCells.forEach(cell => {
+        errors.push(
+          `Fehlende Unterstützung an Position (${cell.x}, ${cell.z}) auf ${supportLevelName}`
+        );
+      });
+    }
+
+    // For Level 2: Additionally check that Level 1 has complete vertical stack
+    if (position.y === 2) {
+      const level1ValidationResult = this.validateCompleteVerticalStack(position, size);
+      if (!level1ValidationResult.valid) {
+        errors.push(...level1ValidationResult.errors);
+      }
+    }
+
+    return {
+      valid: errors.length === 0,
+      errors,
+    };
+  }
+
+  /**
+   * Validate complete vertical stack for Level 2 placement
+   * Level 2 requires both Level 0 AND Level 1 support
+   */
+  private validateCompleteVerticalStack(
+    position: GridPosition,
+    size: GridPosition
+  ): ValidationResult {
+    const errors: string[] = [];
+
+    // Check each cell for complete vertical stack (Level 0 + Level 1)
     for (let x = position.x; x < position.x + size.x; x++) {
       for (let z = position.z; z < position.z + size.z; z++) {
-        const supportPosition = { x, y: position.y - 1, z };
-        const supportElements = this.spatialGrid.getElementsAtPosition(supportPosition);
+        const level0Position = { x, y: 0, z };
+        const level1Position = { x, y: 1, z };
         
-        if (supportElements.length === 0) {
-          errors.push(`Keine strukturelle Unterstützung an Position (${x}, ${position.y - 1}, ${z})`);
+        const level0Elements = this.spatialGrid.getElementsAtPosition(level0Position);
+        const level1Elements = this.spatialGrid.getElementsAtPosition(level1Position);
+        
+        if (level0Elements.length === 0) {
+          errors.push(
+            `Level 2 benötigt Pontoon auf Level 0 an Position (${x}, ${z})`
+          );
+        }
+        
+        if (level1Elements.length === 0) {
+          errors.push(
+            `Level 2 benötigt Pontoon auf Level 1 an Position (${x}, ${z})`
+          );
         }
       }
     }
@@ -126,6 +181,18 @@ export class CollisionDetection {
       valid: errors.length === 0,
       errors,
     };
+  }
+
+  /**
+   * Get human-readable level name
+   */
+  private getLevelName(level: number): string {
+    switch (level) {
+      case 0: return 'Level 0 (Wasseroberfläche)';
+      case 1: return 'Level 1 (Erstes Deck)';
+      case 2: return 'Level 2 (Zweites Deck)';
+      default: return `Level ${level}`;
+    }
   }
 
   /**
