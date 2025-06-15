@@ -45,6 +45,9 @@ export function InteractionManager() {
     cancelDrag,
     // FIX: Add safe tool switching function
     safeSetTool,
+    // Tool state snapshot functions
+    snapshotToolState,
+    clearToolStateSnapshot,
   } = useConfiguratorStore();
 
   // Debug store
@@ -205,6 +208,8 @@ export function InteractionManager() {
         x: event.clientX - rect.left,
         y: event.clientY - rect.top
       };
+      // Create tool state snapshot for consistent multi-drop placement
+      snapshotToolState();
       startDrag(gridPos, mousePos);
     };
 
@@ -251,7 +256,11 @@ export function InteractionManager() {
       switch (selectedTool) {
         case 'place':
           console.log('🔨 Attempting to place pontoon at:', gridPos);
+          // Create tool state snapshot for consistent placement
+          snapshotToolState();
           const success = addPontoon(gridPos);
+          // Clear snapshot after placement
+          clearToolStateSnapshot();
           console.log('🔨 Place result:', success ? 'SUCCESS' : 'FAILED');
           setLastClickResult(success ? 'SUCCESS' : 'FAILED');
           break;

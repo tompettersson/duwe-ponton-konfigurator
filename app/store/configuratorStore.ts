@@ -51,6 +51,13 @@ interface ConfiguratorState {
   currentLevel: number; // -1 (underwater), 0 (surface), 1 (first deck), 2 (second deck)
   isGridVisible: boolean;
   showCoordinates: boolean;
+  
+  // Tool State Snapshots - for consistent placement during interactions
+  toolStateSnapshot: {
+    type: PontoonType;
+    color: PontoonColor;
+    timestamp: number;
+  } | null;
 
   // Multi-Drop State
   dragStart: GridPosition | null;
@@ -194,6 +201,9 @@ export const useConfiguratorStore = create<ConfiguratorState>()(
           currentLevel: 0, // Default Level 0 (water surface) for backwards compatibility
           isGridVisible: true,
           showCoordinates: false,
+          
+          // Tool State Snapshot
+          toolStateSnapshot: null,
 
           // Multi-Drop State
           dragStart: null,
@@ -213,10 +223,20 @@ export const useConfiguratorStore = create<ConfiguratorState>()(
             let success = false;
             
             set((draft) => {
-              // Capture state within draft context for consistency
-              const type = draft.currentPontoonType;
-              const color = draft.currentPontoonColor;
+              // Use snapshot state if available for consistent placement during interactions
+              const type = draft.toolStateSnapshot?.type || draft.currentPontoonType;
+              const color = draft.toolStateSnapshot?.color || draft.currentPontoonColor;
               const currentLevel = draft.currentLevel;
+              
+              console.log('🎨 TOOL STATE DEBUG:', {
+                snapshotAvailable: !!draft.toolStateSnapshot,
+                snapshotType: draft.toolStateSnapshot?.type,
+                snapshotColor: draft.toolStateSnapshot?.color,
+                currentType: draft.currentPontoonType,
+                currentColor: draft.currentPontoonColor,
+                usingType: type,
+                usingColor: color
+              });
 
               console.log('🔨 ADD PONTOON DEBUG:', {
                 receivedPosition: position,
@@ -546,6 +566,8 @@ export const useConfiguratorStore = create<ConfiguratorState>()(
               draft.dragStartMouse = null;
               draft.dragEndMouse = null;
               draft.previewPositions.clear();
+              // Clear tool state snapshot after multi-drop completion
+              draft.toolStateSnapshot = null;
             });
             
             return success;
@@ -559,6 +581,8 @@ export const useConfiguratorStore = create<ConfiguratorState>()(
               draft.dragStartMouse = null;
               draft.dragEndMouse = null;
               draft.previewPositions.clear();
+              // Clear tool state snapshot on cancel
+              draft.toolStateSnapshot = null;
             });
           },
 
@@ -883,7 +907,7 @@ export const useConfiguratorStore = create<ConfiguratorState>()(
             });
           },
 
-          // Safe tool switching with interaction state validation
+                  // Safe tool switching with interaction state validation
           safeSetTool: (tool: ToolType) => {
             const state = get();
             
@@ -901,14 +925,46 @@ export const useConfiguratorStore = create<ConfiguratorState>()(
                 draft.currentPontoonType = 'double';
                 draft.viewMode = '2d';
               }
+              
+              // Create tool state snapshot for consistent interactions
+              draft.toolStateSnapshot = {
+                type: draft.currentPontoonType,
+                color: draft.currentPontoonColor,
+                timestamp: Date.now()
+              };
             });
             
             return true;
+          },
+          
+          // Snapshot tool state for consistent placement
+          snapshotToolState: () => {
+            set((draft) => {
+              draft.toolStateSnapshot = {
+                type: draft.currentPontoonType,
+                color: draft.currentPontoonColor,
+                timestamp: Date.now()
+              };
+            });
+          },
+          
+          // Clear tool state snapshot
+          clearToolStateSnapshot: () => {
+            set((draft) => {
+              draft.toolStateSnapshot = null;
+            });
           },
         };
       }),
       {
         name: 'configurator-store',
+        // Persist tool state between sessions
+        partialize: (state) => ({
+          selectedTool: state.selectedTool,
+          currentPontoonType: state.currentPontoonType,
+          currentPontoonColor: state.currentPontoonColor,
+          viewMode: state.viewMode,
+        }),
       }
     )
   )
