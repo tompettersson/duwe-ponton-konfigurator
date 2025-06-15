@@ -209,50 +209,71 @@ export const useConfiguratorStore = create<ConfiguratorState>()(
 
           // Pontoon Management Actions
           addPontoon: (position) => {
-            const state = get();
-            const type = state.currentPontoonType;
-
-            console.log('🔨 ADD PONTOON DEBUG:', {
-              receivedPosition: position,
-              currentLevel: state.currentLevel,
-              type
-            });
-
-            // Validate placement
-            const validation = state.validatePlacement(position, type);
-            if (!validation.valid) {
-              console.warn('❌ Cannot place pontoon at', position, ':', validation.errors);
-              console.warn('Current level:', state.currentLevel, 'Position level:', position.y);
-              return false;
-            } else {
-              console.log('✅ Pontoon placement validated at', position);
-            }
-
-            const id = generateId('pontoon-');
-            const pontoon: PontoonElement = {
-              id,
-              gridPosition: position,
-              rotation: 0,
-              type,
-              color: state.currentPontoonColor,
-              metadata: {
-                createdAt: Date.now(),
-              },
-            };
-
-            console.log('🔨 PONTOON CREATION DEBUG:', {
-              storedGridPosition: pontoon.gridPosition,
-              currentLevel: state.currentLevel,
-              positionMatchesLevel: pontoon.gridPosition.y === state.currentLevel
-            });
-
+            // Move all logic inside set() to prevent stale state reads
+            let success = false;
+            
             set((draft) => {
-              // Add to pontoons map
-              draft.pontoons.set(id, pontoon);
-              
-              // Add to spatial index with correct size
-              const size = type === 'double' ? { x: 2, y: 1, z: 1 } : { x: 1, y: 1, z: 1 };
-              draft.spatialIndex.insert(id, position, size);
+              // Capture state within draft context for consistency
+              const type = draft.currentPontoonType;
+              const color = draft.currentPontoonColor;
+              const currentLevel = draft.currentLevel;
+
+              console.log('🔨 ADD PONTOON DEBUG:', {
+                receivedPosition: position,
+                currentLevel,
+                type
+              });
+
+              // Create temporary state accessor for validation
+              const tempState = {
+                pontoons: draft.pontoons,
+                spatialIndex: draft.spatialIndex,
+                currentLevel,
+                validatePlacement: get().validatePlacement.bind({ ...draft, pontoons: draft.pontoons, spatialIndex: draft.spatialIndex })
+              };
+
+              // Validate placement with draft state
+              const validation = get().validatePlacement(position, type);
+              if (!validation.valid) {
+                console.warn('❌ Cannot place pontoon at', position, ':', validation.errors);
+                console.warn('Current level:', currentLevel, 'Position level:', position.y);
+                return; // Early return, success remains false
+              } else {
+                console.log('✅ Pontoon placement validated at', position);
+              }
+
+              const id = generateId('pontoon-');
+              const pontoon: PontoonElement = {
+                id,
+                gridPosition: position,
+                rotation: 0,
+                type,
+                color,
+                metadata: {
+                  createdAt: Date.now(),
+                },
+              };
+
+              console.log('🔨 PONTOON CREATION DEBUG:', {
+                storedGridPosition: pontoon.gridPosition,
+                currentLevel,
+                positionMatchesLevel: pontoon.gridPosition.y === currentLevel
+              });
+              // Atomic operation: Add to both pontoons map and spatial index
+              try {
+                draft.pontoons.set(id, pontoon);
+                
+                // Add to spatial index with correct size
+                const size = type === 'double' ? { x: 2, y: 1, z: 1 } : { x: 1, y: 1, z: 1 };
+                draft.spatialIndex.insert(id, position, size);
+                
+                success = true; // Only set success if both operations complete
+              } catch (error) {
+                // Rollback pontoon if spatial index fails
+                draft.pontoons.delete(id);
+                console.error('❌ Failed to add pontoon to spatial index:', error);
+                return; // Early return, success remains false
+              }
               
               // Add to history
               const action: HistoryAction = {
@@ -568,10 +589,17 @@ export const useConfiguratorStore = create<ConfiguratorState>()(
             set((draft) => {
               // Remove existing pontoons in area
               positions.forEach(pos => {
-                const existing = state.getPontoonAt(pos);
-                if (existing) {
-                  draft.pontoons.delete(existing.id);
-                  draft.spatialIndex.remove(existing.id);
+                // Use draft-consistent lookup instead of stale state
+                const existingEntries = Array.from(draft.pontoons.entries()).find(
+                  ([_, pontoon]) => 
+                    pontoon.gridPosition.x === pos.x && 
+                    pontoon.gridPosition.y === pos.y && 
+                    pontoon.gridPosition.z === pos.z
+                );
+                if (existingEntries) {
+                  const [existingId] = existingEntries;
+                  draft.pontoons.delete(existingId);
+                  draft.spatialIndex.remove(existingId);
                 }
               });
               
@@ -628,7 +656,7 @@ export const useConfiguratorStore = create<ConfiguratorState>()(
               }
             });
             
-            return true;
+            return success;
           },
 
           // History Actions
@@ -647,7 +675,11 @@ export const useConfiguratorStore = create<ConfiguratorState>()(
                   
                 case 'remove':
                   draft.pontoons.set(action.pontoon.id, action.pontoon);
-                  draft.spatialIndex.insert(action.pontoon.id, action.pontoon.gridPosition);
+                  // Fix: Add missing size parameter for spatial index consistency
+                  const size = action.pontoon.type === 'double' 
+                    ? { x: 2, y: 1, z: 1 } 
+                    : { x: 1, y: 1, z: 1 };
+                  draft.spatialIndex.insert(action.pontoon.id, action.pontoon.gridPosition, size);
                   break;
                   
                 case 'move':
@@ -808,6 +840,47 @@ export const useConfiguratorStore = create<ConfiguratorState>()(
               pontoonCount: state.pontoons.size,
               selectedCount: state.selectedIds.size,
             };
+          },
+
+          // Atomic Tool-State Updates - Fix for race conditions
+          setToolConfiguration: (config: {
+            tool?: ToolType;
+            pontoonType?: PontoonType;
+            color?: PontoonColor;
+            viewMode?: ViewMode;
+          }) => {
+            set((draft) => {
+              // Atomic update of multiple tool properties
+              if (config.tool !== undefined) draft.selectedTool = config.tool;
+              if (config.pontoonType !== undefined) draft.currentPontoonType = config.pontoonType;
+              if (config.color !== undefined) draft.currentPontoonColor = config.color;
+              if (config.viewMode !== undefined) draft.viewMode = config.viewMode;
+              
+              console.log('🔧 ATOMIC TOOL UPDATE:', config);
+            });
+          },
+
+          // Safe tool switching with interaction state validation
+          safeSetTool: (tool: ToolType) => {
+            const state = get();
+            
+            // Prevent tool switching during active interactions
+            if (state.isDragging) {
+              console.warn('⚠️ Cannot switch tools during active drag operation');
+              return false;
+            }
+            
+            set((draft) => {
+              draft.selectedTool = tool;
+              
+              // Auto-configure tool-specific settings
+              if (tool === 'multi-drop') {
+                draft.currentPontoonType = 'double';
+                draft.viewMode = '2d';
+              }
+            });
+            
+            return true;
           },
         };
       }),
