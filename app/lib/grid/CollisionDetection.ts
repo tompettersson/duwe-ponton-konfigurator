@@ -49,13 +49,15 @@ export class CollisionDetection {
       errors.push('Position bereits belegt');
     }
 
-    // Validate structural support (for elevated pontoons)
+    // Validate structural support based on level semantics
     if (position.y > 0) {
+      // Level 1 and above require support from level below
       const supportValidation = this.validateStructuralSupport(position, size);
       if (!supportValidation.valid) {
         errors.push(...supportValidation.errors);
       }
     }
+    // Level -1 (underwater) and Level 0 (water surface) require no support
 
     // Validate pontoon type specific rules
     const typeValidation = this.validatePontoonTypeRules(position, pontoonType, size);

@@ -11,6 +11,19 @@ export interface GridPosition {
   z: number;
 }
 
+export interface PreciseGridPosition extends GridPosition {
+  // Sub-Cell positioning (0.0-1.0 within cell)
+  cellOffsetX: number; // 0.0 = left edge, 1.0 = right edge
+  cellOffsetZ: number; // 0.0 = front edge, 1.0 = back edge
+  
+  // Absolute world position for 3D model placement
+  worldPosition: {
+    x: number;
+    y: number; 
+    z: number;
+  };
+}
+
 export interface PontoonElement {
   id: string;
   gridPosition: GridPosition;
@@ -62,6 +75,7 @@ export interface GridState {
   pontoons: Map<string, PontoonElement>;
   selectedIds: Set<string>;
   hoveredCell: GridPosition | null;
+  preciseHoveredCell: PreciseGridPosition | null;
 }
 
 export interface UIState {

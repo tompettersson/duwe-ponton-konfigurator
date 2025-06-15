@@ -8,7 +8,7 @@
 import * as THREE from 'three';
 import { GRID_CONSTANTS } from '../constants';
 import { metersToMM, mmToMeters, snapToGrid } from '../utils/precision';
-import type { GridPosition } from '../../types';
+import type { GridPosition, PreciseGridPosition } from '../../types';
 
 export class GridMathematics {
   private readonly cellSizeMM: number;
@@ -37,7 +37,7 @@ export class GridMathematics {
     // Calculate grid coordinates (integer division) with centering offset
     return {
       x: Math.floor((xMM + halfGridWidthMM) / this.cellSizeMM),
-      y: Math.floor(yMM / this.cellSizeMM), // Y unchanged (height)
+      y: Math.round(worldPos.y + 0), // Y coordinate is direct level integer (-1, 0, 1, 2), +0 fixes -0 issue
       z: Math.floor((zMM + halfGridHeightMM) / this.cellSizeMM),
     };
   }
@@ -54,13 +54,13 @@ export class GridMathematics {
     
     // Calculate millimeter coordinates (cell center) with grid centering
     const xMM = gridPos.x * this.cellSizeMM + this.cellSizeMM / 2 - halfGridWidthMM;
-    const yMM = gridPos.y * this.cellSizeMM + this.cellSizeMM / 2; // Y stays unchanged (height)
+    const yMeters = gridPos.y; // Y coordinate is direct level integer (-1, 0, 1, 2)
     const zMM = gridPos.z * this.cellSizeMM + this.cellSizeMM / 2 - halfGridHeightMM;
 
     // Convert to meters
     return new THREE.Vector3(
       mmToMeters(xMM),
-      mmToMeters(yMM),
+      yMeters,
       mmToMeters(zMM)
     );
   }
@@ -212,5 +212,110 @@ export class GridMathematics {
    */
   rotationStepsToAngle(steps: number): number {
     return (steps * 90) % 360;
+  }
+
+  /**
+   * Convert world position to precise grid coordinates with sub-cell positioning
+   * This method provides both grid coordinates and exact positioning within cells
+   * for future 3D model placement and sub-cell features (ladders, connectors, etc.)
+   */
+  worldToPreciseGrid(
+    worldPos: THREE.Vector3, 
+    currentLevel: number,
+    gridSize: { width: number; height: number } = { width: 50, height: 50 }
+  ): PreciseGridPosition {
+    // DIRECT CALCULATION: Don't use worldToGrid() as it has the broken Y logic
+    // Convert to millimeters for precision
+    const xMM = metersToMM(worldPos.x);
+    const zMM = metersToMM(worldPos.z);
+
+    // Calculate offset to account for grid centering
+    const halfGridWidthMM = (gridSize.width * this.cellSizeMM) / 2;
+    const halfGridHeightMM = (gridSize.height * this.cellSizeMM) / 2;
+
+    // Calculate grid coordinates (integer division) with centering offset
+    const gridPos: GridPosition = {
+      x: Math.floor((xMM + halfGridWidthMM) / this.cellSizeMM),
+      y: currentLevel,  // CRITICAL FIX: Always use currentLevel
+      z: Math.floor((zMM + halfGridHeightMM) / this.cellSizeMM),
+    };
+    
+    // Calculate exact world position of grid cell center
+    const cellCenter = this.gridToWorld(gridPos, gridSize);
+    
+    // Calculate sub-cell offset (0.0 to 1.0 within cell)
+    const cellSizeMeters = this.getCellSizeMeters();
+    const cellOffsetX = Math.max(0, Math.min(1, 
+      (worldPos.x - cellCenter.x + cellSizeMeters / 2) / cellSizeMeters
+    ));
+    const cellOffsetZ = Math.max(0, Math.min(1,
+      (worldPos.z - cellCenter.z + cellSizeMeters / 2) / cellSizeMeters
+    ));
+    
+    return {
+      x: gridPos.x,
+      y: gridPos.y,
+      z: gridPos.z,
+      cellOffsetX,
+      cellOffsetZ,
+      worldPosition: {
+        x: worldPos.x,
+        y: currentLevel, // Use level Y for consistency
+        z: worldPos.z
+      }
+    };
+  }
+
+  /**
+   * Get position on specific edge/side of a grid cell
+   * Useful for placing ladders, connectors, etc. on cell edges
+   */
+  getEdgePosition(
+    gridPos: GridPosition, 
+    edge: 'north' | 'south' | 'east' | 'west' | 'center',
+    gridSize: { width: number; height: number } = { width: 50, height: 50 }
+  ): PreciseGridPosition {
+    const cellCenter = this.gridToWorld(gridPos, gridSize);
+    const cellSizeMeters = this.getCellSizeMeters();
+    
+    let offsetX = 0.5; // Center by default
+    let offsetZ = 0.5; // Center by default
+    let worldX = cellCenter.x;
+    let worldZ = cellCenter.z;
+    
+    switch (edge) {
+      case 'north':
+        offsetZ = 0.0;
+        worldZ = cellCenter.z - cellSizeMeters / 2;
+        break;
+      case 'south':
+        offsetZ = 1.0;
+        worldZ = cellCenter.z + cellSizeMeters / 2;
+        break;
+      case 'east':
+        offsetX = 1.0;
+        worldX = cellCenter.x + cellSizeMeters / 2;
+        break;
+      case 'west':
+        offsetX = 0.0;
+        worldX = cellCenter.x - cellSizeMeters / 2;
+        break;
+      case 'center':
+        // Keep defaults
+        break;
+    }
+    
+    return {
+      x: gridPos.x,
+      y: gridPos.y,
+      z: gridPos.z,
+      cellOffsetX: offsetX,
+      cellOffsetZ: offsetZ,
+      worldPosition: {
+        x: worldX,
+        y: gridPos.y,
+        z: worldZ
+      }
+    };
   }
 }

@@ -103,6 +103,7 @@ function DebugPanel() {
   
   // Debug information
   const { intersectCount, raycastCoords, lastClickResult, cameraDebugInfo } = useDebugStore();
+  const currentLevel = useConfiguratorStore((state) => state.currentLevel);
 
   // Calculate affected grid cells for display
   const getGridVisualization = () => {
@@ -169,7 +170,23 @@ function DebugPanel() {
       )}
       <div className="text-purple-400">Rendering: {pontoonCount > 0 ? 'Active' : 'None'}</div>
       
-      {/* Camera Debug Info */}
+      {/* Level & Camera Debug Info */}
+      <div className="mt-2 border-t border-gray-600 pt-2">
+        <div className="text-purple-400 font-bold">Level System:</div>
+        <div className="text-purple-300">Current Level: {currentLevel}</div>
+        <div className="text-purple-300">Grid Y Position: {currentLevel}</div>
+        {hoveredCell && (
+          <div className="text-purple-300">
+            Hover Y: {hoveredCell.y} {hoveredCell.y === currentLevel ? '✅' : '❌'}
+          </div>
+        )}
+        {hoveredCell && (
+          <div className="text-cyan-300">
+            Can Place: {useConfiguratorStore.getState().canPlacePontoon(hoveredCell) ? '✅' : '❌'}
+          </div>
+        )}
+      </div>
+      
       {cameraDebugInfo && (
         <div className="mt-2 border-t border-gray-600 pt-2">
           <div className="text-cyan-400 font-bold">Camera Info:</div>

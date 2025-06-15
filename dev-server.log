@@ -1,0 +1,17 @@
+
+> dpc-next15@0.1.0 dev
+> next dev --turbopack
+
+   ▲ Next.js 15.1.2 (Turbopack)
+   - Local:        http://localhost:3000
+   - Network:      http://192.168.2.79:3000
+
+ ✓ Starting...
+ ✓ Ready in 910ms
+ ○ Compiling / ...
+ ✓ Compiled / in 2.3s
+ GET / 200 in 2574ms
+ GET / 200 in 56ms
+ ✓ Compiled /favicon.ico in 167ms
+ GET /favicon.ico?favicon.45db1c09.ico 200 in 358ms
+[?25h

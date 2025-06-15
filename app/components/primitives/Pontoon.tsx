@@ -28,7 +28,19 @@ export function Pontoon({ pontoon, isSelected, isPreview = false }: PontoonProps
 
   // Calculate exact world position
   const worldPosition = useMemo(() => {
+    console.log('🧊 PONTOON RENDER DEBUG:', {
+      pontoonId: pontoon.id,
+      storedGridPosition: pontoon.gridPosition,
+      gridPositionY: pontoon.gridPosition.y
+    });
+
     const pos = gridMath.gridToWorld(pontoon.gridPosition, gridSize);
+    
+    console.log('🧊 GRID-TO-WORLD DEBUG:', {
+      pontoonId: pontoon.id,
+      inputGridPos: pontoon.gridPosition,
+      outputWorldPos: { x: pos.x, y: pos.y, z: pos.z }
+    });
     
     // For double pontoons, offset position to center between two grid cells
     if (pontoon.type === 'double') {
@@ -36,8 +48,17 @@ export function Pontoon({ pontoon, isSelected, isPreview = false }: PontoonProps
       pos.x += cellSize / 2; // Move right by half a cell to center between two cells
     }
     
-    // Position pontoon so bottom sits on grid plane
-    pos.y = (GRID_CONSTANTS.PONTOON_HEIGHT_MM / GRID_CONSTANTS.PRECISION_FACTOR) / 2;
+    // Position pontoon so bottom sits on grid level (preserve grid Y coordinate)
+    const originalY = pos.y;
+    pos.y = pontoon.gridPosition.y + (GRID_CONSTANTS.PONTOON_HEIGHT_MM / GRID_CONSTANTS.PRECISION_FACTOR) / 2;
+    
+    console.log('🧊 FINAL POSITION DEBUG:', {
+      pontoonId: pontoon.id,
+      gridPositionY: pontoon.gridPosition.y,
+      gridToWorldY: originalY,
+      finalY: pos.y,
+      pontoonHeight: (GRID_CONSTANTS.PONTOON_HEIGHT_MM / GRID_CONSTANTS.PRECISION_FACTOR) / 2
+    });
     
     return pos;
   }, [pontoon.gridPosition, pontoon.type, gridMath, gridSize]);
@@ -65,6 +86,13 @@ export function Pontoon({ pontoon, isSelected, isPreview = false }: PontoonProps
   const pontoonColor = useMemo(() => {
     return COLORS.PONTOON_COLORS[pontoon.color];
   }, [pontoon.color]);
+
+  // Debug the actual rendered position
+  console.log('🎯 FINAL RENDER POSITION:', {
+    pontoonId: pontoon.id,
+    renderPosition: [worldPosition.x, worldPosition.y, worldPosition.z],
+    gridPosition: pontoon.gridPosition
+  });
 
   return (
     <group 

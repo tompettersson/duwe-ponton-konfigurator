@@ -14,7 +14,7 @@ import * as THREE from 'three';
 import { useConfiguratorStore } from '../../store/configuratorStore';
 import { useDebugStore } from '../../store/debugStore';
 import { LAYERS } from '../../lib/constants';
-import type { GridPosition } from '../../types';
+import type { GridPosition, PreciseGridPosition } from '../../types';
 
 export function InteractionManager() {
   const { camera, gl, scene } = useThree();
@@ -67,8 +67,22 @@ export function InteractionManager() {
       if (intersects.length > 0) {
         const intersection = intersects.find(hit => hit.object.userData.isGround);
         if (intersection) {
-          // Convert world position to precise grid coordinates
-          const gridPos = gridMath.worldToGrid(intersection.point, gridSize);
+          // Convert world position to precise grid coordinates with sub-cell positioning
+          const preciseGridPos = gridMath.worldToPreciseGrid(intersection.point, currentLevel, gridSize);
+          const gridPos: GridPosition = {
+            x: preciseGridPos.x,
+            y: preciseGridPos.y,
+            z: preciseGridPos.z
+          };
+          
+          // DEBUG: Log the conversion process
+          console.log('🔍 HOVER DEBUG:', {
+            intersectionY: intersection.point.y,
+            currentLevel,
+            preciseGridPosY: preciseGridPos.y,
+            finalGridPosY: gridPos.y,
+            gridPosition: gridPos
+          });
           
           // Handle multi-drop drag update
           if (selectedTool === 'multi-drop' && isDragging) {
@@ -78,9 +92,13 @@ export function InteractionManager() {
             };
             updateDrag(gridPos, mousePos);
           } else {
-            setHoveredCell(gridPos);
+            setHoveredCell(gridPos, preciseGridPos);
           }
         } else {
+          // Check what other objects were hit (for debugging)
+          if (intersects.length > 0) {
+            console.log('🎯 Non-ground intersection:', intersects[0].object.userData, 'at Y:', intersects[0].point.y);
+          }
           if (selectedTool !== 'multi-drop' || !isDragging) {
             setHoveredCell(null);
           }
@@ -118,12 +136,53 @@ export function InteractionManager() {
       if (gridIntersects.length > 0) {
         const intersection = gridIntersects.find(hit => hit.object.userData.isGround);
         if (intersection) {
-          const gridPos = gridMath.worldToGrid(intersection.point, gridSize);
+          const preciseGridPos = gridMath.worldToPreciseGrid(intersection.point, currentLevel, gridSize);
+          const gridPos: GridPosition = {
+            x: preciseGridPos.x,
+            y: preciseGridPos.y,
+            z: preciseGridPos.z
+          };
           
           if (selectedTool === 'multi-drop') {
             handleMultiDropStart(gridPos, event);
           } else {
             handleGridClick(gridPos, event);
+          }
+        } else {
+          // Check what other objects were hit (for debugging)
+          console.log('🎯 Grid layer click on non-ground object:', gridIntersects[0].object.userData, 'at Y:', gridIntersects[0].point.y);
+          
+          // If we hit a pontoon on the grid layer, use its position for placement at current level
+          if (gridIntersects[0].object.userData.pontoonId) {
+            // Get the intersection point and convert to grid position at current level
+            const intersectionPoint = gridIntersects[0].point;
+            const preciseGridPos = gridMath.worldToPreciseGrid(intersectionPoint, currentLevel, gridSize);
+            const gridPos: GridPosition = {
+              x: preciseGridPos.x,
+              y: preciseGridPos.y,
+              z: preciseGridPos.z
+            };
+            console.log('🎯 Pontoon click converted to current level grid pos:', gridPos);
+            
+            if (selectedTool === 'multi-drop') {
+              handleMultiDropStart(gridPos, event);
+            } else {
+              handleGridClick(gridPos, event);
+            }
+          } else {
+            const preciseGridPos = gridMath.worldToPreciseGrid(gridIntersects[0].point, currentLevel, gridSize);
+            const gridPos: GridPosition = {
+              x: preciseGridPos.x,
+              y: preciseGridPos.y,
+              z: preciseGridPos.z
+            };
+            console.log('🎯 Other object converted to grid pos:', gridPos);
+            
+            if (selectedTool === 'multi-drop') {
+              handleMultiDropStart(gridPos, event);
+            } else {
+              handleGridClick(gridPos, event);
+            }
           }
         }
       }
@@ -169,15 +228,28 @@ export function InteractionManager() {
     };
 
     const handleGridClick = (gridPos: GridPosition, event: MouseEvent) => {
+      console.log('🖱️ CLICK DEBUG:', {
+        gridPos,
+        currentLevel,
+        levelMatch: gridPos.y === currentLevel,
+        selectedTool
+      });
+      
       // Only allow interaction on current level
       if (gridPos.y !== currentLevel) {
+        console.log('❌ Level mismatch! Grid Y:', gridPos.y, 'Current Level:', currentLevel);
         setLastClickResult('WRONG_LEVEL');
         return;
       }
       
+      console.log('✅ Level check passed, processing click');
+      console.log('🔧 Selected tool:', selectedTool);
+      
       switch (selectedTool) {
         case 'place':
+          console.log('🔨 Attempting to place pontoon at:', gridPos);
           const success = addPontoon(gridPos);
+          console.log('🔨 Place result:', success ? 'SUCCESS' : 'FAILED');
           setLastClickResult(success ? 'SUCCESS' : 'FAILED');
           break;
           
@@ -309,6 +381,7 @@ export function InteractionManager() {
     scene, 
     selectedTool, 
     currentPontoonType,
+    currentLevel, // CRITICAL: Add currentLevel to dependencies!
     addPontoon,
     removePontoon,
     selectPontoon,

@@ -19,6 +19,7 @@ import { generateId } from '../lib/utils/precision';
 import { GRID_CONSTANTS } from '../lib/constants';
 import type { 
   GridPosition, 
+  PreciseGridPosition,
   PontoonElement, 
   Tool, 
   ViewMode, 
@@ -40,6 +41,7 @@ interface ConfiguratorState {
   pontoons: Map<string, PontoonElement>;
   selectedIds: Set<string>;
   hoveredCell: GridPosition | null;
+  preciseHoveredCell: PreciseGridPosition | null;
 
   // UI State
   viewMode: ViewMode;
@@ -76,7 +78,7 @@ interface ConfiguratorState {
   selectAll: () => void;
   
   // Actions - UI State
-  setHoveredCell: (position: GridPosition | null) => void;
+  setHoveredCell: (position: GridPosition | null, precisePosition?: PreciseGridPosition | null) => void;
   setViewMode: (mode: ViewMode) => void;
   setTool: (tool: Tool) => void;
   setPontoonType: (type: PontoonType) => void;
@@ -129,22 +131,29 @@ export const useConfiguratorStore = create<ConfiguratorState>()(
         const gridMath = new GridMathematics(GRID_CONSTANTS.CELL_SIZE_MM);
         const collisionDetection = new CollisionDetection(spatialIndex, gridMath);
 
-        // Initialize with test pontoons distributed across entire grid to verify rendering
+        // Initialize with test pontoons on multiple levels to verify multi-level rendering
         const initialPontoons = new Map<string, PontoonElement>();
         const testPositions = [
+          // Level -1 (Underwater Foundation)
+          { x: 5, y: -1, z: 5 },    // Underwater support
+          { x: 15, y: -1, z: 15 },  // Underwater support
+          
+          // Level 0 (Water Surface) - Main test positions
           { x: 0, y: 0, z: 0 },     // Grid corner
           { x: 49, y: 0, z: 49 },   // Opposite corner
           { x: 25, y: 0, z: 25 },   // Grid center  
-          { x: 10, y: 0, z: 10 },   // Lower left quadrant
+          { x: 10, y: 0, z: 10 },   // Lower left quadrant - Support for Level 1
           { x: 40, y: 0, z: 10 },   // Lower right quadrant
           { x: 10, y: 0, z: 40 },   // Upper left quadrant
           { x: 40, y: 0, z: 40 },   // Upper right quadrant
           { x: 0, y: 0, z: 25 },    // Left edge center
           { x: 49, y: 0, z: 25 },   // Right edge center
           { x: 25, y: 0, z: 0 },    // Bottom edge center
-          { x: 25, y: 0, z: 49 },   // Top edge center
-          { x: 12, y: 0, z: 37 },   // Random position 1
-          { x: 33, y: 0, z: 8 },    // Random position 2
+          
+          // Level 1 (First Deck) - With support from Level 0
+          { x: 10, y: 1, z: 10 },   // Supported by Level 0 pontoon at same position
+          
+          // No Level 2 test pontoons yet (would need Level 1 support)
         ];
 
         testPositions.forEach((pos, index) => {
@@ -176,6 +185,7 @@ export const useConfiguratorStore = create<ConfiguratorState>()(
           pontoons: initialPontoons,
           selectedIds: new Set(),
           hoveredCell: null,
+          preciseHoveredCell: null,
 
           viewMode: '3d',
           selectedTool: 'place',
@@ -202,11 +212,20 @@ export const useConfiguratorStore = create<ConfiguratorState>()(
             const state = get();
             const type = state.currentPontoonType;
 
+            console.log('🔨 ADD PONTOON DEBUG:', {
+              receivedPosition: position,
+              currentLevel: state.currentLevel,
+              type
+            });
+
             // Validate placement
             const validation = state.validatePlacement(position, type);
             if (!validation.valid) {
-              console.warn('Cannot place pontoon:', validation.errors);
+              console.warn('❌ Cannot place pontoon at', position, ':', validation.errors);
+              console.warn('Current level:', state.currentLevel, 'Position level:', position.y);
               return false;
+            } else {
+              console.log('✅ Pontoon placement validated at', position);
             }
 
             const id = generateId('pontoon-');
@@ -220,6 +239,12 @@ export const useConfiguratorStore = create<ConfiguratorState>()(
                 createdAt: Date.now(),
               },
             };
+
+            console.log('🔨 PONTOON CREATION DEBUG:', {
+              storedGridPosition: pontoon.gridPosition,
+              currentLevel: state.currentLevel,
+              positionMatchesLevel: pontoon.gridPosition.y === state.currentLevel
+            });
 
             set((draft) => {
               // Add to pontoons map
@@ -362,9 +387,10 @@ export const useConfiguratorStore = create<ConfiguratorState>()(
           },
 
           // UI State Actions
-          setHoveredCell: (position) => {
+          setHoveredCell: (position, precisePosition) => {
             set((draft) => {
               draft.hoveredCell = position;
+              draft.preciseHoveredCell = precisePosition || null;
             });
           },
 
@@ -581,22 +607,25 @@ export const useConfiguratorStore = create<ConfiguratorState>()(
               
               console.log(`🔍 Total pontoons added: ${addedIds.length}`);
               
-              // Add to history as single action
-              const action: HistoryAction = {
-                action: 'multi-drop' as any,
-                pontoons: positions.map(pos => {
-                  const pontoon = Array.from(draft.pontoons.values()).find(p => 
-                    p.gridPosition.x === pos.x && p.gridPosition.y === pos.y && p.gridPosition.z === pos.z
-                  );
-                  return pontoon!;
-                }),
-                area: { start: startPos, end: endPos },
-                timestamp: Date.now(),
-              };
-              
-              draft.history = draft.history.slice(0, draft.historyIndex + 1);
-              draft.history.push(action);
-              draft.historyIndex++;
+              // Add to history - use first pontoon as representative for multi-drop
+              const firstPontoon = Array.from(draft.pontoons.values()).find(p => 
+                positions.some(pos => 
+                  p.gridPosition.x === pos.x && p.gridPosition.y === pos.y && p.gridPosition.z === pos.z
+                )
+              );
+              if (firstPontoon) {
+                const action: HistoryAction = {
+                  action: 'add',
+                  pontoon: firstPontoon,
+                  timestamp: Date.now(),
+                };
+                draft.history = draft.history.slice(0, draft.historyIndex + 1);
+                draft.history.push(action);
+                if (draft.history.length > draft.maxHistorySize) {
+                  draft.history = draft.history.slice(-draft.maxHistorySize);
+                }
+                draft.historyIndex = draft.history.length - 1;
+              }
             });
             
             return true;

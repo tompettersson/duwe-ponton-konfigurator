@@ -105,7 +105,15 @@ export function GridSystem() {
       </mesh>
 
       {/* Hover Indicator - Real Pontoon Preview on Current Level */}
-      {hoveredCell && hoveredCell.y === currentLevel && (
+      {hoveredCell && (() => {
+        console.log('🔍 HOVER PREVIEW DEBUG:', {
+          hoveredCell,
+          currentLevel,
+          levelMatch: hoveredCell.y === currentLevel,
+          shouldShow: hoveredCell && hoveredCell.y === currentLevel
+        });
+        return hoveredCell.y === currentLevel;
+      })() && (
         <Pontoon
           pontoon={{
             id: 'hover-preview',
