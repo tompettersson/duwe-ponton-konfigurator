@@ -300,14 +300,22 @@ export const useConfiguratorStore = create<ConfiguratorState>()(
               const pontoon = draft.pontoons.get(id);
               if (!pontoon) return;
 
-              // Remove from pontoons map
-              draft.pontoons.delete(id);
-              
-              // Remove from spatial index
-              draft.spatialIndex.remove(id);
-              
-              // Remove from selection
-              draft.selectedIds.delete(id);
+              // Transactional removal: Remove from all data structures atomically
+              try {
+                draft.pontoons.delete(id);
+                draft.spatialIndex.remove(id);
+                draft.selectedIds.delete(id);  
+              } catch (error) {
+                // Rollback if any operation fails
+                if (!draft.pontoons.has(id)) {
+                  draft.pontoons.set(id, pontoon);
+                  // Re-add to spatial index with correct size
+                  const size = pontoon.type === 'double' ? { x: 2, y: 1, z: 1 } : { x: 1, y: 1, z: 1 };
+                  draft.spatialIndex.insert(id, pontoon.gridPosition, size);
+                }
+                console.error('❌ Failed to remove pontoon:', error);
+                return;
+              }
               
               // Add to history
               const action: HistoryAction = {
@@ -322,31 +330,39 @@ export const useConfiguratorStore = create<ConfiguratorState>()(
           },
 
           movePontoon: (id, newPosition) => {
-            const state = get();
+            let success = false;
             
-            // Validate move
-            const validation = state.collisionDetection.validateMove(id, newPosition, state.gridSize);
-            if (!validation.valid) {
-              console.warn('Cannot move pontoon:', validation.errors);
-              return false;
-            }
-
             set((draft) => {
               const pontoon = draft.pontoons.get(id);
               if (!pontoon) return;
+              
+              // Validate move within draft context
+              const validation = get().collisionDetection.validateMove(id, newPosition, draft.gridSize);
+              if (!validation.valid) {
+                console.warn('Cannot move pontoon:', validation.errors);
+                return;
+              }
 
               const oldPosition = pontoon.gridPosition;
 
-              // Update pontoon position
-              pontoon.gridPosition = newPosition;
+              // Transactional move: Update both pontoon and spatial index atomically
+              try {
+                pontoon.gridPosition = newPosition;
+                draft.spatialIndex.moveElement(id, newPosition);
+                success = true;
+              } catch (error) {
+                // Rollback position if spatial index update fails
+                pontoon.gridPosition = oldPosition;
+                console.error('❌ Failed to update spatial index for move:', error);
+                return;
+              }
               
-              // Update spatial index
-              draft.spatialIndex.moveElement(id, newPosition);
-              
-              // Add to history
+              // Add to history with both old and new positions
               const action: HistoryAction = {
                 action: 'move',
                 pontoon: { ...pontoon, gridPosition: oldPosition },
+                oldPosition,
+                newPosition,
                 timestamp: Date.now(),
               };
               draft.history = draft.history.slice(0, draft.historyIndex + 1);
@@ -354,7 +370,7 @@ export const useConfiguratorStore = create<ConfiguratorState>()(
               draft.historyIndex++;
             });
 
-            return true;
+            return success;
           },
 
           rotatePontoon: (id) => {
@@ -683,10 +699,11 @@ export const useConfiguratorStore = create<ConfiguratorState>()(
                   break;
                   
                 case 'move':
+                  // Undo move: revert to old position
                   const pontoon = draft.pontoons.get(action.pontoon.id);
-                  if (pontoon) {
-                    pontoon.gridPosition = action.pontoon.gridPosition;
-                    draft.spatialIndex.moveElement(action.pontoon.id, action.pontoon.gridPosition);
+                  if (pontoon && action.oldPosition) {
+                    pontoon.gridPosition = action.oldPosition;
+                    draft.spatialIndex.moveElement(action.pontoon.id, action.oldPosition);
                   }
                   break;
                   
@@ -711,7 +728,9 @@ export const useConfiguratorStore = create<ConfiguratorState>()(
               switch (action.action) {
                 case 'add':
                   draft.pontoons.set(action.pontoon.id, action.pontoon);
-                  draft.spatialIndex.insert(action.pontoon.id, action.pontoon.gridPosition);
+                  // Fix: Add missing size parameter for consistency
+                  const addSize = action.pontoon.type === 'double' ? { x: 2, y: 1, z: 1 } : { x: 1, y: 1, z: 1 };
+                  draft.spatialIndex.insert(action.pontoon.id, action.pontoon.gridPosition, addSize);
                   break;
                   
                 case 'remove':
@@ -721,9 +740,12 @@ export const useConfiguratorStore = create<ConfiguratorState>()(
                   break;
                   
                 case 'move':
-                  // For redo, we need to move to the NEW position, not the old one
-                  // This requires storing both old and new positions in the action
-                  // For now, we'll skip this implementation
+                  // Redo move: apply the forward move (old -> new)
+                  const movePontoon = draft.pontoons.get(action.pontoon.id);
+                  if (movePontoon && action.newPosition) {
+                    movePontoon.gridPosition = action.newPosition;
+                    draft.spatialIndex.moveElement(action.pontoon.id, action.newPosition);
+                  }
                   break;
                   
                 case 'rotate':

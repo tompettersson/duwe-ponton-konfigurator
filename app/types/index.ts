@@ -66,6 +66,9 @@ export interface HistoryAction {
   action: 'add' | 'remove' | 'move' | 'rotate';
   pontoon: PontoonElement;
   timestamp: number;
+  // For move operations: store both old and new positions
+  oldPosition?: GridPosition;
+  newPosition?: GridPosition;
 }
 
 // Store State Interfaces
