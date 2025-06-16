@@ -15,6 +15,8 @@ enableMapSet();
 import { SpatialHashGrid } from '../lib/grid/SpatialHashGrid';
 import { GridMathematics } from '../lib/grid/GridMathematics';
 import { CollisionDetection } from '../lib/grid/CollisionDetection';
+import { GridCellAbstraction } from '../lib/grid/GridCellAbstraction';
+import type { GridCell } from '../lib/grid/GridCellAbstraction';
 import { generateId } from '../lib/utils/precision';
 import { GRID_CONSTANTS } from '../lib/constants';
 import type { 
@@ -36,6 +38,7 @@ interface ConfiguratorState {
   spatialIndex: SpatialHashGrid;
   gridMath: GridMathematics;
   collisionDetection: CollisionDetection;
+  gridCellAbstraction: GridCellAbstraction;
 
   // Pontoon Management
   pontoons: Map<string, PontoonElement>;
@@ -127,6 +130,24 @@ interface ConfiguratorState {
     pontoonCount: number;
     selectedCount: number;
   };
+  
+  // Grid-Cell Abstraction Methods
+  canPlaceAtCell: (cell: GridCell, type?: PontoonType) => boolean;
+  getPontoonAtCell: (cell: GridCell) => PontoonElement | null;
+  isPontoonAtCell: (cell: GridCell) => boolean;
+  hasSupportAtCell: (cell: GridCell) => boolean;
+  hasSupportAtLevel: (cell: GridCell, level: number) => boolean;
+  
+  // Advanced Tool Management
+  setToolConfiguration: (config: {
+    tool?: Tool;
+    pontoonType?: PontoonType;
+    color?: PontoonColor;
+    viewMode?: ViewMode;
+  }) => void;
+  safeSetTool: (tool: Tool) => boolean;
+  snapshotToolState: () => void;
+  clearToolStateSnapshot: () => void;
 }
 
 export const useConfiguratorStore = create<ConfiguratorState>()(
@@ -137,6 +158,9 @@ export const useConfiguratorStore = create<ConfiguratorState>()(
         const spatialIndex = new SpatialHashGrid(GRID_CONSTANTS.CELL_SIZE_MM);
         const gridMath = new GridMathematics(GRID_CONSTANTS.CELL_SIZE_MM);
         const collisionDetection = new CollisionDetection(spatialIndex, gridMath);
+        
+        // Initialize Grid-Cell Abstraction Layer
+        const gridCellAbstraction = new GridCellAbstraction({ width: 50, height: 50 });
 
         // Initialize with test pontoons on multiple levels to verify multi-level rendering
         const initialPontoons = new Map<string, PontoonElement>();
@@ -179,6 +203,10 @@ export const useConfiguratorStore = create<ConfiguratorState>()(
           // For double pontoons, insert into spatial index with size 2x1
           const size = isDouble ? { x: 2, y: 1, z: 1 } : { x: 1, y: 1, z: 1 };
           spatialIndex.insert(id, pos, size);
+          
+          // CRITICAL FIX: Also add to Grid-Cell Abstraction
+          const gridCell: GridCell = { x: pos.x, y: pos.y, z: pos.z };
+          gridCellAbstraction.occupyCell(gridCell, id, pontoon.type);
         });
 
         return {
@@ -188,6 +216,7 @@ export const useConfiguratorStore = create<ConfiguratorState>()(
           spatialIndex,
           gridMath,
           collisionDetection,
+          gridCellAbstraction,
 
           pontoons: initialPontoons,
           selectedIds: new Set(),
@@ -279,19 +308,29 @@ export const useConfiguratorStore = create<ConfiguratorState>()(
                 currentLevel,
                 positionMatchesLevel: pontoon.gridPosition.y === currentLevel
               });
-              // Atomic operation: Add to both pontoons map and spatial index
+              // ATOMIC OPERATION: Sync between all three systems
               try {
+                // 1. Add to pontoons map
                 draft.pontoons.set(id, pontoon);
                 
-                // Add to spatial index with correct size
+                // 2. Add to spatial index with correct size
                 const size = type === 'double' ? { x: 2, y: 1, z: 1 } : { x: 1, y: 1, z: 1 };
                 draft.spatialIndex.insert(id, position, size);
                 
-                success = true; // Only set success if both operations complete
+                // 3. GRID-CELL ABSTRACTION: Occupy cells
+                const gridCell: GridCell = { x: position.x, y: position.y, z: position.z };
+                draft.gridCellAbstraction.occupyCell(gridCell, id, type);
+                
+                success = true; // Only set success if all operations complete
               } catch (error) {
-                // Rollback pontoon if spatial index fails
+                // ROLLBACK: Remove from all systems on failure
                 draft.pontoons.delete(id);
-                console.error('❌ Failed to add pontoon to spatial index:', error);
+                try { draft.spatialIndex.remove(id); } catch {}
+                try { 
+                  const gridCell: GridCell = { x: position.x, y: position.y, z: position.z };
+                  draft.gridCellAbstraction.freeCell(gridCell); 
+                } catch {}
+                console.error('❌ Failed to add pontoon atomically:', error);
                 return; // Early return, success remains false
               }
               
@@ -320,20 +359,27 @@ export const useConfiguratorStore = create<ConfiguratorState>()(
               const pontoon = draft.pontoons.get(id);
               if (!pontoon) return;
 
-              // Transactional removal: Remove from all data structures atomically
+              // ATOMIC REMOVAL: Remove from all three systems
               try {
                 draft.pontoons.delete(id);
                 draft.spatialIndex.remove(id);
-                draft.selectedIds.delete(id);  
+                draft.selectedIds.delete(id);
+                
+                // GRID-CELL ABSTRACTION: Free cells
+                const gridCell: GridCell = { x: pontoon.gridPosition.x, y: pontoon.gridPosition.y, z: pontoon.gridPosition.z };
+                draft.gridCellAbstraction.freeCell(gridCell);
               } catch (error) {
-                // Rollback if any operation fails
+                // ROLLBACK: Restore to all systems on failure
                 if (!draft.pontoons.has(id)) {
                   draft.pontoons.set(id, pontoon);
                   // Re-add to spatial index with correct size
                   const size = pontoon.type === 'double' ? { x: 2, y: 1, z: 1 } : { x: 1, y: 1, z: 1 };
                   draft.spatialIndex.insert(id, pontoon.gridPosition, size);
+                  // Re-occupy Grid-Cell
+                  const gridCell: GridCell = { x: pontoon.gridPosition.x, y: pontoon.gridPosition.y, z: pontoon.gridPosition.z };
+                  draft.gridCellAbstraction.occupyCell(gridCell, id, pontoon.type);
                 }
-                console.error('❌ Failed to remove pontoon:', error);
+                console.error('❌ Failed to remove pontoon atomically:', error);
                 return;
               }
               
@@ -607,6 +653,7 @@ export const useConfiguratorStore = create<ConfiguratorState>()(
           addPontoonsInArea: (startPos, endPos) => {
             const state = get();
             let positions = state.gridMath.getGridPositionsInArea(startPos, endPos);
+            let success = false;
             
             // DEBUG: Log area calculation
             console.log('🔍 Multi-Drop Debug:');
@@ -693,6 +740,7 @@ export const useConfiguratorStore = create<ConfiguratorState>()(
               });
               
               console.log(`🔍 Total pontoons added: ${addedIds.length}`);
+              success = addedIds.length > 0;
               
               // Add to history - use first pontoon as representative for multi-drop
               const firstPontoon = Array.from(draft.pontoons.values()).find(p => 
@@ -730,6 +778,9 @@ export const useConfiguratorStore = create<ConfiguratorState>()(
                   draft.pontoons.delete(action.pontoon.id);
                   draft.spatialIndex.remove(action.pontoon.id);
                   draft.selectedIds.delete(action.pontoon.id);
+                  // GRID-CELL ABSTRACTION: Free cells during undo
+                  const undoGridCell: GridCell = { x: action.pontoon.gridPosition.x, y: action.pontoon.gridPosition.y, z: action.pontoon.gridPosition.z };
+                  draft.gridCellAbstraction.freeCell(undoGridCell);
                   break;
                   
                 case 'remove':
@@ -739,6 +790,9 @@ export const useConfiguratorStore = create<ConfiguratorState>()(
                     ? { x: 2, y: 1, z: 1 } 
                     : { x: 1, y: 1, z: 1 };
                   draft.spatialIndex.insert(action.pontoon.id, action.pontoon.gridPosition, size);
+                  // GRID-CELL ABSTRACTION: Re-occupy cells during undo
+                  const redoGridCell: GridCell = { x: action.pontoon.gridPosition.x, y: action.pontoon.gridPosition.y, z: action.pontoon.gridPosition.z };
+                  draft.gridCellAbstraction.occupyCell(redoGridCell, action.pontoon.id, action.pontoon.type);
                   break;
                   
                 case 'move':
@@ -774,12 +828,18 @@ export const useConfiguratorStore = create<ConfiguratorState>()(
                   // Fix: Add missing size parameter for consistency
                   const addSize = action.pontoon.type === 'double' ? { x: 2, y: 1, z: 1 } : { x: 1, y: 1, z: 1 };
                   draft.spatialIndex.insert(action.pontoon.id, action.pontoon.gridPosition, addSize);
+                  // GRID-CELL ABSTRACTION: Re-occupy cells during redo
+                  const redoAddGridCell: GridCell = { x: action.pontoon.gridPosition.x, y: action.pontoon.gridPosition.y, z: action.pontoon.gridPosition.z };
+                  draft.gridCellAbstraction.occupyCell(redoAddGridCell, action.pontoon.id, action.pontoon.type);
                   break;
                   
                 case 'remove':
                   draft.pontoons.delete(action.pontoon.id);
                   draft.spatialIndex.remove(action.pontoon.id);
                   draft.selectedIds.delete(action.pontoon.id);
+                  // GRID-CELL ABSTRACTION: Free cells during redo
+                  const redoRemoveGridCell: GridCell = { x: action.pontoon.gridPosition.x, y: action.pontoon.gridPosition.y, z: action.pontoon.gridPosition.z };
+                  draft.gridCellAbstraction.freeCell(redoRemoveGridCell);
                   break;
                   
                 case 'move':
@@ -810,19 +870,27 @@ export const useConfiguratorStore = create<ConfiguratorState>()(
             });
           },
 
-          // Validation Actions
+          // GRID-CELL ABSTRACTION: Unified Simple Logic
           canPlacePontoon: (position, type = get().currentPontoonType) => {
-            const validation = get().validatePlacement(position, type);
-            return validation.valid;
+            const state = get();
+            const gridCell: GridCell = { x: position.x, y: position.y, z: position.z };
+            return state.gridCellAbstraction.canPlace(gridCell, type);
+          },
+
+          canPlaceAtCell: (cell: GridCell, type = get().currentPontoonType) => {
+            const state = get();
+            return state.gridCellAbstraction.canPlace(cell, type);
           },
 
           validatePlacement: (position, type = get().currentPontoonType) => {
             const state = get();
-            return state.collisionDetection.validatePlacement(
-              position,
-              type,
-              state.gridSize
-            );
+            const gridCell: GridCell = { x: position.x, y: position.y, z: position.z };
+            const canPlace = state.gridCellAbstraction.canPlace(gridCell, type);
+            
+            return {
+              valid: canPlace,
+              errors: canPlace ? [] : ['Platzierung an dieser Position nicht möglich']
+            };
           },
 
           validatePlatformConnectivity: () => {
@@ -841,6 +909,8 @@ export const useConfiguratorStore = create<ConfiguratorState>()(
               draft.pontoons.clear();
               draft.spatialIndex.clear();
               draft.selectedIds.clear();
+              // GRID-CELL ABSTRACTION: Clear all cells
+              draft.gridCellAbstraction.clearAllCells();
               draft.clearHistory();
             });
           },
@@ -877,13 +947,10 @@ export const useConfiguratorStore = create<ConfiguratorState>()(
 
           getPontoonAt: (position) => {
             const state = get();
-            const elementIds = state.spatialIndex.getElementsAtPosition(position);
-            
-            if (elementIds.length > 0) {
-              return state.pontoons.get(elementIds[0]) || null;
-            }
-            
-            return null;
+            // UNIFIED GRID-CELL QUERY: Use Grid-Cell Abstraction instead of spatial index
+            const gridCell: GridCell = { x: position.x, y: position.y, z: position.z };
+            const pontoonId = state.gridCellAbstraction.getPontoonAtCell(gridCell);
+            return pontoonId ? state.pontoons.get(pontoonId) || null : null;
           },
 
           getSelectedPontoons: () => {
@@ -895,6 +962,28 @@ export const useConfiguratorStore = create<ConfiguratorState>()(
 
           getPontoonCount: () => {
             return get().pontoons.size;
+          },
+
+          // GRID-CELL ABSTRACTION: Simple Queries
+          getPontoonAtCell: (cell: GridCell) => {
+            const state = get();
+            const pontoonId = state.gridCellAbstraction.getPontoonAtCell(cell);
+            return pontoonId ? state.pontoons.get(pontoonId) || null : null;
+          },
+
+          isPontoonAtCell: (cell: GridCell) => {
+            const state = get();
+            return state.gridCellAbstraction.getPontoonAtCell(cell) !== null;
+          },
+
+          hasSupportAtCell: (cell: GridCell) => {
+            const state = get();
+            return state.gridCellAbstraction.hasSupport(cell);
+          },
+
+          hasSupportAtLevel: (cell: GridCell, level: number) => {
+            const state = get();
+            return state.gridCellAbstraction.hasSupportAtLevel(cell, level);
           },
 
           getGridStats: () => {
@@ -909,7 +998,7 @@ export const useConfiguratorStore = create<ConfiguratorState>()(
 
           // Atomic Tool-State Updates - Fix for race conditions
           setToolConfiguration: (config: {
-            tool?: ToolType;
+            tool?: Tool;
             pontoonType?: PontoonType;
             color?: PontoonColor;
             viewMode?: ViewMode;
@@ -926,7 +1015,7 @@ export const useConfiguratorStore = create<ConfiguratorState>()(
           },
 
                   // Safe tool switching with interaction state validation
-          safeSetTool: (tool: ToolType) => {
+          safeSetTool: (tool: Tool) => {
             const state = get();
             
             // Prevent tool switching during active interactions

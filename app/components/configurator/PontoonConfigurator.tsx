@@ -178,7 +178,10 @@ function DebugPanel() {
           Last-Click: {lastClickResult}
         </div>
       )}
-      <div className="text-pink-400">Can-Place: {hoveredCell && selectedTool === 'place' ? (getPontoonAt(hoveredCell) ? 'NO-OCCUPIED' : 'YES') : 'N/A'}</div>
+      <div className="text-pink-400">Legacy-Can-Place: {hoveredCell && selectedTool === 'place' ? (getPontoonAt(hoveredCell) ? 'NO-OCCUPIED' : 'YES') : 'N/A'}</div>
+      {hoveredCell && (
+        <div className="text-lime-400">Grid-Cell-Occupied: {useConfiguratorStore.getState().isPontoonAtCell({x: hoveredCell.x, y: hoveredCell.y, z: hoveredCell.z}) ? 'YES' : 'NO'}</div>
+      )}
       <div className="text-purple-400">Rendering: {pontoonCount > 0 ? 'Active' : 'None'}</div>
       
       {/* Level & Camera Debug Info */}
@@ -193,17 +196,22 @@ function DebugPanel() {
         )}
         {hoveredCell && (
           <div className="text-cyan-300">
-            Can Place: {useConfiguratorStore.getState().canPlacePontoon(hoveredCell) ? '✅' : '❌'}
+            Grid-Cell-Can-Place: {useConfiguratorStore.getState().canPlacePontoon(hoveredCell) ? '✅' : '❌'}
           </div>
         )}
         {hoveredCell && (
           <div className="text-yellow-300">
-            Support-L0: {getPontoonAt({...hoveredCell, y: 0}) ? '✅' : '❌'}
+            Grid-Cell-Support: {useConfiguratorStore.getState().hasSupportAtCell({x: hoveredCell.x, y: hoveredCell.y, z: hoveredCell.z}) ? '✅' : '❌'}
+          </div>
+        )}
+        {hoveredCell && (
+          <div className="text-yellow-300">
+            Support-L0: {useConfiguratorStore.getState().isPontoonAtCell({x: hoveredCell.x, y: 0, z: hoveredCell.z}) ? '✅' : '❌'}
           </div>
         )}
         {hoveredCell && currentLevel >= 2 && (
           <div className="text-yellow-300">
-            Support-L1: {getPontoonAt({...hoveredCell, y: 1}) ? '✅' : '❌'}
+            Support-L1: {useConfiguratorStore.getState().isPontoonAtCell({x: hoveredCell.x, y: 1, z: hoveredCell.z}) ? '✅' : '❌'}
           </div>
         )}
       </div>
