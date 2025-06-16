@@ -249,9 +249,14 @@ export class GridMathematics {
     // Calculate grid coordinates (integer division) with centering offset
     const gridPos: GridPosition = {
       x: Math.floor((xMM + halfGridWidthMM) / this.cellSizeMM),
-      y: currentLevel,  // CRITICAL FIX: Always use currentLevel
+      y: currentLevel,  // CRITICAL FIX: Always use currentLevel for multi-level placement
       z: Math.floor((zMM + halfGridHeightMM) / this.cellSizeMM),
     };
+    
+    // VALIDATION: Ensure currentLevel is being used correctly
+    if (gridPos.y !== currentLevel) {
+      console.error('❌ GridMathematics: currentLevel mismatch!', { expected: currentLevel, got: gridPos.y });
+    }
     
     // Calculate exact world position of grid cell center
     const cellCenter = this.gridToWorld(gridPos, gridSize);

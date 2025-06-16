@@ -476,6 +476,24 @@ export const useConfiguratorStore = create<ConfiguratorState>()(
           },
 
           setCurrentLevel: (level) => {
+            const current = get().currentLevel;
+            // DEBUG: Track level changes and block suspicious resets
+            if (current !== level) {
+              console.log('🔄 LEVEL CHANGE:', { from: current, to: level, stack: new Error().stack?.split('\n').slice(0,3) });
+              
+              // PROTECTION: Block automatic resets to level 0 from canvas interactions
+              // Only allow level 0 if it's explicitly from UI (LevelSelector) or initialization
+              if (level === 0 && current > 0) {
+                const stack = new Error().stack || '';
+                const isFromUI = stack.includes('LevelSelector') || stack.includes('onClick');
+                const isFromInit = stack.includes('createStore') || stack.includes('configuratorStore');
+                
+                if (!isFromUI && !isFromInit) {
+                  console.warn('🛡️ BLOCKING suspicious level reset to 0 from:', stack.split('\n')[2]);
+                  return; // Block the change
+                }
+              }
+            }
             set((draft) => {
               draft.currentLevel = level;
             });

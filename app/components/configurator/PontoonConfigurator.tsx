@@ -104,6 +104,7 @@ function DebugPanel() {
   // Debug information
   const { intersectCount, raycastCoords, lastClickResult, cameraDebugInfo } = useDebugStore();
   const currentLevel = useConfiguratorStore((state) => state.currentLevel);
+  const getPontoonAt = useConfiguratorStore((state) => state.getPontoonAt);
 
   // Calculate affected grid cells for display
   const getGridVisualization = () => {
@@ -153,21 +154,31 @@ function DebugPanel() {
       <div>Selected: {selectedCount}</div>
       <div>Occupied Cells: {occupiedCells}</div>
       {hoveredCell ? (
-        <div className="text-green-400">Hover: ({hoveredCell.x}, {hoveredCell.y}, {hoveredCell.z})</div>
+        <>
+          <div className="text-green-400">Hover: ({hoveredCell.x}, {hoveredCell.y}, {hoveredCell.z})</div>
+          <div className="text-green-300">Hover-World: ({(hoveredCell.x * 0.5).toFixed(1)}m, {(hoveredCell.y * 0.4).toFixed(1)}m, {(hoveredCell.z * 0.5).toFixed(1)}m)</div>
+          <div className="text-cyan-400">Grid-Key: {hoveredCell.x},{hoveredCell.y},{hoveredCell.z}</div>
+          <div className="text-cyan-300">Pontoon-Here: {getPontoonAt(hoveredCell) ? 'YES' : 'NO'}</div>
+          {getPontoonAt(hoveredCell) && (
+            <div className="text-cyan-200">Pontoon-Type: {getPontoonAt(hoveredCell)?.type}</div>
+          )}
+        </>
       ) : (
         <div className="text-red-400">Hover: none</div>
       )}
       <div className="text-blue-400">Intersects: {intersectCount}</div>
       <div className="text-gray-400">Ray: ({raycastCoords.x.toFixed(2)}, {raycastCoords.y.toFixed(2)})</div>
+      <div className="text-orange-400">Mouse-Grid: {hoveredCell ? `(${hoveredCell.x},${hoveredCell.z})` : 'none'}</div>
       {lastClickResult && (
         <div className={
           lastClickResult === 'SUCCESS' ? 'text-green-400' : 
           lastClickResult === 'WRONG_LEVEL' ? 'text-yellow-400' : 
           'text-red-400'
         }>
-          Click: {lastClickResult}
+          Last-Click: {lastClickResult}
         </div>
       )}
+      <div className="text-pink-400">Can-Place: {hoveredCell && selectedTool === 'place' ? (getPontoonAt(hoveredCell) ? 'NO-OCCUPIED' : 'YES') : 'N/A'}</div>
       <div className="text-purple-400">Rendering: {pontoonCount > 0 ? 'Active' : 'None'}</div>
       
       {/* Level & Camera Debug Info */}
@@ -183,6 +194,16 @@ function DebugPanel() {
         {hoveredCell && (
           <div className="text-cyan-300">
             Can Place: {useConfiguratorStore.getState().canPlacePontoon(hoveredCell) ? '✅' : '❌'}
+          </div>
+        )}
+        {hoveredCell && (
+          <div className="text-yellow-300">
+            Support-L0: {getPontoonAt({...hoveredCell, y: 0}) ? '✅' : '❌'}
+          </div>
+        )}
+        {hoveredCell && currentLevel >= 2 && (
+          <div className="text-yellow-300">
+            Support-L1: {getPontoonAt({...hoveredCell, y: 1}) ? '✅' : '❌'}
           </div>
         )}
       </div>

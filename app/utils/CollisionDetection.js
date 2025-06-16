@@ -44,7 +44,7 @@ export class CollisionDetection {
     // Ground level and below always have support
     if (level <= 0) return true;
     
-    // Check if there's any element on the level below that covers this cell
+    // Check if there's any element on the level directly below that covers this cell
     return this.elements.some(element => 
       element.level === level - 1 && element.occupiesCell(gridX, gridZ)
     );
