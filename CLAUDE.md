@@ -132,5 +132,6 @@ GRID_CONSTANTS = {
 - Spatial indexing enables large grids - don't break the performance model  
 - Type safety is enforced throughout - follow the established patterns
 - Debug system provides validation - use it to verify mathematical operations
+- **CRITICAL**: Single Source of Truth - Never duplicate data calculations (hover state = click state)
 
 **Current Status**: Multi-level pontoon stacking (Level 0→1→2) fully functional and ready for production features.

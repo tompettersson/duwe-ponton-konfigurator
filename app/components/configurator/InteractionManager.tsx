@@ -135,61 +135,43 @@ export function InteractionManager() {
         }
       }
 
-      // Then, check for grid clicks
-      raycaster.current.layers.set(LAYERS.GRID);
-      const gridIntersects = raycaster.current.intersectObjects(scene.children);
+      // SINGLE SOURCE OF TRUTH: Use hover state instead of duplicate raycast
+      const currentHoveredCell = useConfiguratorStore.getState().hoveredCell;
+      
+      if (currentHoveredCell) {
+        console.log('🎯 CLICK using hover state (Single Source of Truth):', currentHoveredCell);
+        
+        if (selectedTool === 'multi-drop') {
+          handleMultiDropStart(currentHoveredCell, event);
+        } else {
+          handleGridClick(currentHoveredCell, event);
+        }
+      } else {
+        console.log('❌ No hover cell available for click');
+        // Fallback: Grid raycast only if no hover state (should be rare)
+        raycaster.current.layers.set(LAYERS.GRID);
+        const gridIntersects = raycaster.current.intersectObjects(scene.children);
 
-      if (gridIntersects.length > 0) {
-        const intersection = gridIntersects.find(hit => hit.object.userData.isGround);
-        if (intersection) {
-          const preciseGridPos = gridMath.worldToPreciseGrid(intersection.point, currentLevel, gridSize);
-          const gridPos: GridPosition = {
-            x: preciseGridPos.x,
-            y: preciseGridPos.y,
-            z: preciseGridPos.z
-          };
-          
-          if (selectedTool === 'multi-drop') {
-            handleMultiDropStart(gridPos, event);
+        if (gridIntersects.length > 0) {
+          const intersection = gridIntersects.find(hit => hit.object.userData.isGround);
+          if (intersection) {
+            const preciseGridPos = gridMath.worldToPreciseGrid(intersection.point, currentLevel, gridSize);
+            const gridPos: GridPosition = {
+              x: preciseGridPos.x,
+              y: preciseGridPos.y,
+              z: preciseGridPos.z
+            };
+            
+            if (selectedTool === 'multi-drop') {
+              handleMultiDropStart(gridPos, event);
+            } else {
+              handleGridClick(gridPos, event);
+            }
           } else {
-            handleGridClick(gridPos, event);
+            console.log('❌ Fallback raycast: No ground intersection found');
           }
         } else {
-          // Check what other objects were hit (for debugging)
-          console.log('🎯 Grid layer click on non-ground object:', gridIntersects[0].object.userData, 'at Y:', gridIntersects[0].point.y);
-          
-          // If we hit a pontoon on the grid layer, use its position for placement at current level
-          if (gridIntersects[0].object.userData.pontoonId) {
-            // Get the intersection point and convert to grid position at current level
-            const intersectionPoint = gridIntersects[0].point;
-            const preciseGridPos = gridMath.worldToPreciseGrid(intersectionPoint, currentLevel, gridSize);
-            const gridPos: GridPosition = {
-              x: preciseGridPos.x,
-              y: preciseGridPos.y,
-              z: preciseGridPos.z
-            };
-            console.log('🎯 Pontoon click converted to current level grid pos:', gridPos);
-            
-            if (selectedTool === 'multi-drop') {
-              handleMultiDropStart(gridPos, event);
-            } else {
-              handleGridClick(gridPos, event);
-            }
-          } else {
-            const preciseGridPos = gridMath.worldToPreciseGrid(gridIntersects[0].point, currentLevel, gridSize);
-            const gridPos: GridPosition = {
-              x: preciseGridPos.x,
-              y: preciseGridPos.y,
-              z: preciseGridPos.z
-            };
-            console.log('🎯 Other object converted to grid pos:', gridPos);
-            
-            if (selectedTool === 'multi-drop') {
-              handleMultiDropStart(gridPos, event);
-            } else {
-              handleGridClick(gridPos, event);
-            }
-          }
+          console.log('❌ Fallback raycast: No grid intersections found');
         }
       }
     };
@@ -236,16 +218,19 @@ export function InteractionManager() {
     };
 
     const handleGridClick = (gridPos: GridPosition, event: MouseEvent) => {
+      // CRITICAL FIX: Capture currentLevel immediately to prevent state changes during processing
+      const levelAtClickTime = currentLevel;
+      
       console.log('🖱️ CLICK DEBUG:', {
         gridPos,
-        currentLevel,
-        levelMatch: gridPos.y === currentLevel,
+        currentLevel: levelAtClickTime,
+        levelMatch: gridPos.y === levelAtClickTime,
         selectedTool
       });
       
       // Only allow interaction on current level
-      if (gridPos.y !== currentLevel) {
-        console.log('❌ Level mismatch! Grid Y:', gridPos.y, 'Current Level:', currentLevel);
+      if (gridPos.y !== levelAtClickTime) {
+        console.log('❌ Level mismatch! Grid Y:', gridPos.y, 'Current Level:', levelAtClickTime);
         setLastClickResult('WRONG_LEVEL');
         return;
       }
