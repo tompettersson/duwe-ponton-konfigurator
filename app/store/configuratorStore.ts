@@ -325,7 +325,16 @@ export const useConfiguratorStore = create<ConfiguratorState>()(
                 
                 // 3. GRID-CELL ABSTRACTION: Occupy cells
                 const gridCell: GridCell = { x: position.x, y: position.y, z: position.z };
+                console.log('🔧 ConfiguratorStore.addPontoon: About to occupy cell:', {
+                  gridCell,
+                  pontoonId: id,
+                  type,
+                  beforeOccupationSize: draft.gridCellAbstraction.getAllOccupiedCells().size
+                });
                 draft.gridCellAbstraction.occupyCell(gridCell, id, type);
+                console.log('🔧 ConfiguratorStore.addPontoon: After occupation:', {
+                  afterOccupationSize: draft.gridCellAbstraction.getAllOccupiedCells().size
+                });
                 
                 success = true; // Only set success if all operations complete
               } catch (error) {

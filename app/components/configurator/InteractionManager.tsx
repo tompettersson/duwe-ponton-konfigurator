@@ -142,32 +142,47 @@ export function InteractionManager() {
         }
       }
 
-      // CRITICAL FIX: Perform fresh grid raycast with exact click coordinates for precision
-      raycaster.current.layers.set(LAYERS.GRID);
-      const gridIntersects = raycaster.current.intersectObjects(scene.children);
-
-      if (gridIntersects.length > 0) {
-        const intersection = gridIntersects.find(hit => hit.object.userData.isGround);
-        if (intersection) {
-          const preciseGridPos = gridMath.worldToPreciseGrid(intersection.point, currentLevel, gridSize);
-          const gridPos: GridPosition = {
-            x: preciseGridPos.x,
-            y: preciseGridPos.y,
-            z: preciseGridPos.z
-          };
-          
-          console.log('🎯 CLICK with fresh raycast coordinates:', gridPos);
-          
-          if (selectedTool === 'multi-drop') {
-            handleMultiDropStart(gridPos, event);
-          } else {
-            handleGridClick(gridPos, event);
-          }
+      // SINGLE SOURCE OF TRUTH: Always use hoveredCell for clicks to ensure consistency
+      const currentHoveredCell = useConfiguratorStore.getState().hoveredCell;
+      
+      if (currentHoveredCell) {
+        console.log('🎯 CLICK using hoveredCell (Single Source of Truth):', currentHoveredCell);
+        
+        if (selectedTool === 'multi-drop') {
+          handleMultiDropStart(currentHoveredCell, event);
         } else {
-          console.log('❌ Click raycast: No ground intersection found');
+          handleGridClick(currentHoveredCell, event);
         }
       } else {
-        console.log('❌ Click raycast: No grid intersections found');
+        console.log('❌ No hoveredCell available for click - fallback to raycast');
+        
+        // Fallback: Only if no hover state available (should be rare)
+        raycaster.current.layers.set(LAYERS.GRID);
+        const gridIntersects = raycaster.current.intersectObjects(scene.children);
+
+        if (gridIntersects.length > 0) {
+          const intersection = gridIntersects.find(hit => hit.object.userData.isGround);
+          if (intersection) {
+            const preciseGridPos = gridMath.worldToPreciseGrid(intersection.point, currentLevel, gridSize);
+            const gridPos: GridPosition = {
+              x: preciseGridPos.x,
+              y: preciseGridPos.y,
+              z: preciseGridPos.z
+            };
+            
+            console.log('🎯 FALLBACK CLICK with fresh raycast coordinates:', gridPos);
+            
+            if (selectedTool === 'multi-drop') {
+              handleMultiDropStart(gridPos, event);
+            } else {
+              handleGridClick(gridPos, event);
+            }
+          } else {
+            console.log('❌ Fallback raycast: No ground intersection found');
+          }
+        } else {
+          console.log('❌ Fallback raycast: No grid intersections found');
+        }
       }
     };
 

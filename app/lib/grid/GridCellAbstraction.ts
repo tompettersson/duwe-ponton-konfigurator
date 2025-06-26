@@ -36,7 +36,7 @@ export class GridCellAbstraction {
   isOccupied(cell: GridCell): boolean {
     const key = this.getCellKey(cell);
     const state = this.cellStates.get(key);
-    return state?.pontoonId !== null;
+    return state?.pontoonId != null; // Use != null to handle both null and undefined
   }
 
   /**
@@ -108,11 +108,25 @@ export class GridCellAbstraction {
     const key = this.getCellKey(cell);
     this.cellStates.set(key, { pontoonId, pontoonType: type });
 
+    // DEBUG: Log cell occupation for debugging multi-level placement
+    console.log('🔧 GridCellAbstraction.occupyCell:', {
+      cell,
+      key,
+      pontoonId,
+      type,
+      cellStatesSize: this.cellStates.size
+    });
+
     // For double pontoons, occupy second cell too
     if (type === 'double') {
       const secondCell: GridCell = { x: cell.x + 1, y: cell.y, z: cell.z };
       const secondKey = this.getCellKey(secondCell);
       this.cellStates.set(secondKey, { pontoonId, pontoonType: type });
+      
+      console.log('🔧 GridCellAbstraction.occupyCell (double second cell):', {
+        secondCell,
+        secondKey
+      });
     }
   }
 
@@ -140,7 +154,21 @@ export class GridCellAbstraction {
   getPontoonAtCell(cell: GridCell): string | null {
     const key = this.getCellKey(cell);
     const state = this.cellStates.get(key);
-    return state?.pontoonId || null;
+    const result = state?.pontoonId || null;
+    
+    // DEBUG: Log lookup attempts for support validation debugging
+    if (cell.y === 0) { // Only log Level 0 lookups (support checks)
+      console.log('🔍 GridCellAbstraction.getPontoonAtCell (Level 0 support check):', {
+        cell,
+        key,
+        found: !!result,
+        pontoonId: result,
+        totalCellStates: this.cellStates.size,
+        allKeys: Array.from(this.cellStates.keys()).slice(0, 10) // First 10 keys for debugging
+      });
+    }
+    
+    return result;
   }
 
   /**

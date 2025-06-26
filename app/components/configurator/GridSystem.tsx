@@ -105,8 +105,8 @@ export function GridSystem() {
       </mesh>
 
       {/* Hover Indicator - Real Pontoon Preview on Current Level */}
-      {/* FIX: Optimize hover preview - remove IIFE and console.log per render */}
-      {hoveredCell && hoveredCell.y === currentLevel && (
+      {/* SINGLE SOURCE OF TRUTH: Only show preview if placement is valid */}
+      {hoveredCell && hoveredCell.y === currentLevel && canPlacePontoon(hoveredCell, currentPontoonType) && (
         <Pontoon
           pontoon={{
             id: 'hover-preview',
