@@ -17,7 +17,10 @@ import {
   GridPosition,
   PontoonType,
   PontoonColor,
-  DOMAIN_CONSTANTS
+  DOMAIN_CONSTANTS,
+  getPontoonTypeConfig,
+  getPontoonColorConfig,
+  GridDimensions
 } from '../lib/domain';
 import { 
   InteractionController,
@@ -30,6 +33,21 @@ import {
   type SelectionData,
   type ToolContext
 } from '../lib/ui';
+import Image from 'next/image';
+import {
+  MousePointer2,
+  Plus,
+  Trash2,
+  RotateCw,
+  Undo2,
+  Redo2,
+  Grid3X3,
+  Eye,
+  EyeOff,
+  Square,
+  Maximize2,
+  Box
+} from 'lucide-react';
 
 // UI state interface
 interface ConfiguratorUIState {
@@ -54,6 +72,297 @@ interface NewPontoonConfiguratorProps {
   onError?: (error: string) => void;
 }
 
+/**
+ * Professional Toolbar Component - Based on proven UI design
+ */
+interface ProfessionalToolbarProps {
+  uiState: ConfiguratorUIState;
+  onToolChange: (tool: ToolType) => void;
+  onLevelChange: (level: number) => void;
+  onPontoonTypeChange: (type: PontoonType) => void;
+  onColorChange: (color: PontoonColor) => void;
+  onGridToggle: () => void;
+  onViewModeToggle: () => void;
+  onClearGrid: () => void;
+}
+
+function ProfessionalToolbar({
+  uiState,
+  onToolChange,
+  onLevelChange,
+  onPontoonTypeChange,
+  onColorChange,
+  onGridToggle,
+  onViewModeToggle,
+  onClearGrid
+}: ProfessionalToolbarProps) {
+  
+  // Map new architecture tools to UI display
+  const tools = [
+    { id: ToolType.SELECT, icon: MousePointer2, label: 'Auswählen', shortcut: '1', disabled: true },
+    { id: ToolType.PLACE, icon: Plus, label: 'Platzieren', shortcut: '2', disabled: false },
+    { id: ToolType.DELETE, icon: Trash2, label: 'Löschen', shortcut: '3', disabled: true },
+    { id: ToolType.ROTATE, icon: RotateCw, label: 'Drehen', shortcut: '4', disabled: true },
+  ];
+
+  const pontoonTypes = [
+    { id: PontoonType.SINGLE, label: 'Einzel', icon: '■' },
+    { id: PontoonType.DOUBLE, label: 'Doppel', icon: '■■' },
+  ];
+
+  const pontoonColors = [
+    { id: PontoonColor.BLUE, label: 'Blau', color: '#6183c2' },
+    { id: PontoonColor.BLACK, label: 'Schwarz', color: '#111111' },
+    { id: PontoonColor.GREY, label: 'Grau', color: '#e3e4e5' },
+    { id: PontoonColor.YELLOW, label: 'Gelb', color: '#f7e295' },
+  ];
+
+  return (
+    <div className="flex flex-col gap-2 bg-white rounded-lg shadow-lg p-3 min-w-48">
+      {/* Logo */}
+      <div className="flex justify-center mb-1">
+        <Image
+          src="/logoheader.png"
+          alt="Logo"
+          width={200}
+          height={70}
+          className="object-contain"
+          priority
+        />
+      </div>
+      
+      <div className="h-px bg-gray-300" />
+      
+      {/* Tool Selection */}
+      <div className="flex flex-col gap-1">
+        <div className="text-xs font-semibold text-gray-600 mb-1">Werkzeuge</div>
+        <div className="grid grid-cols-2 gap-1">
+          {tools.map((tool) => (
+            <button
+              key={tool.id}
+              onClick={() => !tool.disabled && onToolChange(tool.id)}
+              data-testid={`tool-${tool.id}`}
+              disabled={tool.disabled}
+              className={`p-2 rounded transition-colors text-sm flex items-center gap-2 ${
+                tool.disabled
+                  ? 'bg-gray-50 text-gray-400 cursor-not-allowed'
+                  : uiState.currentTool === tool.id
+                    ? 'bg-blue-500 text-white'
+                    : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+              }`}
+              title={tool.disabled ? `${tool.label} (noch nicht verfügbar)` : `${tool.label} (${tool.shortcut})`}
+            >
+              <tool.icon size={16} />
+              <span className="text-xs">{tool.label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Level Selection */}
+      <div className="flex flex-col gap-1">
+        <div className="text-xs font-semibold text-gray-600 mb-1">Level</div>
+        <div className="flex flex-col gap-1">
+          {Array.from({ length: uiState.grid.dimensions.levels }, (_, i) => (
+            <button
+              key={i}
+              onClick={() => onLevelChange(i)}
+              data-testid={`level-${i}`}
+              className={`px-3 py-2 rounded transition-colors text-sm font-medium ${
+                uiState.currentLevel === i
+                  ? 'bg-blue-500 text-white'
+                  : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+              }`}
+              title={`Level ${i}`}
+            >
+              Level {i}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Pontoon Type Selection */}
+      <div className="flex flex-col gap-1">
+        <div className="text-xs font-semibold text-gray-600 mb-1">Typ</div>
+        <div className="grid grid-cols-2 gap-1">
+          {pontoonTypes.map((type) => (
+            <button
+              key={type.id}
+              onClick={() => onPontoonTypeChange(type.id)}
+              data-testid={`pontoon-${type.id}`}
+              className={`p-2 rounded transition-colors text-sm flex items-center gap-2 ${
+                uiState.currentPontoonType === type.id
+                  ? 'bg-blue-500 text-white'
+                  : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+              }`}
+            >
+              <span className="font-mono text-xs">{type.icon}</span>
+              <span className="text-xs">{type.label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Pontoon Color Selection */}
+      <div className="flex flex-col gap-1">
+        <div className="text-xs font-semibold text-gray-600 mb-1">Farbe</div>
+        <div className="grid grid-cols-2 gap-1">
+          {pontoonColors.map((color) => (
+            <button
+              key={color.id}
+              onClick={() => onColorChange(color.id)}
+              className={`p-2 rounded transition-colors text-sm flex items-center gap-2 ${
+                uiState.currentPontoonColor === color.id
+                  ? 'bg-blue-500 text-white'
+                  : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+              }`}
+            >
+              <div 
+                className="w-4 h-4 rounded border border-gray-300" 
+                style={{ backgroundColor: color.color }}
+              />
+              <span className="text-xs">{color.label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="h-px bg-gray-300" />
+
+      {/* View Controls */}
+      <div className="flex gap-1">
+        <button
+          onClick={onGridToggle}
+          className={`p-2 rounded transition-colors flex-1 ${
+            uiState.isGridVisible
+              ? 'bg-green-100 text-green-700'
+              : 'bg-gray-100 text-gray-700'
+          }`}
+          title="Raster umschalten (G)"
+        >
+          {uiState.isGridVisible ? <Eye size={16} /> : <EyeOff size={16} />}
+        </button>
+        <button
+          onClick={onViewModeToggle}
+          className="p-2 rounded bg-gray-100 hover:bg-gray-200 text-gray-700 transition-colors flex-1"
+          title="2D/3D Ansicht umschalten"
+        >
+          {uiState.viewMode === '2d' ? <Box size={16} /> : <Maximize2 size={16} />}
+        </button>
+        <button
+          onClick={onClearGrid}
+          data-testid="clear-grid"
+          className="p-2 rounded bg-red-100 hover:bg-red-200 text-red-700 transition-colors flex-1"
+          title="Alles löschen"
+        >
+          <Grid3X3 size={16} />
+        </button>
+      </div>
+
+      <div className="h-px bg-gray-300" />
+
+      {/* Stats */}
+      <div className="text-xs text-gray-600 space-y-1">
+        <div className="flex justify-between">
+          <span>Pontons:</span>
+          <span className="font-mono" data-testid="pontoon-count">{uiState.grid.getPontoonCount()}</span>
+        </div>
+        <div className="flex justify-between">
+          <span>Ausgewählt:</span>
+          <span className="font-mono">{uiState.selectedPontoonIds.size}</span>
+        </div>
+        <div className="flex justify-between">
+          <span>Level:</span>
+          <span className="font-mono">{uiState.currentLevel}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Convert screen coordinates to grid position using proper 3D raycasting
+ */
+function screenToGridPosition(
+  screenPos: { x: number; y: number },
+  camera: THREE.Camera,
+  gridDimensions: GridDimensions,
+  currentLevel: number = 0
+): GridPosition | null {
+  try {
+    // Get canvas element and its dimensions
+    const canvas = document.querySelector('canvas');
+    if (!canvas) {
+      console.error('🎯 Canvas element not found');
+      return null;
+    }
+    
+    const rect = canvas.getBoundingClientRect();
+    
+    // Convert to normalized device coordinates [-1, 1]
+    const mouse = new THREE.Vector2();
+    mouse.x = ((screenPos.x / rect.width) * 2) - 1;
+    mouse.y = -((screenPos.y / rect.height) * 2) + 1;
+    
+    // Create raycaster
+    const raycaster = new THREE.Raycaster();
+    raycaster.setFromCamera(mouse, camera);
+    
+    // Calculate intersection with horizontal plane at current level manually
+    // Ray equation: origin + direction * t
+    // Plane equation: y = levelY
+    const levelY = currentLevel * 0.4; // 0.4m height per level
+    
+    const ray = raycaster.ray;
+    const rayOrigin = ray.origin;
+    const rayDirection = ray.direction;
+    
+    // Find t where ray.y = levelY
+    // rayOrigin.y + rayDirection.y * t = levelY
+    // t = (levelY - rayOrigin.y) / rayDirection.y
+    
+    if (Math.abs(rayDirection.y) < 0.0001) {
+      // Ray is parallel to plane
+      console.log('🎯 Ray is parallel to grid plane');
+      return null;
+    }
+    
+    const t = (levelY - rayOrigin.y) / rayDirection.y;
+    
+    if (t < 0) {
+      // Intersection is behind the camera
+      console.log('🎯 Intersection behind camera');
+      return null;
+    }
+    
+    // Calculate intersection point
+    const worldPos = new THREE.Vector3();
+    worldPos.copy(rayOrigin).add(rayDirection.clone().multiplyScalar(t));
+    
+    // Convert world coordinates to grid coordinates
+    // Grid is centered at world origin, with 0.5m spacing
+    // World range: [-gridWidth/2 * 0.5, +gridWidth/2 * 0.5] 
+    // Grid range: [0, gridWidth-1]
+    const gridX = Math.round(worldPos.x / 0.5 + (gridDimensions.width - 1) / 2);
+    const gridZ = Math.round(worldPos.z / 0.5 + (gridDimensions.height - 1) / 2);
+    
+    // Validate bounds
+    if (gridX >= 0 && gridX < gridDimensions.width && 
+        gridZ >= 0 && gridZ < gridDimensions.height) {
+      
+      console.log(`🎯 Screen (${screenPos.x}, ${screenPos.y}) → World (${worldPos.x.toFixed(2)}, ${worldPos.z.toFixed(2)}) → Grid (${gridX}, ${currentLevel}, ${gridZ})`);
+      return new GridPosition(gridX, currentLevel, gridZ);
+    } else {
+      console.log(`🎯 Grid position out of bounds: (${gridX}, ${gridZ}) for grid size ${gridDimensions.width}x${gridDimensions.height}`);
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('🎯 Screen to grid conversion failed:', error);
+    return null;
+  }
+}
+
 export function NewPontoonConfigurator({
   initialGridSize = { width: 50, height: 50, levels: 3 },
   onGridChange,
@@ -74,6 +383,9 @@ export function NewPontoonConfigurator({
     showSelection: true,
     showSupport: false
   }));
+
+  // Track last click result for debug panel
+  const [lastClickResult, setLastClickResult] = useState<string>('PENDING');
 
   // Refs for Three.js integration
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -120,24 +432,24 @@ export function NewPontoonConfigurator({
 
     console.log('🎮 Initializing new architecture systems...');
 
-    // Initialize systems
-    const interactionController = new InteractionController(interactionCallbacks);
-    const toolSystem = new ToolSystem();
+    // TEMPORARILY DISABLED - These systems need more implementation
+    // const interactionController = new InteractionController(interactionCallbacks);
+    // const toolSystem = new ToolSystem();
     
     // Store refs
-    interactionControllerRef.current = interactionController;
-    toolSystemRef.current = toolSystem;
+    // interactionControllerRef.current = interactionController;
+    // toolSystemRef.current = toolSystem;
 
     // Initialize interaction controller with canvas
-    interactionController.initialize(canvasRef.current);
+    // interactionController.initialize(canvasRef.current);
 
     // Activate default tool
-    toolSystem.activateTool(uiState.currentTool);
+    // toolSystem.activateTool(uiState.currentTool);
 
     // Cleanup function
     return () => {
-      interactionController.cleanup();
-      toolSystem.cleanup();
+      // interactionController.cleanup();
+      // toolSystem.cleanup();
       renderingEngineRef.current?.dispose();
     };
   }, [interactionCallbacks, uiState.currentTool]);
@@ -214,18 +526,26 @@ export function NewPontoonConfigurator({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleToolChange, handleLevelChange, handlePontoonTypeChange, handleGridToggle, handleViewModeToggle]);
 
-  // Update statistics periodically
+  // Update statistics when grid changes
+  useEffect(() => {
+    setStats(prev => ({
+      ...prev,
+      pontoonCount: uiState.grid.getPontoonCount()
+    }));
+  }, [uiState.grid]);
+
+  // Update other statistics periodically  
   useEffect(() => {
     const interval = setInterval(() => {
-      setStats({
-        pontoonCount: uiState.grid.getPontoonCount(),
-        renderFPS: renderingEngineRef.current?.getStats().lastRenderTime || 0,
-        interactionLatency: interactionControllerRef.current?.getStats().averageResponseTime || 0
-      });
+      setStats(prev => ({
+        ...prev,
+        renderFPS: renderingEngineRef.current?.getStats()?.lastRenderTime || 0,
+        interactionLatency: interactionControllerRef.current?.getStats()?.averageResponseTime || 0
+      }));
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [uiState.grid]);
+  }, []);
 
   return (
     <div className="relative w-full h-screen bg-gray-100">
@@ -256,159 +576,87 @@ export function NewPontoonConfigurator({
           onRenderingEngineReady={(engine) => {
             renderingEngineRef.current = engine;
           }}
+          onCanvasHover={(position, camera) => {
+            // Update hover state
+            const gridPosition = screenToGridPosition(position, camera, uiState.grid.dimensions, uiState.currentLevel);
+            setUIState(prev => ({ ...prev, hoveredCell: gridPosition }));
+          }}
+          onCanvasClick={(position, camera) => {
+            console.log('🎯 Canvas clicked at screen position:', position);
+            
+            try {
+              // Convert screen position to grid coordinates
+              const gridPosition = screenToGridPosition(position, camera, uiState.grid.dimensions, uiState.currentLevel);
+              
+              if (!gridPosition) {
+                setLastClickResult('FAILED: Could not convert screen position to grid');
+                return;
+              }
+              
+              console.log('🎯 Attempting placement at grid position:', gridPosition);
+              
+              // Try to place pontoon directly
+              const newGrid = uiState.grid.placePontoon(
+                gridPosition,
+                uiState.currentPontoonType,
+                uiState.currentPontoonColor
+              );
+              
+              console.log('🎯 Placement successful! New grid:', newGrid);
+              setUIState(prev => ({ ...prev, grid: newGrid }));
+              setLastClickResult('SUCCESS');
+              
+            } catch (error) {
+              console.error('🎯 Placement failed:', error);
+              setLastClickResult(`FAILED: ${error.message}`);
+            }
+          }}
         />
       </Canvas>
 
-      {/* UI Overlay */}
-      <div className="absolute top-4 left-4 z-10 space-y-4">
-        {/* Tool Panel */}
-        <div className="bg-white rounded-lg shadow-lg p-4">
-          <h3 className="text-sm font-semibold mb-2">Tools</h3>
-          <div className="grid grid-cols-2 gap-2">
-            {Object.values(ToolType).map((tool) => (
-              <button
-                key={tool}
-                onClick={() => handleToolChange(tool)}
-                className={`px-3 py-2 text-sm rounded ${
-                  uiState.currentTool === tool
-                    ? 'bg-blue-500 text-white'
-                    : 'bg-gray-100 hover:bg-gray-200'
-                }`}
-              >
-                {tool.charAt(0).toUpperCase() + tool.slice(1)}
-              </button>
-            ))}
-          </div>
-        </div>
+      {/* Professional UI Overlay - Based on proven design */}
+      <div className="absolute top-4 left-4 z-10">
+        <ProfessionalToolbar 
+          uiState={uiState}
+          onToolChange={handleToolChange}
+          onLevelChange={handleLevelChange}
+          onPontoonTypeChange={handlePontoonTypeChange}
+          onColorChange={handleColorChange}
+          onGridToggle={handleGridToggle}
+          onViewModeToggle={handleViewModeToggle}
+          onClearGrid={() => {
+            const emptyGrid = Grid.createEmpty(uiState.grid.dimensions.width, uiState.grid.dimensions.height, uiState.grid.dimensions.levels);
+            setUIState(prev => ({ ...prev, grid: emptyGrid }));
+          }}
+        />
+      </div>
 
-        {/* Level Selector */}
-        <div className="bg-white rounded-lg shadow-lg p-4">
-          <h3 className="text-sm font-semibold mb-2">Level</h3>
+
+      {/* Debug Panel */}
+      <div className="absolute bottom-4 left-4 z-10" data-testid="debug-panel">
+        <div className="bg-black bg-opacity-80 text-white rounded-lg shadow-lg p-4 font-mono text-xs">
+          <h3 className="text-sm font-semibold mb-2">Debug Info</h3>
           <div className="space-y-1">
-            {Array.from({ length: uiState.grid.dimensions.levels }, (_, i) => (
-              <button
-                key={i}
-                onClick={() => handleLevelChange(i)}
-                className={`w-full px-3 py-2 text-sm rounded ${
-                  uiState.currentLevel === i
-                    ? 'bg-green-500 text-white'
-                    : 'bg-gray-100 hover:bg-gray-200'
-                }`}
-              >
-                Level {i}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Pontoon Settings */}
-        <div className="bg-white rounded-lg shadow-lg p-4">
-          <h3 className="text-sm font-semibold mb-2">Pontoon</h3>
-          
-          {/* Type Selection */}
-          <div className="mb-3">
-            <label className="text-xs text-gray-600">Type</label>
-            <div className="flex gap-2 mt-1">
-              {Object.values(PontoonType).map((type) => (
-                <button
-                  key={type}
-                  onClick={() => handlePontoonTypeChange(type)}
-                  className={`px-3 py-1 text-xs rounded ${
-                    uiState.currentPontoonType === type
-                      ? 'bg-purple-500 text-white'
-                      : 'bg-gray-100 hover:bg-gray-200'
-                  }`}
-                >
-                  {type}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Color Selection */}
-          <div>
-            <label className="text-xs text-gray-600">Color</label>
-            <div className="grid grid-cols-2 gap-2 mt-1">
-              {Object.values(PontoonColor).map((color) => (
-                <button
-                  key={color}
-                  onClick={() => handleColorChange(color)}
-                  className={`px-3 py-1 text-xs rounded border-2 ${
-                    uiState.currentPontoonColor === color
-                      ? 'border-gray-800'
-                      : 'border-gray-300'
-                  }`}
-                  style={{ 
-                    backgroundColor: {
-                      [PontoonColor.BLUE]: '#6183c2',
-                      [PontoonColor.BLACK]: '#111111',
-                      [PontoonColor.GREY]: '#e3e4e5', 
-                      [PontoonColor.YELLOW]: '#f7e295'
-                    }[color],
-                    color: color === PontoonColor.BLACK ? 'white' : 'black'
-                  }}
-                >
-                  {color}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Statistics Panel */}
-      <div className="absolute top-4 right-4 z-10">
-        <div className="bg-white rounded-lg shadow-lg p-4">
-          <h3 className="text-sm font-semibold mb-2">Statistics</h3>
-          <div className="space-y-1 text-xs">
-            <div>Pontoons: {stats.pontoonCount}</div>
-            <div>Selected: {uiState.selectedPontoonIds.size}</div>
-            <div>Level: {uiState.currentLevel}</div>
-            <div>Tool: {uiState.currentTool}</div>
-            {uiState.hoveredCell && (
-              <div>Hover: ({uiState.hoveredCell.x}, {uiState.hoveredCell.y}, {uiState.hoveredCell.z})</div>
+            {uiState.hoveredCell ? (
+              <>
+                <div>Hover: ({uiState.hoveredCell.x}, {uiState.hoveredCell.y}, {uiState.hoveredCell.z})</div>
+                <div>Grid-Cell-Can-Place: {uiState.grid.canPlacePontoon(uiState.hoveredCell, uiState.currentPontoonType) ? '✅' : '❌'}</div>
+                <div>Pontoon-Here: {uiState.grid.hasPontoonAt(uiState.hoveredCell) ? 'YES' : 'NO'}</div>
+              </>
+            ) : (
+              <>
+                <div>Hover: No position</div>
+                <div>Grid-Cell-Can-Place: N/A</div>
+                <div>Pontoon-Here: N/A</div>
+              </>
             )}
+            <div>Last-Click: {lastClickResult}</div>
+            <div>Tool: {uiState.currentTool}</div>
+            <div>Level: {uiState.currentLevel}</div>
           </div>
         </div>
       </div>
 
-      {/* View Controls */}
-      <div className="absolute bottom-4 right-4 z-10">
-        <div className="bg-white rounded-lg shadow-lg p-4">
-          <div className="space-y-2">
-            <button
-              onClick={handleViewModeToggle}
-              className="w-full px-3 py-2 text-sm bg-blue-500 text-white rounded hover:bg-blue-600"
-            >
-              {uiState.viewMode === '2d' ? '3D View' : '2D View'}
-            </button>
-            <button
-              onClick={handleGridToggle}
-              className={`w-full px-3 py-2 text-sm rounded ${
-                uiState.isGridVisible
-                  ? 'bg-green-500 text-white hover:bg-green-600'
-                  : 'bg-gray-300 text-gray-700 hover:bg-gray-400'
-              }`}
-            >
-              {uiState.isGridVisible ? 'Hide Grid' : 'Show Grid'}
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Keyboard Shortcuts Help */}
-      <div className="absolute bottom-4 left-4 z-10">
-        <div className="bg-white rounded-lg shadow-lg p-4">
-          <h3 className="text-sm font-semibold mb-2">Shortcuts</h3>
-          <div className="text-xs space-y-1">
-            <div>1-7: Tools</div>
-            <div>Q/W/E: Levels</div>
-            <div>S/D: Single/Double</div>
-            <div>G: Toggle Grid</div>
-            <div>V: Toggle View</div>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }
@@ -418,28 +666,47 @@ export function NewPontoonConfigurator({
  */
 function SceneContent({ 
   uiState, 
-  onRenderingEngineReady 
+  onRenderingEngineReady,
+  onCanvasHover,
+  onCanvasClick
 }: { 
   uiState: ConfiguratorUIState;
   onRenderingEngineReady: (engine: RenderingEngine) => void;
+  onCanvasHover?: (position: { x: number; y: number }, camera: THREE.Camera) => void;
+  onCanvasClick?: (position: { x: number; y: number }, camera: THREE.Camera) => void;
 }) {
-  const { scene } = useThree();
+  const { scene, gl, camera } = useThree();
   const renderingEngineRef = useRef<RenderingEngine | null>(null);
 
   // Initialize rendering engine
   useEffect(() => {
     if (!renderingEngineRef.current) {
-      const engine = new RenderingEngine(scene, {
-        showGrid: uiState.isGridVisible,
-        showPreview: uiState.showPreview,
-        showSelection: uiState.showSelection,
-        showSupport: uiState.showSupport
-      });
-      
-      renderingEngineRef.current = engine;
-      onRenderingEngineReady(engine);
-      
-      console.log('🎨 RenderingEngine initialized');
+      try {
+        const engine = new RenderingEngine(scene, {
+          showGrid: uiState.isGridVisible,
+          showPreview: uiState.showPreview,
+          showSelection: uiState.showSelection,
+          showSupport: uiState.showSupport,
+          gridOpacity: 0.3,
+          previewOpacity: 0.6,
+          selectionColor: '#ffff00',
+          supportColor: '#00ff00'
+        });
+        
+        renderingEngineRef.current = engine;
+        onRenderingEngineReady(engine);
+        
+        console.log('🎨 RenderingEngine initialized');
+      } catch (error) {
+        console.error('🎨 RenderingEngine failed to initialize:', error);
+        // Create a dummy engine to prevent crashes
+        renderingEngineRef.current = {
+          render: () => {},
+          updateOptions: () => {},
+          dispose: () => {},
+          getStats: () => ({ lastRenderTime: 0 })
+        } as any;
+      }
     }
   }, [scene, onRenderingEngineReady]);
 
@@ -453,30 +720,97 @@ function SceneContent({
     });
   }, [uiState.isGridVisible, uiState.showPreview, uiState.showSelection, uiState.showSupport]);
 
+  // Add click and hover handlers
+  useEffect(() => {
+    if (!gl.domElement) return;
+
+    const handleClick = (event: MouseEvent) => {
+      if (!onCanvasClick) return;
+      
+      const rect = gl.domElement.getBoundingClientRect();
+      const x = event.clientX - rect.left;
+      const y = event.clientY - rect.top;
+      
+      console.log('🎯 Canvas DOM click at:', { x, y });
+      onCanvasClick({ x, y }, camera);
+    };
+
+    const handleMouseMove = (event: MouseEvent) => {
+      const rect = gl.domElement.getBoundingClientRect();
+      const x = event.clientX - rect.left;
+      const y = event.clientY - rect.top;
+      
+      // Update hover state via callback
+      if (onCanvasHover) {
+        onCanvasHover({ x, y }, camera);
+      }
+    };
+
+    if (onCanvasClick) {
+      gl.domElement.addEventListener('click', handleClick);
+    }
+    gl.domElement.addEventListener('mousemove', handleMouseMove);
+    
+    return () => {
+      gl.domElement.removeEventListener('click', handleClick);
+      gl.domElement.removeEventListener('mousemove', handleMouseMove);
+    };
+  }, [gl.domElement, onCanvasClick, onCanvasHover, camera]);
+
   // Render frame
   useEffect(() => {
     if (!renderingEngineRef.current) return;
 
-    // Prepare render data
-    const previewData: PreviewData | undefined = uiState.hoveredCell ? {
-      position: uiState.hoveredCell,
-      type: uiState.currentPontoonType,
-      color: uiState.currentPontoonColor,
-      isValid: uiState.grid.canPlacePontoon(uiState.hoveredCell, uiState.currentPontoonType)
-    } : undefined;
+    try {
+      // Prepare render data
+      const previewData: PreviewData | undefined = uiState.hoveredCell ? {
+        position: uiState.hoveredCell,
+        type: uiState.currentPontoonType,
+        color: uiState.currentPontoonColor,
+        isValid: uiState.grid.canPlacePontoon(uiState.hoveredCell, uiState.currentPontoonType)
+      } : undefined;
 
-    const selectionData: SelectionData = {
-      pontoonIds: uiState.selectedPontoonIds
-    };
+      const selectionData: SelectionData = {
+        pontoonIds: uiState.selectedPontoonIds
+      };
 
-    // Render frame
-    renderingEngineRef.current.render(
-      uiState.grid,
-      uiState.currentLevel,
-      previewData,
-      selectionData
-    );
+      // Render frame
+      renderingEngineRef.current.render(
+        uiState.grid,
+        uiState.currentLevel,
+        previewData,
+        selectionData
+      );
+    } catch (error) {
+      console.error('🎨 Render frame failed:', error);
+    }
   });
 
-  return null; // No direct JSX needed, all rendering handled by RenderingEngine
+  // FALLBACK: Simple Three.js rendering if RenderingEngine fails
+  return (
+    <>
+      {/* Render pontoons as simple boxes */}
+      {Array.from(uiState.grid.pontoons.entries()).map(([id, pontoon]) => {
+        const config = getPontoonTypeConfig(pontoon.type);
+        const colorConfig = getPontoonColorConfig(pontoon.color);
+        
+        return (
+          <mesh
+            key={id}
+            position={[
+              (pontoon.position.x - (uiState.grid.dimensions.width - 1) / 2) * 0.5,  // Center grid
+              pontoon.position.y * 0.4,
+              (pontoon.position.z - (uiState.grid.dimensions.height - 1) / 2) * 0.5
+            ]}
+          >
+            <boxGeometry args={[config.dimensions.widthMM / 1000, 0.4, config.dimensions.depthMM / 1000]} />
+            <meshStandardMaterial color={colorConfig.hex} />
+          </mesh>
+        );
+      })}
+      
+      {/* Simple grid helper */}
+      <gridHelper args={[25, 50]} position={[0, 0, 0]} />
+    </>
+  );
 }
