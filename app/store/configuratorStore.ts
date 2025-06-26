@@ -248,48 +248,54 @@ export const useConfiguratorStore = create<ConfiguratorState>()(
 
           // Pontoon Management Actions
           addPontoon: (position) => {
-            // Move all logic inside set() to prevent stale state reads
+            // CRITICAL FIX: Validate BEFORE entering set() to avoid stale state access
+            const currentState = get();
+            const type = currentState.toolStateSnapshot?.type || currentState.currentPontoonType;
+            const color = currentState.toolStateSnapshot?.color || currentState.currentPontoonColor;
+            
+            console.log('🎨 TOOL STATE DEBUG:', {
+              snapshotAvailable: !!currentState.toolStateSnapshot,
+              snapshotType: currentState.toolStateSnapshot?.type,
+              snapshotColor: currentState.toolStateSnapshot?.color,
+              currentType: currentState.currentPontoonType,
+              currentColor: currentState.currentPontoonColor,
+              usingType: type,
+              usingColor: color
+            });
+
+            console.log('🔨 ADD PONTOON DEBUG (PRE-VALIDATION):', {
+              receivedPosition: position,
+              currentLevel: currentState.currentLevel,
+              type,
+              gridCellOccupied: currentState.isPontoonAtCell({x: position.x, y: position.y, z: position.z}),
+              hasSupport: currentState.hasSupportAtCell({x: position.x, y: position.y, z: position.z})
+            });
+
+            // SINGLE SOURCE OF TRUTH: Use fresh state validation
+            // This ensures consistency between preview and placement  
+            const canPlace = currentState.canPlacePontoon(position, type);
+            
+            console.log('🔍 FRESH STATE VALIDATION RESULT:', {
+              canPlace,
+              position,
+              type,
+              usingFreshState: true
+            });
+            
+            if (!canPlace) {
+              console.warn('❌ Cannot place pontoon at', position, '- validation failed');
+              return false;
+            }
+            
+            console.log('✅ PRE-VALIDATION PASSED, proceeding with placement');
+            
             let success = false;
             
             set((draft) => {
-              // Use snapshot state if available for consistent placement during interactions
-              const type = draft.toolStateSnapshot?.type || draft.currentPontoonType;
-              const color = draft.toolStateSnapshot?.color || draft.currentPontoonColor;
+              // Use validated type and color from pre-validation
               const currentLevel = draft.currentLevel;
               
-              console.log('🎨 TOOL STATE DEBUG:', {
-                snapshotAvailable: !!draft.toolStateSnapshot,
-                snapshotType: draft.toolStateSnapshot?.type,
-                snapshotColor: draft.toolStateSnapshot?.color,
-                currentType: draft.currentPontoonType,
-                currentColor: draft.currentPontoonColor,
-                usingType: type,
-                usingColor: color
-              });
-
-              console.log('🔨 ADD PONTOON DEBUG:', {
-                receivedPosition: position,
-                currentLevel,
-                type
-              });
-
-              // Create temporary state accessor for validation
-              const tempState = {
-                pontoons: draft.pontoons,
-                spatialIndex: draft.spatialIndex,
-                currentLevel,
-                validatePlacement: get().validatePlacement.bind({ ...draft, pontoons: draft.pontoons, spatialIndex: draft.spatialIndex })
-              };
-
-              // Validate placement with draft state
-              const validation = get().validatePlacement(position, type);
-              if (!validation.valid) {
-                console.warn('❌ Cannot place pontoon at', position, ':', validation.errors);
-                console.warn('Current level:', currentLevel, 'Position level:', position.y);
-                return; // Early return, success remains false
-              } else {
-                console.log('✅ Pontoon placement validated at', position);
-              }
+              console.log('✅ Validation passed, placing pontoon at', position);
 
               const id = generateId('pontoon-');
               const pontoon: PontoonElement = {
@@ -351,7 +357,7 @@ export const useConfiguratorStore = create<ConfiguratorState>()(
               }
             });
 
-            return true;
+            return success;
           },
 
           removePontoon: (id) => {
@@ -411,14 +417,33 @@ export const useConfiguratorStore = create<ConfiguratorState>()(
 
               const oldPosition = pontoon.gridPosition;
 
-              // Transactional move: Update both pontoon and spatial index atomically
+              // Transactional move: Update pontoon, spatial index, and grid-cell abstraction atomically
               try {
+                // GRID-CELL ABSTRACTION: Free old cells
+                const oldGridCell: GridCell = { x: oldPosition.x, y: oldPosition.y, z: oldPosition.z };
+                draft.gridCellAbstraction.freeCell(oldGridCell);
+                
+                // Update position and spatial index
                 pontoon.gridPosition = newPosition;
                 draft.spatialIndex.moveElement(id, newPosition);
+                
+                // GRID-CELL ABSTRACTION: Occupy new cells
+                const newGridCell: GridCell = { x: newPosition.x, y: newPosition.y, z: newPosition.z };
+                draft.gridCellAbstraction.occupyCell(newGridCell, id, pontoon.type);
+                
                 success = true;
               } catch (error) {
-                // Rollback position if spatial index update fails
+                // Rollback everything on failure
                 pontoon.gridPosition = oldPosition;
+                
+                // Try to restore grid-cell state
+                try {
+                  const oldGridCell: GridCell = { x: oldPosition.x, y: oldPosition.y, z: oldPosition.z };
+                  draft.gridCellAbstraction.occupyCell(oldGridCell, id, pontoon.type);
+                  const newGridCell: GridCell = { x: newPosition.x, y: newPosition.y, z: newPosition.z };
+                  draft.gridCellAbstraction.freeCell(newGridCell);
+                } catch {}
+                
                 console.error('❌ Failed to update spatial index for move:', error);
                 return;
               }
@@ -692,9 +717,25 @@ export const useConfiguratorStore = create<ConfiguratorState>()(
               });
             }
             
+            // First, filter positions that can actually be placed using the same validation as hover
+            const validPositions = positions.filter(pos => {
+              const canPlace = state.canPlacePontoon(pos, state.currentPontoonType);
+              if (!canPlace && pos.y > 0) {
+                console.log(`❌ Cannot place at (${pos.x}, ${pos.y}, ${pos.z}) - no support`);
+              }
+              return canPlace;
+            });
+            
+            console.log(`🔍 Valid positions: ${validPositions.length} out of ${positions.length}`);
+            
+            if (validPositions.length === 0) {
+              console.warn('❌ No valid positions for multi-drop');
+              return false;
+            }
+            
             set((draft) => {
-              // Remove existing pontoons in area
-              positions.forEach(pos => {
+              // Remove existing pontoons in area (only at valid positions)
+              validPositions.forEach(pos => {
                 // Use draft-consistent lookup instead of stale state
                 const existingEntries = Array.from(draft.pontoons.entries()).find(
                   ([_, pontoon]) => 
@@ -703,17 +744,21 @@ export const useConfiguratorStore = create<ConfiguratorState>()(
                     pontoon.gridPosition.z === pos.z
                 );
                 if (existingEntries) {
-                  const [existingId] = existingEntries;
+                  const [existingId, existingPontoon] = existingEntries;
                   draft.pontoons.delete(existingId);
                   draft.spatialIndex.remove(existingId);
+                  
+                  // GRID-CELL ABSTRACTION: Free cells
+                  const gridCell: GridCell = { x: pos.x, y: pos.y, z: pos.z };
+                  draft.gridCellAbstraction.freeCell(gridCell);
                 }
               });
               
-              // Add pontoons of current type at all positions
+              // Add pontoons of current type at all valid positions
               const addedIds: string[] = [];
-              console.log('🔍 Adding pontoons at positions:', positions.slice(0, 10), '... (showing first 10)');
+              console.log('🔍 Adding pontoons at positions:', validPositions.slice(0, 10), '... (showing first 10)');
               
-              positions.forEach((pos, index) => {
+              validPositions.forEach((pos, index) => {
                 const id = generateId('pontoon-multi-');
                 const pontoon: PontoonElement = {
                   id,
@@ -731,6 +776,11 @@ export const useConfiguratorStore = create<ConfiguratorState>()(
                 
                 draft.pontoons.set(id, pontoon);
                 draft.spatialIndex.insert(id, pos, size);
+                
+                // GRID-CELL ABSTRACTION: Occupy cells
+                const gridCell: GridCell = { x: pos.x, y: pos.y, z: pos.z };
+                draft.gridCellAbstraction.occupyCell(gridCell, id, draft.currentPontoonType);
+                
                 addedIds.push(id);
                 
                 // Debug first few placements
@@ -744,7 +794,7 @@ export const useConfiguratorStore = create<ConfiguratorState>()(
               
               // Add to history - use first pontoon as representative for multi-drop
               const firstPontoon = Array.from(draft.pontoons.values()).find(p => 
-                positions.some(pos => 
+                validPositions.some(pos => 
                   p.gridPosition.x === pos.x && p.gridPosition.y === pos.y && p.gridPosition.z === pos.z
                 )
               );
