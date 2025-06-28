@@ -6,7 +6,12 @@
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test": "playwright test",
+    "test:ui": "playwright test --ui",
+    "test:headed": "playwright test --headed",
+    "test:new-arch": "playwright test tests/new-architecture.spec.ts",
+    "test:comparison": "playwright test tests/architecture-comparison.spec.ts"
   },
   "dependencies": {
     "@heroicons/react": "^2.1.5",
@@ -25,6 +30,7 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
+    "@playwright/test": "^1.53.1",
     "@types/node": "22.15.29",
     "@types/react": "19.1.6",
     "eslint": "^9",

@@ -7,11 +7,955 @@
    - Network:      http://192.168.2.79:3000
 
  ✓ Starting...
- ✓ Ready in 910ms
+ ✓ Ready in 1254ms
  ○ Compiling / ...
- ✓ Compiled / in 2.3s
- GET / 200 in 2574ms
- GET / 200 in 56ms
- ✓ Compiled /favicon.ico in 167ms
- GET /favicon.ico?favicon.45db1c09.ico 200 in 358ms
-[?25h
+ ✓ Compiled / in 2.6s
+ GET / 200 in 2959ms
+ GET / 200 in 52ms
+ ✓ Compiled /favicon.ico in 130ms
+ GET /favicon.ico?favicon.45db1c09.ico 200 in 310ms
+ GET / 200 in 35ms
+ GET / 200 in 38ms
+ ✓ Compiled in 196ms
+ ✓ Compiled in 103ms
+ ✓ Compiled in 144ms
+ ✓ Compiled in 64ms
+ ✓ Compiled in 90ms
+🔧 GridCellAbstraction.occupyCell: {
+  cell: { x: 5, y: -1, z: 5 },
+  key: '5,-1,5',
+  pontoonId: 'test-pontoon-0',
+  type: 'double',
+  cellStatesSize: 1
+}
+🔧 GridCellAbstraction.occupyCell (double second cell): { secondCell: { x: 6, y: -1, z: 5 }, secondKey: '6,-1,5' }
+🔧 GridCellAbstraction.occupyCell: {
+  cell: { x: 15, y: -1, z: 15 },
+  key: '15,-1,15',
+  pontoonId: 'test-pontoon-1',
+  type: 'single',
+  cellStatesSize: 3
+}
+🔧 GridCellAbstraction.occupyCell: {
+  cell: { x: 0, y: 0, z: 0 },
+  key: '0,0,0',
+  pontoonId: 'test-pontoon-2',
+  type: 'single',
+  cellStatesSize: 4
+}
+🔧 GridCellAbstraction.occupyCell: {
+  cell: { x: 49, y: 0, z: 49 },
+  key: '49,0,49',
+  pontoonId: 'test-pontoon-3',
+  type: 'single',
+  cellStatesSize: 5
+}
+🔧 GridCellAbstraction.occupyCell: {
+  cell: { x: 25, y: 0, z: 25 },
+  key: '25,0,25',
+  pontoonId: 'test-pontoon-4',
+  type: 'double',
+  cellStatesSize: 6
+}
+🔧 GridCellAbstraction.occupyCell (double second cell): { secondCell: { x: 26, y: 0, z: 25 }, secondKey: '26,0,25' }
+🔧 GridCellAbstraction.occupyCell: {
+  cell: { x: 10, y: 0, z: 10 },
+  key: '10,0,10',
+  pontoonId: 'test-pontoon-5',
+  type: 'single',
+  cellStatesSize: 8
+}
+🔧 GridCellAbstraction.occupyCell: {
+  cell: { x: 40, y: 0, z: 10 },
+  key: '40,0,10',
+  pontoonId: 'test-pontoon-6',
+  type: 'single',
+  cellStatesSize: 9
+}
+🔧 GridCellAbstraction.occupyCell: {
+  cell: { x: 10, y: 0, z: 40 },
+  key: '10,0,40',
+  pontoonId: 'test-pontoon-7',
+  type: 'single',
+  cellStatesSize: 10
+}
+🔧 GridCellAbstraction.occupyCell: {
+  cell: { x: 40, y: 0, z: 40 },
+  key: '40,0,40',
+  pontoonId: 'test-pontoon-8',
+  type: 'double',
+  cellStatesSize: 11
+}
+🔧 GridCellAbstraction.occupyCell (double second cell): { secondCell: { x: 41, y: 0, z: 40 }, secondKey: '41,0,40' }
+🔧 GridCellAbstraction.occupyCell: {
+  cell: { x: 0, y: 0, z: 25 },
+  key: '0,0,25',
+  pontoonId: 'test-pontoon-9',
+  type: 'single',
+  cellStatesSize: 13
+}
+🔧 GridCellAbstraction.occupyCell: {
+  cell: { x: 49, y: 0, z: 25 },
+  key: '49,0,25',
+  pontoonId: 'test-pontoon-10',
+  type: 'single',
+  cellStatesSize: 14
+}
+🔧 GridCellAbstraction.occupyCell: {
+  cell: { x: 25, y: 0, z: 0 },
+  key: '25,0,0',
+  pontoonId: 'test-pontoon-11',
+  type: 'single',
+  cellStatesSize: 15
+}
+🔧 GridCellAbstraction.occupyCell: {
+  cell: { x: 10, y: 1, z: 10 },
+  key: '10,1,10',
+  pontoonId: 'test-pontoon-12',
+  type: 'double',
+  cellStatesSize: 16
+}
+🔧 GridCellAbstraction.occupyCell (double second cell): { secondCell: { x: 11, y: 1, z: 10 }, secondKey: '11,1,10' }
+ GET / 200 in 315ms
+ GET / 200 in 64ms
+ GET / 200 in 43ms
+ GET / 200 in 34ms
+ GET / 200 in 39ms
+ GET / 200 in 44ms
+ ✓ Compiled in 152ms
+ ✓ Compiled in 333ms
+ ✓ Compiled in 86ms
+ ✓ Compiled in 307ms
+ ✓ Compiled in 323ms
+ ✓ Compiled in 43ms
+ ✓ Compiled / in 86ms
+ GET / 200 in 450ms
+ ✓ Compiled in 32ms
+ ✓ Compiled / in 37ms
+ GET / 200 in 95ms
+ ✓ Compiled in 64ms
+ ✓ Compiled / in 18ms
+ GET / 200 in 63ms
+ ✓ Compiled in 45ms
+ ✓ Compiled / in 30ms
+ GET / 200 in 71ms
+ ✓ Compiled in 46ms
+ ✓ Compiled / in 43ms
+ GET / 200 in 69ms
+🔧 GridCellAbstraction.occupyCell: {
+  cell: { x: 5, y: -1, z: 5 },
+  key: '5,-1,5',
+  pontoonId: 'test-pontoon-0',
+  type: 'double',
+  cellStatesSize: 1
+}
+🔧 GridCellAbstraction.occupyCell (double second cell): { secondCell: { x: 6, y: -1, z: 5 }, secondKey: '6,-1,5' }
+🔧 GridCellAbstraction.occupyCell: {
+  cell: { x: 15, y: -1, z: 15 },
+  key: '15,-1,15',
+  pontoonId: 'test-pontoon-1',
+  type: 'single',
+  cellStatesSize: 3
+}
+🔧 GridCellAbstraction.occupyCell: {
+  cell: { x: 0, y: 0, z: 0 },
+  key: '0,0,0',
+  pontoonId: 'test-pontoon-2',
+  type: 'single',
+  cellStatesSize: 4
+}
+🔧 GridCellAbstraction.occupyCell: {
+  cell: { x: 49, y: 0, z: 49 },
+  key: '49,0,49',
+  pontoonId: 'test-pontoon-3',
+  type: 'single',
+  cellStatesSize: 5
+}
+🔧 GridCellAbstraction.occupyCell: {
+  cell: { x: 25, y: 0, z: 25 },
+  key: '25,0,25',
+  pontoonId: 'test-pontoon-4',
+  type: 'double',
+  cellStatesSize: 6
+}
+🔧 GridCellAbstraction.occupyCell (double second cell): { secondCell: { x: 26, y: 0, z: 25 }, secondKey: '26,0,25' }
+🔧 GridCellAbstraction.occupyCell: {
+  cell: { x: 10, y: 0, z: 10 },
+  key: '10,0,10',
+  pontoonId: 'test-pontoon-5',
+  type: 'single',
+  cellStatesSize: 8
+}
+🔧 GridCellAbstraction.occupyCell: {
+  cell: { x: 40, y: 0, z: 10 },
+  key: '40,0,10',
+  pontoonId: 'test-pontoon-6',
+  type: 'single',
+  cellStatesSize: 9
+}
+🔧 GridCellAbstraction.occupyCell: {
+  cell: { x: 10, y: 0, z: 40 },
+  key: '10,0,40',
+  pontoonId: 'test-pontoon-7',
+  type: 'single',
+  cellStatesSize: 10
+}
+🔧 GridCellAbstraction.occupyCell: {
+  cell: { x: 40, y: 0, z: 40 },
+  key: '40,0,40',
+  pontoonId: 'test-pontoon-8',
+  type: 'double',
+  cellStatesSize: 11
+}
+🔧 GridCellAbstraction.occupyCell (double second cell): { secondCell: { x: 41, y: 0, z: 40 }, secondKey: '41,0,40' }
+🔧 GridCellAbstraction.occupyCell: {
+  cell: { x: 0, y: 0, z: 25 },
+  key: '0,0,25',
+  pontoonId: 'test-pontoon-9',
+  type: 'single',
+  cellStatesSize: 13
+}
+🔧 GridCellAbstraction.occupyCell: {
+  cell: { x: 49, y: 0, z: 25 },
+  key: '49,0,25',
+  pontoonId: 'test-pontoon-10',
+  type: 'single',
+  cellStatesSize: 14
+}
+🔧 GridCellAbstraction.occupyCell: {
+  cell: { x: 25, y: 0, z: 0 },
+  key: '25,0,0',
+  pontoonId: 'test-pontoon-11',
+  type: 'single',
+  cellStatesSize: 15
+}
+🔧 GridCellAbstraction.occupyCell: {
+  cell: { x: 10, y: 1, z: 10 },
+  key: '10,1,10',
+  pontoonId: 'test-pontoon-12',
+  type: 'double',
+  cellStatesSize: 16
+}
+🔧 GridCellAbstraction.occupyCell (double second cell): { secondCell: { x: 11, y: 1, z: 10 }, secondKey: '11,1,10' }
+ GET / 200 in 572ms
+ GET / 200 in 30ms
+ GET / 200 in 30ms
+ GET / 200 in 260ms
+ GET / 200 in 343ms
+ GET / 200 in 361ms
+ GET / 200 in 421ms
+ GET / 200 in 78ms
+ GET / 200 in 138ms
+ GET / 200 in 164ms
+ GET / 200 in 33ms
+🔧 GridCellAbstraction.occupyCell: {
+  cell: { x: 5, y: -1, z: 5 },
+  key: '5,-1,5',
+  pontoonId: 'test-pontoon-0',
+  type: 'double',
+  cellStatesSize: 1
+}
+🔧 GridCellAbstraction.occupyCell (double second cell): { secondCell: { x: 6, y: -1, z: 5 }, secondKey: '6,-1,5' }
+🔧 GridCellAbstraction.occupyCell: {
+  cell: { x: 15, y: -1, z: 15 },
+  key: '15,-1,15',
+  pontoonId: 'test-pontoon-1',
+  type: 'single',
+  cellStatesSize: 3
+}
+🔧 GridCellAbstraction.occupyCell: {
+  cell: { x: 0, y: 0, z: 0 },
+  key: '0,0,0',
+  pontoonId: 'test-pontoon-2',
+  type: 'single',
+  cellStatesSize: 4
+}
+🔧 GridCellAbstraction.occupyCell: {
+  cell: { x: 49, y: 0, z: 49 },
+  key: '49,0,49',
+  pontoonId: 'test-pontoon-3',
+  type: 'single',
+  cellStatesSize: 5
+}
+🔧 GridCellAbstraction.occupyCell: {
+  cell: { x: 25, y: 0, z: 25 },
+  key: '25,0,25',
+  pontoonId: 'test-pontoon-4',
+  type: 'double',
+  cellStatesSize: 6
+}
+🔧 GridCellAbstraction.occupyCell (double second cell): { secondCell: { x: 26, y: 0, z: 25 }, secondKey: '26,0,25' }
+🔧 GridCellAbstraction.occupyCell: {
+  cell: { x: 10, y: 0, z: 10 },
+  key: '10,0,10',
+  pontoonId: 'test-pontoon-5',
+  type: 'single',
+  cellStatesSize: 8
+}
+🔧 GridCellAbstraction.occupyCell: {
+  cell: { x: 40, y: 0, z: 10 },
+  key: '40,0,10',
+  pontoonId: 'test-pontoon-6',
+  type: 'single',
+  cellStatesSize: 9
+}
+🔧 GridCellAbstraction.occupyCell: {
+  cell: { x: 10, y: 0, z: 40 },
+  key: '10,0,40',
+  pontoonId: 'test-pontoon-7',
+  type: 'single',
+  cellStatesSize: 10
+}
+🔧 GridCellAbstraction.occupyCell: {
+  cell: { x: 40, y: 0, z: 40 },
+  key: '40,0,40',
+  pontoonId: 'test-pontoon-8',
+  type: 'double',
+  cellStatesSize: 11
+}
+🔧 GridCellAbstraction.occupyCell (double second cell): { secondCell: { x: 41, y: 0, z: 40 }, secondKey: '41,0,40' }
+🔧 GridCellAbstraction.occupyCell: {
+  cell: { x: 0, y: 0, z: 25 },
+  key: '0,0,25',
+  pontoonId: 'test-pontoon-9',
+  type: 'single',
+  cellStatesSize: 13
+}
+🔧 GridCellAbstraction.occupyCell: {
+  cell: { x: 49, y: 0, z: 25 },
+  key: '49,0,25',
+  pontoonId: 'test-pontoon-10',
+  type: 'single',
+  cellStatesSize: 14
+}
+🔧 GridCellAbstraction.occupyCell: {
+  cell: { x: 25, y: 0, z: 0 },
+  key: '25,0,0',
+  pontoonId: 'test-pontoon-11',
+  type: 'single',
+  cellStatesSize: 15
+}
+🔧 GridCellAbstraction.occupyCell: {
+  cell: { x: 10, y: 1, z: 10 },
+  key: '10,1,10',
+  pontoonId: 'test-pontoon-12',
+  type: 'double',
+  cellStatesSize: 16
+}
+🔧 GridCellAbstraction.occupyCell (double second cell): { secondCell: { x: 11, y: 1, z: 10 }, secondKey: '11,1,10' }
+ GET / 200 in 180ms
+ GET / 200 in 35ms
+ ○ Compiling /test-new-architecture ...
+ ✓ Compiled /test-new-architecture in 1158ms
+ GET /test-new-architecture 200 in 1508ms
+ GET /test-new-architecture 200 in 1007ms
+ GET /test-new-architecture 200 in 1534ms
+ GET /test-new-architecture 200 in 1561ms
+ GET /favicon.ico?favicon.45db1c09.ico 200 in 356ms
+ GET /favicon.ico?favicon.45db1c09.ico 200 in 281ms
+ GET /favicon.ico?favicon.45db1c09.ico 200 in 253ms
+ GET /favicon.ico?favicon.45db1c09.ico 200 in 287ms
+ GET /test-new-architecture 200 in 128ms
+ GET /test-new-architecture 200 in 92ms
+ GET /test-new-architecture 200 in 194ms
+ GET /favicon.ico?favicon.45db1c09.ico 200 in 146ms
+ GET /favicon.ico?favicon.45db1c09.ico 200 in 185ms
+ GET /favicon.ico?favicon.45db1c09.ico 200 in 96ms
+ GET /test-new-architecture 200 in 48ms
+ ✓ Compiled in 49ms
+ ✓ Compiled in 19ms
+ ✓ Compiled in 21ms
+ ✓ Compiled in 21ms
+ ✓ Compiled in 38ms
+ ✓ Compiled in 48ms
+ ✓ Compiled / in 38ms
+🔧 GridCellAbstraction.occupyCell: {
+  cell: { x: 5, y: -1, z: 5 },
+  key: '5,-1,5',
+  pontoonId: 'test-pontoon-0',
+  type: 'double',
+  cellStatesSize: 1
+}
+🔧 GridCellAbstraction.occupyCell (double second cell): { secondCell: { x: 6, y: -1, z: 5 }, secondKey: '6,-1,5' }
+🔧 GridCellAbstraction.occupyCell: {
+  cell: { x: 15, y: -1, z: 15 },
+  key: '15,-1,15',
+  pontoonId: 'test-pontoon-1',
+  type: 'single',
+  cellStatesSize: 3
+}
+🔧 GridCellAbstraction.occupyCell: {
+  cell: { x: 0, y: 0, z: 0 },
+  key: '0,0,0',
+  pontoonId: 'test-pontoon-2',
+  type: 'single',
+  cellStatesSize: 4
+}
+🔧 GridCellAbstraction.occupyCell: {
+  cell: { x: 49, y: 0, z: 49 },
+  key: '49,0,49',
+  pontoonId: 'test-pontoon-3',
+  type: 'single',
+  cellStatesSize: 5
+}
+🔧 GridCellAbstraction.occupyCell: {
+  cell: { x: 25, y: 0, z: 25 },
+  key: '25,0,25',
+  pontoonId: 'test-pontoon-4',
+  type: 'double',
+  cellStatesSize: 6
+}
+🔧 GridCellAbstraction.occupyCell (double second cell): { secondCell: { x: 26, y: 0, z: 25 }, secondKey: '26,0,25' }
+🔧 GridCellAbstraction.occupyCell: {
+  cell: { x: 10, y: 0, z: 10 },
+  key: '10,0,10',
+  pontoonId: 'test-pontoon-5',
+  type: 'single',
+  cellStatesSize: 8
+}
+🔧 GridCellAbstraction.occupyCell: {
+  cell: { x: 40, y: 0, z: 10 },
+  key: '40,0,10',
+  pontoonId: 'test-pontoon-6',
+  type: 'single',
+  cellStatesSize: 9
+}
+🔧 GridCellAbstraction.occupyCell: {
+  cell: { x: 10, y: 0, z: 40 },
+  key: '10,0,40',
+  pontoonId: 'test-pontoon-7',
+  type: 'single',
+  cellStatesSize: 10
+}
+🔧 GridCellAbstraction.occupyCell: {
+  cell: { x: 40, y: 0, z: 40 },
+  key: '40,0,40',
+  pontoonId: 'test-pontoon-8',
+  type: 'double',
+  cellStatesSize: 11
+}
+🔧 GridCellAbstraction.occupyCell (double second cell): { secondCell: { x: 41, y: 0, z: 40 }, secondKey: '41,0,40' }
+🔧 GridCellAbstraction.occupyCell: {
+  cell: { x: 0, y: 0, z: 25 },
+  key: '0,0,25',
+  pontoonId: 'test-pontoon-9',
+  type: 'single',
+  cellStatesSize: 13
+}
+🔧 GridCellAbstraction.occupyCell: {
+  cell: { x: 49, y: 0, z: 25 },
+  key: '49,0,25',
+  pontoonId: 'test-pontoon-10',
+  type: 'single',
+  cellStatesSize: 14
+}
+🔧 GridCellAbstraction.occupyCell: {
+  cell: { x: 25, y: 0, z: 0 },
+  key: '25,0,0',
+  pontoonId: 'test-pontoon-11',
+  type: 'single',
+  cellStatesSize: 15
+}
+🔧 GridCellAbstraction.occupyCell: {
+  cell: { x: 10, y: 1, z: 10 },
+  key: '10,1,10',
+  pontoonId: 'test-pontoon-12',
+  type: 'double',
+  cellStatesSize: 16
+}
+🔧 GridCellAbstraction.occupyCell (double second cell): { secondCell: { x: 11, y: 1, z: 10 }, secondKey: '11,1,10' }
+ GET / 200 in 249ms
+ GET / 200 in 59ms
+ GET /test-new-architecture 200 in 303ms
+ GET /test-new-architecture 200 in 303ms
+ GET /test-new-architecture 200 in 303ms
+ GET /test-new-architecture 200 in 341ms
+ ✓ Compiled in 41ms
+ ✓ Compiled / in 12ms
+ GET / 200 in 36ms
+ GET / 200 in 32ms
+ GET /test-new-architecture 200 in 211ms
+ GET /test-new-architecture 200 in 51ms
+ ✓ Compiled in 23ms
+ ✓ Compiled in 23ms
+ ✓ Compiled in 27ms
+ ✓ Compiled in 38ms
+ ✓ Compiled in 23ms
+ ✓ Compiled / in 15ms
+ GET / 200 in 49ms
+ GET / 200 in 35ms
+ GET /test-new-architecture 200 in 272ms
+ ✓ Compiled in 37ms
+ ✓ Compiled / in 23ms
+ GET / 200 in 78ms
+ GET / 200 in 49ms
+ GET /test-new-architecture 200 in 363ms
+ GET / 200 in 43ms
+ GET / 200 in 39ms
+ GET /test-new-architecture 200 in 89ms
+ GET /test-new-architecture 200 in 93ms
+ GET /test-new-architecture 200 in 244ms
+ GET /test-new-architecture 200 in 250ms
+ GET / 200 in 69ms
+ GET / 200 in 45ms
+ GET /test-new-architecture 200 in 65ms
+ GET / 200 in 37ms
+ GET / 200 in 34ms
+ GET /test-new-architecture 200 in 41ms
+ GET /test-new-architecture 200 in 123ms
+ GET /test-new-architecture 200 in 59ms
+ GET /favicon.ico?favicon.45db1c09.ico 200 in 46ms
+ GET /test-new-architecture 200 in 102ms
+ GET /test-new-architecture 200 in 69ms
+ GET /favicon.ico?favicon.45db1c09.ico 200 in 40ms
+ ✓ Compiled in 216ms
+ GET /test-new-architecture 200 in 272ms
+ GET /test-new-architecture 200 in 48ms
+ ✓ Compiled in 119ms
+ GET /test-new-architecture 200 in 205ms
+ GET /test-new-architecture 200 in 51ms
+ ✓ Compiled in 122ms
+ GET /test-new-architecture 200 in 197ms
+ GET /test-new-architecture 200 in 41ms
+ ✓ Compiled in 116ms
+ GET /test-new-architecture 200 in 119ms
+ GET /test-new-architecture 200 in 54ms
+ ✓ Compiled in 309ms
+ GET /test-new-architecture 200 in 284ms
+ GET /favicon.ico 200 in 32ms
+ GET /test-new-architecture 200 in 59ms
+ ✓ Compiled / in 23ms
+ GET / 200 in 72ms
+ GET / 200 in 42ms
+ GET /test-new-architecture 200 in 58ms
+ ⚠ Fast Refresh had to perform a full reload due to a runtime error.
+ ✓ Compiled in 343ms
+ GET /test-new-architecture 200 in 452ms
+ GET /favicon.ico?favicon.45db1c09.ico 200 in 53ms
+ ✓ Compiled / in 25ms
+ GET / 200 in 62ms
+ GET / 200 in 40ms
+ GET /test-new-architecture 200 in 292ms
+ GET /test-new-architecture 200 in 353ms
+ GET /test-new-architecture 200 in 827ms
+ GET /test-new-architecture 200 in 851ms
+ GET /test-new-architecture 200 in 167ms
+ GET /test-new-architecture 200 in 142ms
+ GET /test-new-architecture 200 in 160ms
+ ✓ Compiled in 149ms
+ GET /test-new-architecture 200 in 219ms
+ GET /test-new-architecture 200 in 84ms
+ ✓ Compiled / in 14ms
+ GET / 200 in 42ms
+ GET / 200 in 41ms
+ GET /test-new-architecture 200 in 107ms
+ GET / 200 in 40ms
+ GET / 200 in 37ms
+ GET /test-new-architecture 200 in 203ms
+ GET /test-new-architecture 200 in 207ms
+ GET /test-new-architecture 200 in 247ms
+ GET /test-new-architecture 200 in 260ms
+ GET /test-new-architecture 200 in 72ms
+ GET /test-new-architecture 200 in 62ms
+ GET /test-new-architecture 200 in 103ms
+ ✓ Compiled in 245ms
+ GET /test-new-architecture 200 in 289ms
+ GET /test-new-architecture 200 in 127ms
+ ✓ Compiled in 205ms
+ GET /test-new-architecture 200 in 206ms
+ GET /test-new-architecture 200 in 73ms
+ GET /test-new-architecture 200 in 50ms
+ GET /test-new-architecture 200 in 35ms
+ ✓ Compiled in 55ms
+ ✓ Compiled in 102ms
+ GET /test-new-architecture 200 in 171ms
+ GET /test-new-architecture 200 in 68ms
+ ✓ Compiled in 105ms
+ GET /test-new-architecture 200 in 139ms
+ GET /test-new-architecture 200 in 118ms
+ ✓ Compiled in 122ms
+ GET /test-new-architecture 200 in 289ms
+ GET /test-new-architecture 200 in 99ms
+ ✓ Compiled in 115ms
+ GET /test-new-architecture 200 in 159ms
+ GET /test-new-architecture 200 in 93ms
+ ✓ Compiled / in 17ms
+ GET / 200 in 50ms
+ GET / 200 in 48ms
+ GET /test-new-architecture 200 in 174ms
+ ✓ Compiled in 250ms
+ GET / 200 in 59ms
+ GET / 200 in 45ms
+ GET /test-new-architecture 200 in 237ms
+ GET / 200 in 47ms
+ GET / 200 in 49ms
+ GET /test-new-architecture 200 in 59ms
+ ✓ Compiled in 200ms
+ GET /test-new-architecture 200 in 331ms
+ GET /test-new-architecture 200 in 105ms
+ ✓ Compiled in 79ms
+ GET /test-new-architecture 200 in 110ms
+ GET /test-new-architecture 200 in 78ms
+ ✓ Compiled /test-new-architecture in 70ms
+ GET /test-new-architecture 200 in 130ms
+ GET /test-new-architecture 200 in 50ms
+ GET /test-new-architecture 200 in 37ms
+ GET /test-new-architecture 200 in 54ms
+ ✓ Compiled /test-new-architecture in 70ms
+ GET /test-new-architecture 200 in 129ms
+ GET /test-new-architecture 200 in 154ms
+ GET /test-new-architecture 200 in 31ms
+ GET /test-new-architecture 200 in 33ms
+ ✓ Compiled in 88ms
+ GET /test-new-architecture 200 in 110ms
+ GET /test-new-architecture 200 in 94ms
+ ✓ Compiled in 92ms
+ GET /test-new-architecture 200 in 120ms
+ GET /test-new-architecture 200 in 102ms
+ ✓ Compiled in 116ms
+ GET /test-new-architecture 200 in 163ms
+ GET /test-new-architecture 200 in 97ms
+ ✓ Compiled / in 18ms
+ GET / 200 in 88ms
+ GET / 200 in 40ms
+ GET /test-new-architecture 200 in 173ms
+ GET / 200 in 51ms
+ GET / 200 in 41ms
+ GET /test-new-architecture 200 in 271ms
+ GET /test-new-architecture 200 in 279ms
+ GET /test-new-architecture 200 in 306ms
+ GET /test-new-architecture 200 in 314ms
+ GET /test-new-architecture 200 in 63ms
+ GET /test-new-architecture 200 in 81ms
+ GET /test-new-architecture 200 in 61ms
+ ✓ Compiled in 267ms
+ GET /test-new-architecture 200 in 285ms
+ GET /test-new-architecture 200 in 41ms
+ ✓ Compiled in 113ms
+ GET /test-new-architecture 200 in 142ms
+ GET /test-new-architecture 200 in 125ms
+ ✓ Compiled in 120ms
+ GET /test-new-architecture 200 in 161ms
+ ✓ Compiled /_not-found/page in 313ms
+ GET /test-new-architecture 404 in 371ms
+ GET /test-new-architecture 200 in 164ms
+ ✓ Compiled /test-new-architecture in 68ms
+ GET /test-new-architecture 200 in 167ms
+ GET /test-new-architecture 200 in 45ms
+ GET /test-new-architecture 200 in 49ms
+ GET /test-new-architecture 200 in 43ms
+ GET /test-new-architecture 200 in 42ms
+ GET /test-new-architecture 200 in 38ms
+ ✓ Compiled / in 18ms
+ GET / 200 in 55ms
+ GET / 200 in 47ms
+ GET /test-new-architecture 200 in 123ms
+ GET / 200 in 66ms
+ GET / 200 in 45ms
+ GET /test-new-architecture 200 in 56ms
+ GET /test-new-architecture 200 in 116ms
+ GET /favicon.ico?favicon.45db1c09.ico 200 in 60ms
+ ✓ Compiled in 206ms
+ GET /test-new-architecture 200 in 197ms
+ GET /test-new-architecture 200 in 93ms
+ ✓ Compiled / in 19ms
+ GET / 200 in 80ms
+ GET / 200 in 46ms
+ GET /test-new-architecture 200 in 105ms
+ GET / 200 in 50ms
+ GET / 200 in 47ms
+ GET /test-new-architecture 200 in 54ms
+ ✓ Compiled in 132ms
+ GET /test-new-architecture 200 in 183ms
+ GET /test-new-architecture 200 in 153ms
+ GET /test-new-architecture 200 in 36ms
+ GET /test-new-architecture 200 in 32ms
+ ✓ Compiled in 306ms
+ GET /test-new-architecture 200 in 328ms
+ ✓ Compiled / in 21ms
+ GET / 200 in 61ms
+ GET / 200 in 59ms
+ GET /test-new-architecture 200 in 127ms
+ GET / 200 in 46ms
+ GET / 200 in 49ms
+ GET /test-new-architecture 200 in 53ms
+ GET / 200 in 86ms
+ GET / 200 in 57ms
+ GET /test-new-architecture 200 in 72ms
+ ✓ Compiled /test-new-architecture in 102ms
+ GET /test-new-architecture 200 in 215ms
+ GET /test-new-architecture 200 in 113ms
+ GET /test-new-architecture 200 in 38ms
+ GET /test-new-architecture 200 in 39ms
+ GET /test-new-architecture 200 in 41ms
+ GET /test-new-architecture 200 in 38ms
+ ✓ Compiled / in 28ms
+ GET / 200 in 62ms
+ GET / 200 in 50ms
+ GET /test-new-architecture 200 in 123ms
+ GET / 200 in 88ms
+ GET / 200 in 53ms
+ GET /test-new-architecture 200 in 74ms
+ ✓ Compiled /test-new-architecture in 68ms
+ GET /test-new-architecture 200 in 202ms
+ GET /test-new-architecture 200 in 54ms
+ GET /test-new-architecture 200 in 72ms
+ GET /test-new-architecture 200 in 38ms
+ GET /test-new-architecture 200 in 37ms
+ GET /test-new-architecture 200 in 39ms
+ ✓ Compiled / in 25ms
+ GET / 200 in 77ms
+ GET / 200 in 62ms
+ GET /test-new-architecture 200 in 127ms
+ GET / 200 in 67ms
+ GET / 200 in 125ms
+ GET /test-new-architecture 200 in 118ms
+ GET /test-new-architecture 200 in 125ms
+ GET /favicon.ico?favicon.45db1c09.ico 200 in 59ms
+ GET / 200 in 109ms
+ GET / 200 in 65ms
+ GET /test-new-architecture 200 in 161ms
+ GET /test-new-architecture 200 in 164ms
+ GET /test-new-architecture 200 in 163ms
+ ✓ Compiled in 593ms
+ GET /test-new-architecture 200 in 759ms
+ ⚠ Fast Refresh had to perform a full reload due to a runtime error.
+ ✓ Compiled in 452ms
+ ⨯ ReferenceError: ProfessionalToolbar is not defined
+    at NewPontoonConfigurator (app/components/NewPontoonConfigurator.tsx:411:9)
+  409 |       {/* Professional UI Overlay - Based on proven design */}
+  410 |       <div className="absolute top-4 left-4 z-10">
+> 411 |         <ProfessionalToolbar 
+      |         ^
+  412 |           uiState={uiState}
+  413 |           onToolChange={handleToolChange}
+  414 |           onLevelChange={handleLevelChange} {
+  digest: '580075443'
+}
+ GET /test-new-architecture 500 in 1238ms
+ GET /favicon.ico 200 in 63ms
+ ⚠ Fast Refresh had to perform a full reload due to a runtime error.
+ ○ Compiling /test-new-architecture ...
+ ⚠ Fast Refresh had to perform a full reload due to a runtime error.
+ ✓ Compiled /test-new-architecture in 567ms
+ GET /test-new-architecture 200 in 829ms
+ GET /favicon.ico?favicon.45db1c09.ico 200 in 56ms
+ ✓ Compiled in 235ms
+ GET /test-new-architecture 200 in 298ms
+ GET /test-new-architecture 200 in 48ms
+ GET /test-new-architecture 200 in 54ms
+ GET /test-new-architecture 200 in 35ms
+ ✓ Compiled in 167ms
+ GET /test-new-architecture 200 in 202ms
+ GET /test-new-architecture 200 in 122ms
+ ✓ Compiled / in 41ms
+ GET / 200 in 109ms
+ GET / 200 in 46ms
+ GET /test-new-architecture 200 in 131ms
+ GET / 200 in 116ms
+ GET / 200 in 53ms
+ GET /test-new-architecture 200 in 65ms
+ GET / 200 in 96ms
+ GET / 200 in 62ms
+ GET /test-new-architecture 200 in 75ms
+ ✓ Compiled in 645ms
+ GET /test-new-architecture 200 in 558ms
+ GET /test-new-architecture 200 in 126ms
+ ✓ Compiled in 385ms
+ GET /test-new-architecture 200 in 430ms
+ GET /test-new-architecture 200 in 78ms
+ GET /test-new-architecture 200 in 315ms
+ GET /favicon.ico?favicon.45db1c09.ico 200 in 49ms
+ ✓ Compiled /test-new-architecture in 117ms
+ GET /test-new-architecture 200 in 254ms
+ GET /test-new-architecture 200 in 48ms
+ GET /test-new-architecture 200 in 49ms
+ GET /test-new-architecture 200 in 42ms
+ ✓ Compiled in 244ms
+ GET /test-new-architecture 200 in 298ms
+ GET /test-new-architecture 200 in 47ms
+ GET /test-new-architecture 200 in 59ms
+ GET /test-new-architecture 200 in 142ms
+ GET /test-new-architecture 200 in 253ms
+ GET /favicon.ico?favicon.45db1c09.ico 200 in 64ms
+ GET /test-new-architecture 200 in 156ms
+ GET /favicon.ico?favicon.45db1c09.ico 200 in 54ms
+ ✓ Compiled in 153ms
+ GET /test-new-architecture 200 in 220ms
+ GET /test-new-architecture 200 in 136ms
+ ✓ Compiled / in 24ms
+ GET / 200 in 104ms
+ GET / 200 in 57ms
+ GET /test-new-architecture 200 in 822ms
+ GET /favicon.ico?favicon.45db1c09.ico 200 in 858ms
+ GET /favicon.ico?favicon.45db1c09.ico 200 in 883ms
+ GET /test-new-architecture 200 in 1819ms
+ GET /test-new-architecture 200 in 588ms
+ GET /test-new-architecture 200 in 1920ms
+ GET /favicon.ico?favicon.45db1c09.ico 200 in 199ms
+ GET /favicon.ico?favicon.45db1c09.ico 200 in 367ms
+ GET /favicon.ico?favicon.45db1c09.ico 200 in 123ms
+ GET /test-new-architecture 200 in 505ms
+ GET /favicon.ico?favicon.45db1c09.ico 200 in 496ms
+ GET /favicon.ico?favicon.45db1c09.ico 200 in 501ms
+ GET /test-new-architecture 200 in 756ms
+ GET /favicon.ico?favicon.45db1c09.ico 200 in 175ms
+ GET /favicon.ico?favicon.45db1c09.ico 200 in 186ms
+ GET /test-new-architecture 200 in 399ms
+ GET /test-new-architecture 200 in 418ms
+ GET /test-new-architecture 200 in 129ms
+ GET / 200 in 327ms
+ GET /favicon.ico?favicon.45db1c09.ico 200 in 60ms
+ ✓ Compiled /_not-found/page in 96ms
+ GET /blog 404 in 266ms
+ GET / 200 in 103ms
+ GET /test-new-architecture 200 in 188ms
+ GET /test-new-architecture 200 in 146ms
+ GET /favicon.ico?favicon.45db1c09.ico 200 in 56ms
+ GET /test-new-architecture 200 in 104ms
+ GET /favicon.ico?favicon.45db1c09.ico 200 in 55ms
+ GET /test-new-architecture 200 in 172ms
+ GET /favicon.ico?favicon.45db1c09.ico 200 in 250ms
+ ✓ Compiled in 444ms
+ GET /test-new-architecture 200 in 519ms
+ GET /test-new-architecture 200 in 152ms
+ GET /test-new-architecture 200 in 91ms
+ GET /test-new-architecture 200 in 45ms
+ ✓ Compiled in 160ms
+ GET /test-new-architecture 200 in 301ms
+ GET /test-new-architecture 200 in 89ms
+ ✓ Compiled in 133ms
+ GET /test-new-architecture 200 in 247ms
+ GET /test-new-architecture 200 in 51ms
+ GET /test-new-architecture 200 in 53ms
+ GET /test-new-architecture 200 in 71ms
+ GET /test-new-architecture 200 in 750ms
+ GET /favicon.ico?favicon.45db1c09.ico 200 in 74ms
+ ✓ Compiled in 270ms
+ GET /test-new-architecture 200 in 541ms
+ GET /test-new-architecture 200 in 124ms
+ GET /test-new-architecture 200 in 110ms
+ GET /test-new-architecture 200 in 102ms
+ ✓ Compiled / in 66ms
+ GET / 200 in 138ms
+ GET / 200 in 66ms
+ GET / 200 in 73ms
+ GET / 200 in 93ms
+ GET /test-new-architecture 200 in 350ms
+ GET /test-new-architecture 200 in 356ms
+ ✓ Compiled in 289ms
+ GET /test-new-architecture 200 in 349ms
+ GET /test-new-architecture 200 in 57ms
+ GET /test-new-architecture 200 in 43ms
+ GET /test-new-architecture 200 in 43ms
+ ✓ Compiled in 114ms
+ GET /test-new-architecture 200 in 190ms
+ GET /test-new-architecture 200 in 44ms
+ GET /test-new-architecture 200 in 154ms
+ GET /test-new-architecture 200 in 42ms
+ GET /test-new-architecture 200 in 281ms
+ GET /favicon.ico?favicon.45db1c09.ico 200 in 106ms
+ ✓ Compiled in 291ms
+ GET /test-new-architecture 200 in 314ms
+ GET /test-new-architecture 200 in 134ms
+ GET /test-new-architecture 200 in 58ms
+ GET /test-new-architecture 200 in 47ms
+ GET /test-new-architecture 200 in 202ms
+ GET /favicon.ico?favicon.45db1c09.ico 200 in 46ms
+ ✓ Compiled in 191ms
+ GET /test-new-architecture 200 in 254ms
+ GET /test-new-architecture 200 in 140ms
+ GET /test-new-architecture 200 in 47ms
+ GET /test-new-architecture 200 in 259ms
+ GET /favicon.ico?favicon.45db1c09.ico 200 in 39ms
+ ✓ Compiled in 211ms
+ GET /test-new-architecture 200 in 329ms
+ GET /test-new-architecture 200 in 155ms
+ GET /test-new-architecture 200 in 50ms
+ GET /test-new-architecture 200 in 45ms
+ ✓ Compiled in 97ms
+ GET /test-new-architecture 200 in 186ms
+ GET /test-new-architecture 200 in 48ms
+ GET /test-new-architecture 200 in 70ms
+ GET /test-new-architecture 200 in 48ms
+ ✓ Compiled in 89ms
+ GET /test-new-architecture 200 in 139ms
+ GET /test-new-architecture 200 in 63ms
+ GET /test-new-architecture 200 in 46ms
+ GET /test-new-architecture 200 in 48ms
+ ✓ Compiled in 118ms
+ GET /test-new-architecture 200 in 204ms
+ GET /test-new-architecture 200 in 47ms
+ GET /test-new-architecture 200 in 44ms
+ GET /test-new-architecture 200 in 46ms
+ ✓ Compiled in 97ms
+ GET /test-new-architecture 200 in 153ms
+ GET /test-new-architecture 200 in 106ms
+ GET /test-new-architecture 200 in 82ms
+ GET /test-new-architecture 200 in 50ms
+ ✓ Compiled in 131ms
+ GET /test-new-architecture 200 in 227ms
+ GET /test-new-architecture 200 in 45ms
+ GET /test-new-architecture 200 in 51ms
+ GET /test-new-architecture 200 in 46ms
+ ✓ Compiled in 116ms
+ GET /test-new-architecture 200 in 286ms
+ GET /test-new-architecture 200 in 60ms
+ GET /test-new-architecture 200 in 63ms
+ GET /test-new-architecture 200 in 47ms
+ ✓ Compiled in 110ms
+ ✓ Compiled in 105ms
+ GET /test-new-architecture 200 in 314ms
+ GET /test-new-architecture 200 in 50ms
+ GET /test-new-architecture 200 in 44ms
+ GET /test-new-architecture 200 in 47ms
+ ✓ Compiled in 152ms
+ GET /test-new-architecture 200 in 406ms
+ GET /test-new-architecture 200 in 59ms
+ GET /test-new-architecture 200 in 97ms
+ GET /test-new-architecture 200 in 80ms
+ ✓ Compiled in 95ms
+ GET /test-new-architecture 200 in 219ms
+ GET /test-new-architecture 200 in 105ms
+ GET /test-new-architecture 200 in 55ms
+ GET /test-new-architecture 200 in 53ms
+ ✓ Compiled in 98ms
+ GET /test-new-architecture 200 in 180ms
+ GET /test-new-architecture 200 in 57ms
+ GET /test-new-architecture 200 in 55ms
+ GET /test-new-architecture 200 in 58ms
+ ✓ Compiled in 92ms
+ GET /test-new-architecture 200 in 154ms
+ GET /test-new-architecture 200 in 62ms
+ GET /test-new-architecture 200 in 55ms
+ GET /test-new-architecture 200 in 54ms
+ ✓ Compiled in 106ms
+ GET /test-new-architecture 200 in 211ms
+ GET /test-new-architecture 200 in 51ms
+ GET /test-new-architecture 200 in 55ms
+ GET /test-new-architecture 200 in 54ms
+ ✓ Compiled in 104ms
+ GET /test-new-architecture 200 in 170ms
+ GET /test-new-architecture 200 in 54ms
+ GET /test-new-architecture 200 in 50ms
+ GET /test-new-architecture 200 in 55ms
+ ✓ Compiled in 96ms
+ GET /test-new-architecture 200 in 178ms
+ GET /test-new-architecture 200 in 123ms
+ GET /test-new-architecture 200 in 51ms
+ GET /test-new-architecture 200 in 54ms
+ ✓ Compiled in 114ms
+ GET /test-new-architecture 200 in 208ms
+ GET /test-new-architecture 200 in 52ms
+ GET /test-new-architecture 200 in 57ms
+ GET /test-new-architecture 200 in 53ms
+ ✓ Compiled in 101ms
+ GET /test-new-architecture 200 in 177ms
+ GET /test-new-architecture 200 in 59ms
+ GET /test-new-architecture 200 in 51ms
+ GET /test-new-architecture 200 in 56ms
+ ✓ Compiled in 110ms
+ GET /test-new-architecture 200 in 257ms
+ GET /test-new-architecture 200 in 49ms
+ GET /test-new-architecture 200 in 54ms
+ GET /test-new-architecture 200 in 54ms

@@ -11,127 +11,153 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **WICHTIGE REGEL**: Claude startet NIEMALS automatisch den Development Server. Immer den User bitten, `npm run dev` selbst zu starten.
 
-## Playwright Testing with 3D Configurator
+## Project Overview - Pontoon Configurator 3D
 
-**BREAKTHROUGH**: Debug Panel als "Augen" für Playwright Testing
+**Mission**: Professional 3D pontoon configurator for real-world manufacturing with mathematical precision and production-quality reliability.
 
-**Implementation**: Enhanced debug panel provides machine-readable 3D state:
-- Exact grid coordinates: "Hover: (5, 1, 8)"
-- Physical positions: "Hover-World: (2.5m, 0.4m, 4.0m)"  
-- Occupancy status: "Pontoon-Here: YES/NO"
-- Support validation: "Support-L0: ✅/❌"
-- Placement possibility: "Can-Place: YES/NO-OCCUPIED"
+**Current Status**: New architecture implementation at `/test-new-architecture` with working Place and Delete tools. Pink rendering issue resolved, hover previews functional.
 
-**Testing Coverage**: 95% of 3D logic automatically testable via debug text parsing
+## Dual Architecture Status (2025-06-28)
 
-**Files**: 
-- `app/components/configurator/PontoonConfigurator.tsx:155-207` - Enhanced Debug Panel
-- `PLAYWRIGHT-TESTING-STRATEGY.md` - Complete implementation guide
+**Two Versions Running:**
+- **Production Version**: `http://localhost:3000` (old Zustand-based)
+- **New Architecture**: `http://localhost:3000/test-new-architecture` (Domain-Driven Design)
 
-## Recent Major Fixes (2025-01-16)
+**Migration Status**: New architecture is 80% complete, core functionality working, ready to replace old version.
 
-**✅ LEVEL-SWITCHING BUG RESOLVED:**
-- **Problem**: Canvas click reset level from 1→0, making multi-level placement impossible
-- **Solution**: Multi-layer protection in configuratorStore.ts with stack-trace analysis
-- **Files**: 
-  - `app/store/configuratorStore.ts:478-500` - Level-reset protection
-  - `app/components/configurator/InteractionManager.tsx:240` - State-capture protection
-  - `app/components/configurator/PontoonConfigurator.tsx:107` - Fixed missing getPontoonAt import
+## New Architecture Implementation (CURRENT WORK)
 
-**✅ MULTI-LEVEL VALIDATION WORKING:**
-- Level 1 placement requires Level 0 support ✅
-- Level 2 placement requires Level 0+1 support ✅  
-- Real-time validation via debug panel ✅
+**Location**: `/test-new-architecture` route
 
-**Result**: Multi-level pontoon stacking (Level 0→1→2) fully functional
+**✅ COMPLETED FEATURES:**
+- ✅ **Place Tool**: Precise pontoon placement with coordinate validation
+- ✅ **Delete Tool**: Reliable pontoon removal with visual feedback  
+- ✅ **3D Navigation**: OrbitControls for smooth camera movement
+- ✅ **Hover Previews**: Tool-specific visual feedback (semi-transparent preview for place, red highlight for delete)
+- ✅ **Professional UI**: German localization, disabled tools clearly marked
+- ✅ **Multi-Level Support**: Levels 0-2 with proper validation
+- ✅ **Coordinate Precision**: Hover position = click position (Single Source of Truth)
+- ✅ **Error Handling**: Graceful failures with user feedback
 
-## High-Level Architecture
+**🔧 TECHNICAL FIXES COMPLETED:**
+- ✅ **Pink Rendering Issue**: RenderingEngine disabled, using fallback Three.js rendering
+- ✅ **Phantom Pontoon**: Removed via proper bounds checking and validation
+- ✅ **Missing Methods**: Added `removePontoonAt()` to Grid domain class
+- ✅ **Coordinate System**: Unified 3D raycasting for precise click/hover matching
 
-This is a 3D pontoon configurator built with Next.js 15 (App Router), React 19, and Three.js/React Three Fiber. The application enables users to design modular pontoon platforms using mathematical precision and efficient state management for real-world manufacturing.
+**📁 NEW ARCHITECTURE FILES:**
+- `app/components/NewPontoonConfigurator.tsx` - Main new architecture component
+- `app/lib/domain/` - Domain-Driven Design entities (Grid, Pontoon, etc.)
+- `app/lib/ui/` - UI layer services (tools, rendering, interaction)
+- `tests/debug-phantom-pontoon.spec.ts` - Playwright debugging tests
+- `tests/delete-tool.spec.ts` - Delete tool functionality tests
 
-### Core Mathematical System
+## Domain-Driven Design Architecture
 
-**Grid Mathematics** (`app/lib/grid/GridMathematics.ts`):
+**Core Principle**: Immutable operations with pure functions for reliable testing and production use.
+
+**Domain Layer** (`app/lib/domain/`):
+- `Grid.ts` - Aggregate root for all pontoon operations
+- `Pontoon.ts` - Pontoon entity with position, type, color, rotation
+- `GridPosition.ts` - Value object for 3D coordinates
+- `PontoonTypes.ts` - Type definitions and configurations
+- `PlacementValidator.ts` - Business logic for placement rules
+
+**UI Layer** (`app/lib/ui/`):
+- `InteractionController.ts` - Mouse/touch input handling
+- `RenderingEngine.ts` - 3D visualization (currently disabled due to material issues)
+- `ToolSystem.ts` - Tool management and lifecycle
+
+**Key Design Patterns**:
+- **Immutable State**: All operations return new instances
+- **Single Source of Truth**: One coordinate system throughout
+- **Error-First Design**: All operations validate before execution
+
+## 🚧 PENDING TASKS - Next Development Session
+
+**Priority 1 - Remaining Tools:**
+- 🔲 **Select Tool**: Multi-pontoon selection with click/drag
+- 🔲 **Rotate Tool**: 90° pontoon rotation (especially for double pontoons)
+- 🔲 **Move Tool**: Drag pontoons to new positions
+
+**Priority 2 - Advanced Features:**
+- 🔲 **Multi-Level UI**: Clear level indicators and validation feedback
+- 🔲 **Undo/Redo System**: History management for all operations
+- 🔲 **Export Functionality**: Generate manufacturing data
+- 🔲 **3D Model Integration**: Replace boxes with real OBJ pontoon models
+
+**Priority 3 - Production Readiness:**
+- 🔲 **Performance Optimization**: Large grid handling (>50x50)
+- 🔲 **Mobile Support**: Touch gestures and responsive UI
+- 🔲 **Error Recovery**: Robust error handling and user guidance
+- 🔲 **Final Migration**: Replace old version entirely
+
+## 3D Models Available
+
+**Customer Models** (`public/3d/`):
+- `fc/Ponton.obj` (4.7MB) + `Ponton.mtl` - Main pontoon model
+- `neu/ponton.obj` (4.7MB) - Alternative version
+- **OBJ format recommended** - Perfect for Three.js, text-based, widely compatible
+- **TODO**: Need single pontoon model from customer
+
+## Core Mathematical System
+
+**Grid Mathematics** (Domain Layer):
 - 0.5m grid spacing (500mm) - exact single pontoon size
 - Converts between grid coordinates and world positions with millimeter precision
 - All internal calculations in millimeters, display in meters
 
-**Spatial Indexing** (`app/store/configuratorStore.ts`):
-- SpatialHashGrid provides O(1) collision detection for large grids
-- Map-based storage with Set for selections for efficient pontoon management
-- Supports 50x50 grids (2500 cells) with optimal performance
+**Critical Constants**:
+```typescript
+DOMAIN_CONSTANTS = {
+  CELL_SIZE_MM: 500,        // 0.5m single pontoon size
+  PONTOON_HEIGHT_MM: 400,   // 0.4m standard height
+  PRECISION_FACTOR: 1000,   // Convert meters to millimeters
+  DEFAULT_GRID_SIZE: 50,    // 50x50 default grid
+  DEFAULT_LEVELS: 3         // Levels 0, 1, 2
+}
+```
 
-### Component Architecture
-
-**Main Components**:
-- `PontoonConfigurator.tsx` - Main 3D configurator with Canvas setup and UI overlay
-- `GridSystem.tsx` - Mathematical precision grid visualization 
-- `PontoonManager.tsx` - Efficient pontoon rendering manager for all instances
-- `InteractionManager.tsx` - Precise mouse/touch interaction with raycasting
-- `CameraController.tsx` - View mode management (2D/3D camera positions)
-- `Toolbar.tsx` - Tool selection with 4-color pontoon picker and German UI
-
-### Multi-Level System
-
-**Level Management**:
-- Level 0 (ground): Y=0, any placement allowed
-- Level 1: Y=1, requires Level 0 support underneath
-- Level 2: Y=2, requires both Level 0 AND Level 1 support
-- Real-time validation through `CollisionDetection.hasCellSupport()`
-
-**Pontoon Types**:
+**Pontoon Types & Colors**:
 - Single: 0.5m x 0.4m x 0.5m (1 grid cell)
 - Double: 1.0m x 0.4m x 0.5m (2 grid cells width)
 - 4 colors: Blue #6183c2, Black #111111, Grey #e3e4e5, Yellow #f7e295
 
-### State Management (Zustand)
+**Multi-Level System**:
+- Level 0 (water surface): Y=0, any placement allowed
+- Level 1: Y=1, requires Level 0 support underneath
+- Level 2: Y=2, requires both Level 0 AND Level 1 support
+- Real-time validation through `PlacementValidator.hasSupport()`
 
-**Store Structure** (`app/store/configuratorStore.ts`):
-- `pontoons: Map<string, PontoonElement>` - All pontoon instances
-- `spatialIndex: SpatialHashGrid` - O(1) collision detection
-- `currentLevel: number` - Active placement level (0-2)
-- `selectedTool: string` - Current tool (place, select, delete, rotate, multi-drop)
-- `hoveredCell: GridPosition` - Real-time hover feedback
-- `history: Array` - Undo/redo system
+## Debug Panel for Testing
 
-**Critical Constants**:
-```typescript
-GRID_CONSTANTS = {
-  CELL_SIZE_MM: 500,        // 0.5m single pontoon size
-  PONTOON_HEIGHT_MM: 400,   // 0.4m standard height
-  GRID_SIZE: 50,            // 50x50 default grid
-  PRECISION_FACTOR: 1000,   // Convert meters to millimeters
-}
-```
-
-### 3D Rendering Approach
-
-**Current Implementation**:
-- Simple box geometry with exact mathematical positioning
-- Single pontoons: 0.5m x 0.4m x 0.5m box geometry
-- Double pontoons: 1.0m x 0.4m x 0.5m box geometry  
-- Mathematical positioning via GridMathematics coordinate conversion
-- Preview system with transparency on hover
-
-### Debug Panel for Testing
-
-**Machine-Readable Outputs** (`PontoonConfigurator.tsx:155-207`):
-- Real-time coordinates: "Hover: (5, 1, 8)"
-- World positions: "Hover-World: (2.5m, 0.4m, 4.0m)"
-- Occupancy: "Pontoon-Here: YES/NO"
-- Support validation: "Support-L0: ✅/❌", "Support-L1: ✅/❌"
-- Placement validation: "Can-Place: YES/NO-OCCUPIED"
-- Level matching: "Hover Y: 1 ✅/❌"
+**Machine-Readable Outputs** (`NewPontoonConfigurator.tsx:637-657`):
+- Real-time coordinates: "Hover: (25, 0, 6)"
+- Grid cell validation: "Grid-Cell-Can-Place: ✅/❌"
+- Occupancy status: "Pontoon-Here: YES/NO"
+- Click results: "Last-Click: SUCCESS/FAILED"
+- Active tool: "Tool: place/delete"
+- Current level: "Level: 0/1/2"
 
 **Enables 95% automated testing** via Playwright reading debug text instead of interpreting 3D visuals.
 
-## Development Notes
+## Development Guidelines
 
-**For New Developers:**
-- Mathematical precision is the foundation - maintain millimeter accuracy
-- Spatial indexing enables large grids - don't break the performance model  
-- Type safety is enforced throughout - follow the established patterns
-- Debug system provides validation - use it to verify mathematical operations
-- **CRITICAL**: Single Source of Truth - Never duplicate data calculations (hover state = click state)
+**For New Claude Sessions:**
+- Work primarily in `/test-new-architecture` route
+- Use Domain-Driven Design patterns established in `app/lib/domain/`
+- Maintain immutable operations and pure functions
+- Test with Playwright using debug panel data
+- **CRITICAL**: Never break Single Source of Truth (hover = click coordinates)
+- Mathematical precision is non-negotiable - millimeter accuracy required
 
-**Current Status**: Multi-level pontoon stacking (Level 0→1→2) fully functional and ready for production features.
+**Performance Requirements:**
+- Support 50x50 grids (2500 cells) minimum
+- Real-time hover feedback (<16ms response)
+- Smooth 3D navigation with OrbitControls
+
+**Testing Strategy:**
+- Unit tests for domain logic (Grid, Pontoon validation)
+- Playwright E2E tests using debug panel text parsing
+- Visual regression testing for 3D rendering
+- Error case testing (invalid placements, edge cases)

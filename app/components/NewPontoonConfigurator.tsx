@@ -9,6 +9,7 @@
 
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { Canvas, useThree } from '@react-three/fiber';
+import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
 
 // Import new architecture
@@ -17,6 +18,7 @@ import {
   GridPosition,
   PontoonType,
   PontoonColor,
+  Rotation,
   DOMAIN_CONSTANTS,
   getPontoonTypeConfig,
   getPontoonColorConfig,
@@ -56,6 +58,7 @@ interface ConfiguratorUIState {
   currentTool: ToolType;
   currentPontoonType: PontoonType;
   currentPontoonColor: PontoonColor;
+  currentRotation: Rotation;
   hoveredCell: GridPosition | null;
   selectedPontoonIds: Set<string>;
   isGridVisible: boolean;
@@ -101,7 +104,7 @@ function ProfessionalToolbar({
   const tools = [
     { id: ToolType.SELECT, icon: MousePointer2, label: 'Auswählen', shortcut: '1', disabled: true },
     { id: ToolType.PLACE, icon: Plus, label: 'Platzieren', shortcut: '2', disabled: false },
-    { id: ToolType.DELETE, icon: Trash2, label: 'Löschen', shortcut: '3', disabled: true },
+    { id: ToolType.DELETE, icon: Trash2, label: 'Löschen', shortcut: '3', disabled: false },
     { id: ToolType.ROTATE, icon: RotateCw, label: 'Drehen', shortcut: '4', disabled: true },
   ];
 
@@ -375,6 +378,7 @@ export function NewPontoonConfigurator({
     currentTool: ToolType.PLACE,
     currentPontoonType: PontoonType.SINGLE,
     currentPontoonColor: PontoonColor.BLUE,
+    currentRotation: Rotation.NORTH,
     hoveredCell: null,
     selectedPontoonIds: new Set(),
     isGridVisible: true,
@@ -494,6 +498,23 @@ export function NewPontoonConfigurator({
     setUIState(prev => ({ ...prev, isGridVisible: !prev.isGridVisible }));
   }, []);
 
+  // Rotation handler
+  const handleRotationChange = useCallback(() => {
+    setUIState(prev => {
+      // Cycle through rotations: NORTH -> EAST -> SOUTH -> WEST -> NORTH
+      let nextRotation: Rotation;
+      switch (prev.currentRotation) {
+        case Rotation.NORTH: nextRotation = Rotation.EAST; break;
+        case Rotation.EAST: nextRotation = Rotation.SOUTH; break;
+        case Rotation.SOUTH: nextRotation = Rotation.WEST; break;
+        case Rotation.WEST: nextRotation = Rotation.NORTH; break;
+        default: nextRotation = Rotation.NORTH;
+      }
+      console.log('🔄 Rotation changed to:', nextRotation);
+      return { ...prev, currentRotation: nextRotation };
+    });
+  }, []);
+
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -519,12 +540,15 @@ export function NewPontoonConfigurator({
         // View shortcuts
         case 'g': handleGridToggle(); break;
         case 'v': handleViewModeToggle(); break;
+        
+        // Rotation shortcut
+        case 'r': handleRotationChange(); break;
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleToolChange, handleLevelChange, handlePontoonTypeChange, handleGridToggle, handleViewModeToggle]);
+  }, [handleToolChange, handleLevelChange, handlePontoonTypeChange, handleGridToggle, handleViewModeToggle, handleRotationChange]);
 
   // Update statistics when grid changes
   useEffect(() => {
@@ -593,21 +617,37 @@ export function NewPontoonConfigurator({
                 return;
               }
               
-              console.log('🎯 Attempting placement at grid position:', gridPosition);
+              console.log('🎯 Tool:', uiState.currentTool, 'at grid position:', gridPosition);
               
-              // Try to place pontoon directly
-              const newGrid = uiState.grid.placePontoon(
-                gridPosition,
-                uiState.currentPontoonType,
-                uiState.currentPontoonColor
-              );
-              
-              console.log('🎯 Placement successful! New grid:', newGrid);
-              setUIState(prev => ({ ...prev, grid: newGrid }));
-              setLastClickResult('SUCCESS');
+              if (uiState.currentTool === ToolType.PLACE) {
+                // Place pontoon
+                const newGrid = uiState.grid.placePontoon(
+                  gridPosition,
+                  uiState.currentPontoonType,
+                  uiState.currentPontoonColor,
+                  uiState.currentRotation
+                );
+                
+                console.log('🎯 Placement successful! New grid:', newGrid);
+                setUIState(prev => ({ ...prev, grid: newGrid }));
+                setLastClickResult('SUCCESS');
+                
+              } else if (uiState.currentTool === ToolType.DELETE) {
+                // Delete pontoon at position
+                if (uiState.grid.hasPontoonAt(gridPosition)) {
+                  const newGrid = uiState.grid.removePontoonAt(gridPosition);
+                  console.log('🗑️ Deletion successful! New grid:', newGrid);
+                  setUIState(prev => ({ ...prev, grid: newGrid }));
+                  setLastClickResult('SUCCESS');
+                } else {
+                  setLastClickResult('FAILED: No pontoon at position');
+                }
+              } else {
+                setLastClickResult(`FAILED: Tool ${uiState.currentTool} not implemented`);
+              }
               
             } catch (error) {
-              console.error('🎯 Placement failed:', error);
+              console.error('🎯 Action failed:', error);
               setLastClickResult(`FAILED: ${error.message}`);
             }
           }}
@@ -653,6 +693,7 @@ export function NewPontoonConfigurator({
             <div>Last-Click: {lastClickResult}</div>
             <div>Tool: {uiState.currentTool}</div>
             <div>Level: {uiState.currentLevel}</div>
+            <div>Rotation: {uiState.currentRotation}°</div>
           </div>
         </div>
       </div>
@@ -678,35 +719,21 @@ function SceneContent({
   const { scene, gl, camera } = useThree();
   const renderingEngineRef = useRef<RenderingEngine | null>(null);
 
-  // Initialize rendering engine
+  // Initialize rendering engine - DISABLED to prevent pink rendering issues
   useEffect(() => {
     if (!renderingEngineRef.current) {
-      try {
-        const engine = new RenderingEngine(scene, {
-          showGrid: uiState.isGridVisible,
-          showPreview: uiState.showPreview,
-          showSelection: uiState.showSelection,
-          showSupport: uiState.showSupport,
-          gridOpacity: 0.3,
-          previewOpacity: 0.6,
-          selectionColor: '#ffff00',
-          supportColor: '#00ff00'
-        });
-        
-        renderingEngineRef.current = engine;
-        onRenderingEngineReady(engine);
-        
-        console.log('🎨 RenderingEngine initialized');
-      } catch (error) {
-        console.error('🎨 RenderingEngine failed to initialize:', error);
-        // Create a dummy engine to prevent crashes
-        renderingEngineRef.current = {
-          render: () => {},
-          updateOptions: () => {},
-          dispose: () => {},
-          getStats: () => ({ lastRenderTime: 0 })
-        } as any;
-      }
+      // IMPORTANT: RenderingEngine is causing pink/magenta rendering issues
+      // Using fallback Three.js rendering instead
+      console.log('🎨 Using fallback rendering (RenderingEngine disabled)');
+      renderingEngineRef.current = null;
+      
+      // Create a dummy engine for stats
+      onRenderingEngineReady({
+        render: () => {},
+        updateOptions: () => {},
+        dispose: () => {},
+        getStats: () => ({ lastRenderTime: 0 })
+      } as any);
     }
   }, [scene, onRenderingEngineReady]);
 
@@ -782,32 +809,182 @@ function SceneContent({
         selectionData
       );
     } catch (error) {
-      console.error('🎨 Render frame failed:', error);
+      console.error('🎨 Render frame failed, disabling RenderingEngine:', error);
+      // Disable the rendering engine to force fallback
+      renderingEngineRef.current = null;
     }
   });
 
   // FALLBACK: Simple Three.js rendering if RenderingEngine fails
   return (
     <>
+      {/* 3D Camera Controls */}
+      {uiState.viewMode === '3d' && (
+        <OrbitControls
+          enablePan={true}
+          enableZoom={true}
+          enableRotate={true}
+          minDistance={5}
+          maxDistance={100}
+          maxPolarAngle={Math.PI / 2.2} // Prevent going too low below the grid
+          dampingFactor={0.05}
+          enableDamping={true}
+        />
+      )}
+      
+      
       {/* Render pontoons as simple boxes */}
       {Array.from(uiState.grid.pontoons.entries()).map(([id, pontoon]) => {
-        const config = getPontoonTypeConfig(pontoon.type);
-        const colorConfig = getPontoonColorConfig(pontoon.color);
+        try {
+          const config = getPontoonTypeConfig(pontoon.type);
+          const colorConfig = getPontoonColorConfig(pontoon.color);
+          
+          // Validate configuration
+          if (!config || !colorConfig) {
+            console.error('🎨 Invalid pontoon configuration:', { id, type: pontoon.type, color: pontoon.color });
+            return null;
+          }
+          
+          // Calculate position with bounds checking
+          let x = (pontoon.position.x - (uiState.grid.dimensions.width - 1) / 2) * 0.5;
+          const y = pontoon.position.y * 0.4;
+          let z = (pontoon.position.z - (uiState.grid.dimensions.height - 1) / 2) * 0.5;
+          
+          // Offset double pontoons to center them properly
+          if (pontoon.type === PontoonType.DOUBLE) {
+            if (pontoon.rotation === Rotation.NORTH || pontoon.rotation === Rotation.SOUTH) {
+              // Double pontoon extends in X direction, offset by half a cell
+              x += 0.25;
+            } else {
+              // Double pontoon extends in Z direction, offset by half a cell
+              z += 0.25;
+            }
+          }
+          
+          // Check for invalid positions (might cause phantom pontoons)
+          if (Math.abs(x) > 25 || Math.abs(z) > 25 || y < -1 || y > 10) {
+            console.warn('🎨 PHANTOM PONTOON DETECTED:', { 
+              id, 
+              gridPos: pontoon.position, 
+              worldPos: { x, y, z },
+              type: pontoon.type,
+              color: pontoon.color
+            });
+          }
+          
+          // Use original dimensions - rotation will handle the orientation
+          const width = config.dimensions.widthMM / 1000;
+          const depth = config.dimensions.depthMM / 1000;
+          
+          // Calculate rotation angle in radians
+          const rotationY = (pontoon.rotation * Math.PI) / 180;
+          
+          return (
+            <mesh
+              key={id}
+              position={[x, y, z]}
+              rotation={[0, rotationY, 0]}
+            >
+              <boxGeometry args={[width, 0.4, depth]} />
+              <meshStandardMaterial 
+                color={colorConfig.hex} 
+                transparent={false}
+                opacity={1.0}
+              />
+            </mesh>
+          );
+        } catch (error) {
+          console.error('🎨 Error rendering pontoon:', id, error);
+          return null;
+        }
+      }).filter(Boolean)}
+      
+      {/* Hover Preview - Show transparent pontoon at hovered position */}
+      {uiState.hoveredCell && uiState.currentTool === ToolType.PLACE && (() => {
+        const config = getPontoonTypeConfig(uiState.currentPontoonType);
+        const colorConfig = getPontoonColorConfig(uiState.currentPontoonColor);
+        const canPlace = uiState.grid.canPlacePontoon(uiState.hoveredCell, uiState.currentPontoonType);
+        
+        if (!config || !colorConfig) return null;
+        
+        let x = (uiState.hoveredCell.x - (uiState.grid.dimensions.width - 1) / 2) * 0.5;
+        const y = uiState.hoveredCell.y * 0.4;
+        let z = (uiState.hoveredCell.z - (uiState.grid.dimensions.height - 1) / 2) * 0.5;
+        
+        // Offset double pontoons to center them properly
+        if (uiState.currentPontoonType === PontoonType.DOUBLE) {
+          if (uiState.currentRotation === Rotation.NORTH || uiState.currentRotation === Rotation.SOUTH) {
+            // Double pontoon extends in X direction, offset by half a cell
+            x += 0.25;
+          } else {
+            // Double pontoon extends in Z direction, offset by half a cell
+            z += 0.25;
+          }
+        }
+        
+        // Use original dimensions - rotation will handle the orientation
+        const width = config.dimensions.widthMM / 1000;
+        const depth = config.dimensions.depthMM / 1000;
+        
+        // Calculate rotation angle in radians
+        const rotationY = (uiState.currentRotation * Math.PI) / 180;
         
         return (
-          <mesh
-            key={id}
-            position={[
-              (pontoon.position.x - (uiState.grid.dimensions.width - 1) / 2) * 0.5,  // Center grid
-              pontoon.position.y * 0.4,
-              (pontoon.position.z - (uiState.grid.dimensions.height - 1) / 2) * 0.5
-            ]}
-          >
-            <boxGeometry args={[config.dimensions.widthMM / 1000, 0.4, config.dimensions.depthMM / 1000]} />
-            <meshStandardMaterial color={colorConfig.hex} />
+          <mesh position={[x, y, z]} rotation={[0, rotationY, 0]}>
+            <boxGeometry args={[width, 0.4, depth]} />
+            <meshStandardMaterial 
+              color={canPlace ? colorConfig.hex : '#ff0000'} 
+              transparent={true}
+              opacity={0.5}
+            />
           </mesh>
         );
-      })}
+      })()}
+      
+      {/* Delete Tool Hover - Highlight pontoon to be deleted */}
+      {uiState.hoveredCell && uiState.currentTool === ToolType.DELETE && (() => {
+        const pontoonToDelete = uiState.grid.getPontoonAt(uiState.hoveredCell);
+        
+        if (!pontoonToDelete) return null; // No pontoon to highlight
+        
+        const config = getPontoonTypeConfig(pontoonToDelete.type);
+        if (!config) return null;
+        
+        let x = (pontoonToDelete.position.x - (uiState.grid.dimensions.width - 1) / 2) * 0.5;
+        const y = pontoonToDelete.position.y * 0.4;
+        let z = (pontoonToDelete.position.z - (uiState.grid.dimensions.height - 1) / 2) * 0.5;
+        
+        // Offset double pontoons to center them properly
+        if (pontoonToDelete.type === PontoonType.DOUBLE) {
+          if (pontoonToDelete.rotation === Rotation.NORTH || pontoonToDelete.rotation === Rotation.SOUTH) {
+            // Double pontoon extends in X direction, offset by half a cell
+            x += 0.25;
+          } else {
+            // Double pontoon extends in Z direction, offset by half a cell
+            z += 0.25;
+          }
+        }
+        
+        // Use original dimensions - rotation will handle the orientation
+        const width = config.dimensions.widthMM / 1000 + 0.02; // Slightly larger
+        const depth = config.dimensions.depthMM / 1000 + 0.02;
+        
+        // Calculate rotation angle in radians
+        const rotationY = (pontoonToDelete.rotation * Math.PI) / 180;
+        
+        return (
+          <mesh position={[x, y + 0.01, z]} rotation={[0, rotationY, 0]}> {/* Slightly above pontoon */}
+            <boxGeometry args={[width, 0.42, depth]} />
+            <meshStandardMaterial 
+              color="#ff4444" 
+              transparent={true}
+              opacity={0.6}
+              emissive="#ff0000"
+              emissiveIntensity={0.2}
+            />
+          </mesh>
+        );
+      })()}
       
       {/* Simple grid helper */}
       <gridHelper args={[25, 50]} position={[0, 0, 0]} />

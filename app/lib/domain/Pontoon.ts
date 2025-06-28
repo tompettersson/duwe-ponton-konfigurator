@@ -90,9 +90,20 @@ export class Pontoon {
     const config = getPontoonTypeConfig(this.type);
     const positions: GridPosition[] = [];
 
-    for (let x = 0; x < config.gridSize.x; x++) {
-      for (let y = 0; y < config.gridSize.y; y++) {
-        for (let z = 0; z < config.gridSize.z; z++) {
+    // Apply rotation to grid size
+    let effectiveSize = { ...config.gridSize };
+    if (this.rotation === Rotation.EAST || this.rotation === Rotation.WEST) {
+      // Swap X and Z dimensions for 90/270 degree rotations
+      effectiveSize = {
+        x: config.gridSize.z,
+        y: config.gridSize.y,
+        z: config.gridSize.x
+      };
+    }
+
+    for (let x = 0; x < effectiveSize.x; x++) {
+      for (let y = 0; y < effectiveSize.y; y++) {
+        for (let z = 0; z < effectiveSize.z; z++) {
           positions.push(this.position.moveBy(x, y, z));
         }
       }
@@ -114,12 +125,23 @@ export class Pontoon {
   getBoundingBox(): { min: GridPosition; max: GridPosition } {
     const config = getPontoonTypeConfig(this.type);
     
+    // Apply rotation to grid size
+    let effectiveSize = { ...config.gridSize };
+    if (this.rotation === Rotation.EAST || this.rotation === Rotation.WEST) {
+      // Swap X and Z dimensions for 90/270 degree rotations
+      effectiveSize = {
+        x: config.gridSize.z,
+        y: config.gridSize.y,
+        z: config.gridSize.x
+      };
+    }
+    
     return {
       min: this.position,
       max: new GridPosition(
-        this.position.x + config.gridSize.x - 1,
-        this.position.y + config.gridSize.y - 1,
-        this.position.z + config.gridSize.z - 1
+        this.position.x + effectiveSize.x - 1,
+        this.position.y + effectiveSize.y - 1,
+        this.position.z + effectiveSize.z - 1
       )
     };
   }
@@ -130,10 +152,21 @@ export class Pontoon {
   getCenterPosition(): GridPosition {
     const config = getPontoonTypeConfig(this.type);
     
+    // Apply rotation to grid size
+    let effectiveSize = { ...config.gridSize };
+    if (this.rotation === Rotation.EAST || this.rotation === Rotation.WEST) {
+      // Swap X and Z dimensions for 90/270 degree rotations
+      effectiveSize = {
+        x: config.gridSize.z,
+        y: config.gridSize.y,
+        z: config.gridSize.x
+      };
+    }
+    
     return new GridPosition(
-      this.position.x + Math.floor(config.gridSize.x / 2),
-      this.position.y + Math.floor(config.gridSize.y / 2),
-      this.position.z + Math.floor(config.gridSize.z / 2)
+      this.position.x + Math.floor(effectiveSize.x / 2),
+      this.position.y + Math.floor(effectiveSize.y / 2),
+      this.position.z + Math.floor(effectiveSize.z / 2)
     );
   }
 

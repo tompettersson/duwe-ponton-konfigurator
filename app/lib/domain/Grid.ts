@@ -104,6 +104,18 @@ export class Grid {
   }
 
   /**
+   * Pure function: Remove pontoon at position and return new Grid instance
+   */
+  removePontoonAt(position: GridPosition): Grid {
+    const pontoon = this.getPontoonAt(position);
+    if (!pontoon) {
+      throw new Error(`No pontoon found at position (${position.x}, ${position.y}, ${position.z})`);
+    }
+
+    return this.removePontoon(pontoon.id);
+  }
+
+  /**
    * Pure function: Move pontoon and return new Grid instance
    */
   movePontoon(pontoonId: PontoonId, newPosition: GridPosition): Grid {
