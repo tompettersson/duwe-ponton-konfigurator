@@ -94,9 +94,11 @@ export abstract class BaseTool {
   // Interaction methods (to be implemented by tools)
   abstract onClick(position: GridPosition, context: ToolContext): Promise<ToolResult>;
   abstract onHover(position: GridPosition, context: ToolContext): void;
-  abstract onDragStart?(position: GridPosition, context: ToolContext): void;
-  abstract onDragMove?(position: GridPosition, context: ToolContext): void;
-  abstract onDragEnd?(position: GridPosition, context: ToolContext): Promise<ToolResult>;
+  
+  // Optional drag methods (only needed for tools that support dragging)
+  onDragStart?(position: GridPosition, context: ToolContext): void;
+  onDragMove?(position: GridPosition, context: ToolContext): void;
+  onDragEnd?(position: GridPosition, context: ToolContext): Promise<ToolResult>;
 
   // Utility methods
   protected createSuccessResult(

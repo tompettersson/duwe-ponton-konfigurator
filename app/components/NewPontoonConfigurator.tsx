@@ -7,7 +7,7 @@
 
 'use client';
 
-import React, { useRef, useEffect, useState, useCallback } from 'react';
+import React, { useRef, useEffect, useState, useCallback, useMemo } from 'react';
 import { Canvas, useThree } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
@@ -35,6 +35,7 @@ import {
   type SelectionData,
   type ToolContext
 } from '../lib/ui';
+import { ConfiguratorService } from '../lib/application';
 import Image from 'next/image';
 import {
   MousePointer2,
@@ -66,6 +67,11 @@ interface ConfiguratorUIState {
   showPreview: boolean;
   showSelection: boolean;
   showSupport: boolean;
+  // Drag state for multi-drop and select tools
+  isDragging: boolean;
+  dragStart: GridPosition | null;
+  dragEnd: GridPosition | null;
+  dragPreviewPositions: GridPosition[];
 }
 
 // Component props
@@ -106,6 +112,7 @@ function ProfessionalToolbar({
     { id: ToolType.PLACE, icon: Plus, label: 'Platzieren', shortcut: '2', disabled: false },
     { id: ToolType.DELETE, icon: Trash2, label: 'Löschen', shortcut: '3', disabled: false },
     { id: ToolType.ROTATE, icon: RotateCw, label: 'Drehen', shortcut: '4', disabled: true },
+    { id: ToolType.MULTI_DROP, icon: Box, label: 'Multi-Drop', shortcut: '5', disabled: false },
   ];
 
   const pontoonTypes = [
@@ -385,11 +392,19 @@ export function NewPontoonConfigurator({
     viewMode: '3d',
     showPreview: true,
     showSelection: true,
-    showSupport: false
+    showSupport: false,
+    // Initialize drag state
+    isDragging: false,
+    dragStart: null,
+    dragEnd: null,
+    dragPreviewPositions: []
   }));
 
   // Track last click result for debug panel
   const [lastClickResult, setLastClickResult] = useState<string>('PENDING');
+
+  // Services
+  const configuratorService = useRef(new ConfiguratorService()).current;
 
   // Refs for Three.js integration
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -405,7 +420,7 @@ export function NewPontoonConfigurator({
   });
 
   // Interaction callbacks
-  const interactionCallbacks: InteractionCallbacks = useCallback({
+  const interactionCallbacks: InteractionCallbacks = useMemo(() => ({
     onGridUpdate: (newGrid: Grid) => {
       setUIState(prev => ({ ...prev, grid: newGrid }));
       onGridChange?.(newGrid);
@@ -428,7 +443,7 @@ export function NewPontoonConfigurator({
       console.error('❌ Interaction error:', error);
       onError?.(error);
     }
-  }, [onGridChange, onError]);
+  }), [onGridChange, onError]);
 
   // Initialize systems when canvas is ready
   useEffect(() => {
@@ -652,6 +667,93 @@ export function NewPontoonConfigurator({
             const gridPosition = screenToGridPosition(position, camera, uiState.grid.dimensions, uiState.currentLevel);
             setUIState(prev => ({ ...prev, hoveredCell: gridPosition }));
           }}
+          onDragStart={(position, camera) => {
+            const gridPosition = screenToGridPosition(position, camera, uiState.grid.dimensions, uiState.currentLevel);
+            if (gridPosition) {
+              setUIState(prev => ({ 
+                ...prev, 
+                isDragging: true, 
+                dragStart: gridPosition,
+                dragEnd: gridPosition,
+                dragPreviewPositions: []
+              }));
+              console.log('🎯 Drag started at grid position:', gridPosition);
+            }
+          }}
+          onDragMove={(position, camera) => {
+            if (uiState.isDragging && uiState.dragStart) {
+              const gridPosition = screenToGridPosition(position, camera, uiState.grid.dimensions, uiState.currentLevel);
+              if (gridPosition) {
+                // Calculate preview positions for multi-drop
+                let previewPositions: GridPosition[] = [];
+                if (uiState.currentTool === ToolType.MULTI_DROP) {
+                  const allPositions = GridPosition.getRectangularArea(uiState.dragStart, gridPosition);
+                  previewPositions = allPositions.filter(pos => pos.y === uiState.currentLevel);
+                  
+                  // Filter for double pontoons (place on even grid positions)
+                  if (uiState.currentPontoonType === PontoonType.DOUBLE) {
+                    const minX = Math.min(uiState.dragStart.x, gridPosition.x);
+                    previewPositions = previewPositions.filter(pos => {
+                      const relativeX = pos.x - minX;
+                      return relativeX % 2 === 0;
+                    });
+                  }
+                }
+                
+                setUIState(prev => ({ 
+                  ...prev, 
+                  dragEnd: gridPosition,
+                  dragPreviewPositions: previewPositions
+                }));
+              }
+            }
+          }}
+          onDragEnd={(position, camera) => {
+            if (uiState.isDragging && uiState.dragStart) {
+              const gridPosition = screenToGridPosition(position, camera, uiState.grid.dimensions, uiState.currentLevel);
+              if (gridPosition) {
+                if (uiState.currentTool === ToolType.MULTI_DROP) {
+                  // Execute multi-drop
+                  const allPositions = GridPosition.getRectangularArea(uiState.dragStart, gridPosition);
+                  let filteredPositions = allPositions.filter(pos => pos.y === uiState.currentLevel);
+                  
+                  // Filter for double pontoons
+                  if (uiState.currentPontoonType === PontoonType.DOUBLE) {
+                    const minX = Math.min(uiState.dragStart.x, gridPosition.x);
+                    filteredPositions = filteredPositions.filter(pos => {
+                      const relativeX = pos.x - minX;
+                      return relativeX % 2 === 0;
+                    });
+                  }
+                  
+                  // Execute batch placement using ConfiguratorService
+                  const result = configuratorService.placePontoonsBatch(uiState.grid, {
+                    positions: filteredPositions,
+                    type: uiState.currentPontoonType,
+                    color: uiState.currentPontoonColor,
+                    rotation: uiState.currentRotation,
+                    skipInvalid: true
+                  });
+                  
+                  if (result.success && result.grid) {
+                    setUIState(prev => ({ ...prev, grid: result.grid }));
+                    setLastClickResult(`Multi-drop: ${result.successCount} pontoons placed`);
+                  } else {
+                    setLastClickResult(`Multi-drop failed: ${result.errors.join(', ')}`);
+                  }
+                }
+              }
+              
+              // Reset drag state
+              setUIState(prev => ({ 
+                ...prev, 
+                isDragging: false, 
+                dragStart: null,
+                dragEnd: null,
+                dragPreviewPositions: []
+              }));
+            }
+          }}
           onCanvasClick={(position, camera) => {
             console.log('🎯 Canvas clicked at screen position:', position);
             
@@ -779,12 +881,18 @@ function SceneContent({
   uiState, 
   onRenderingEngineReady,
   onCanvasHover,
-  onCanvasClick
+  onCanvasClick,
+  onDragStart,
+  onDragMove,
+  onDragEnd
 }: { 
   uiState: ConfiguratorUIState;
   onRenderingEngineReady: (engine: RenderingEngine) => void;
   onCanvasHover?: (position: { x: number; y: number }, camera: THREE.Camera) => void;
   onCanvasClick?: (position: { x: number; y: number }, camera: THREE.Camera) => void;
+  onDragStart?: (position: { x: number; y: number }, camera: THREE.Camera) => void;
+  onDragMove?: (position: { x: number; y: number }, camera: THREE.Camera) => void;
+  onDragEnd?: (position: { x: number; y: number }, camera: THREE.Camera) => void;
 }) {
   const { scene, gl, camera } = useThree();
   const renderingEngineRef = useRef<RenderingEngine | null>(null);
@@ -817,42 +925,106 @@ function SceneContent({
     });
   }, [uiState.isGridVisible, uiState.showPreview, uiState.showSelection, uiState.showSupport]);
 
-  // Add click and hover handlers
+  // Add interaction handlers with drag support
   useEffect(() => {
     if (!gl.domElement) return;
 
-    const handleClick = (event: MouseEvent) => {
-      if (!onCanvasClick) return;
-      
+    let isMouseDown = false;
+    let dragStartPos: { x: number; y: number } | null = null;
+    let hasDragged = false;
+    const dragThreshold = 5; // pixels
+
+    const getEventPosition = (event: MouseEvent) => {
       const rect = gl.domElement.getBoundingClientRect();
-      const x = event.clientX - rect.left;
-      const y = event.clientY - rect.top;
-      
-      console.log('🎯 Canvas DOM click at:', { x, y });
-      onCanvasClick({ x, y }, camera);
+      return {
+        x: event.clientX - rect.left,
+        y: event.clientY - rect.top
+      };
     };
 
-    const handleMouseMove = (event: MouseEvent) => {
-      const rect = gl.domElement.getBoundingClientRect();
-      const x = event.clientX - rect.left;
-      const y = event.clientY - rect.top;
+    const handleMouseDown = (event: MouseEvent) => {
+      isMouseDown = true;
+      hasDragged = false;
+      dragStartPos = getEventPosition(event);
       
-      // Update hover state via callback
-      if (onCanvasHover) {
-        onCanvasHover({ x, y }, camera);
+      // Only start drag for tools that support it
+      if ((uiState.currentTool === ToolType.MULTI_DROP || uiState.currentTool === ToolType.SELECT) && onDragStart) {
+        console.log('🎯 Potential drag start at:', dragStartPos);
       }
     };
 
-    if (onCanvasClick) {
-      gl.domElement.addEventListener('click', handleClick);
-    }
+    const handleMouseMove = (event: MouseEvent) => {
+      const currentPos = getEventPosition(event);
+      
+      // Always update hover
+      if (onCanvasHover) {
+        onCanvasHover(currentPos, camera);
+      }
+
+      // Handle dragging
+      if (isMouseDown && dragStartPos) {
+        const dragDistance = Math.sqrt(
+          Math.pow(currentPos.x - dragStartPos.x, 2) + 
+          Math.pow(currentPos.y - dragStartPos.y, 2)
+        );
+
+        if (dragDistance > dragThreshold && !hasDragged) {
+          // Start drag
+          hasDragged = true;
+          if ((uiState.currentTool === ToolType.MULTI_DROP || uiState.currentTool === ToolType.SELECT) && onDragStart) {
+            onDragStart(dragStartPos, camera);
+            console.log('🎯 Drag started at:', dragStartPos);
+          }
+        }
+
+        if (hasDragged && onDragMove) {
+          onDragMove(currentPos, camera);
+        }
+      }
+    };
+
+    const handleMouseUp = (event: MouseEvent) => {
+      const currentPos = getEventPosition(event);
+      
+      if (hasDragged && onDragEnd) {
+        // End drag
+        onDragEnd(currentPos, camera);
+        console.log('🎯 Drag ended at:', currentPos);
+      } else if (!hasDragged && onCanvasClick) {
+        // Regular click (no drag)
+        console.log('🎯 Canvas DOM click at:', currentPos);
+        onCanvasClick(currentPos, camera);
+      }
+
+      // Reset drag state
+      isMouseDown = false;
+      dragStartPos = null;
+      hasDragged = false;
+    };
+
+    const handleMouseLeave = () => {
+      // Cancel any ongoing drag
+      if (hasDragged && onDragEnd && dragStartPos) {
+        onDragEnd(dragStartPos, camera);
+      }
+      isMouseDown = false;
+      dragStartPos = null;
+      hasDragged = false;
+    };
+
+    // Add event listeners
+    gl.domElement.addEventListener('mousedown', handleMouseDown);
     gl.domElement.addEventListener('mousemove', handleMouseMove);
+    gl.domElement.addEventListener('mouseup', handleMouseUp);
+    gl.domElement.addEventListener('mouseleave', handleMouseLeave);
     
     return () => {
-      gl.domElement.removeEventListener('click', handleClick);
+      gl.domElement.removeEventListener('mousedown', handleMouseDown);
       gl.domElement.removeEventListener('mousemove', handleMouseMove);
+      gl.domElement.removeEventListener('mouseup', handleMouseUp);
+      gl.domElement.removeEventListener('mouseleave', handleMouseLeave);
     };
-  }, [gl.domElement, onCanvasClick, onCanvasHover, camera]);
+  }, [gl.domElement, onCanvasClick, onCanvasHover, onDragStart, onDragMove, onDragEnd, camera, uiState.currentTool]);
 
   // Render frame
   useEffect(() => {
@@ -1077,6 +1249,77 @@ function SceneContent({
           </mesh>
         );
       })()}
+      
+      {/* Multi-Drop Preview - Show preview pontoons during drag */}
+      {uiState.isDragging && uiState.currentTool === ToolType.MULTI_DROP && uiState.dragPreviewPositions.map((position, index) => {
+        const config = getPontoonTypeConfig(uiState.currentPontoonType);
+        const colorConfig = getPontoonColorConfig(uiState.currentPontoonColor);
+        const canPlace = uiState.grid.canPlacePontoon(position, uiState.currentPontoonType);
+        
+        if (!config || !colorConfig) return null;
+        
+        let x = (position.x - (uiState.grid.dimensions.width - 1) / 2) * 0.5;
+        const y = position.y * 0.4;
+        let z = (position.z - (uiState.grid.dimensions.height - 1) / 2) * 0.5;
+        
+        // Offset double pontoons to center them properly
+        if (uiState.currentPontoonType === PontoonType.DOUBLE) {
+          if (uiState.currentRotation === Rotation.NORTH || uiState.currentRotation === Rotation.SOUTH) {
+            x += 0.25;
+          } else {
+            z += 0.25;
+          }
+        }
+        
+        const width = config.dimensions.widthMM / 1000;
+        const depth = config.dimensions.depthMM / 1000;
+        const rotationY = (uiState.currentRotation * Math.PI) / 180;
+        
+        return (
+          <mesh key={`preview-${index}`} position={[x, y, z]} rotation={[0, rotationY, 0]}>
+            <boxGeometry args={[width, 0.4, depth]} />
+            <meshStandardMaterial 
+              color={canPlace ? colorConfig.hex : '#ff0000'} 
+              transparent={true}
+              opacity={0.6}
+            />
+          </mesh>
+        );
+      })}
+      
+      {/* Drag Selection Box for Multi-Drop and Select tools */}
+      {uiState.isDragging && uiState.dragStart && uiState.dragEnd && (
+        <group>
+          {/* Selection rectangle outline */}
+          <lineSegments>
+            <edgesGeometry args={[
+              new THREE.BoxGeometry(
+                Math.abs(uiState.dragEnd.x - uiState.dragStart.x) * 0.5 + 0.5,
+                0.1,
+                Math.abs(uiState.dragEnd.z - uiState.dragStart.z) * 0.5 + 0.5
+              )
+            ]} />
+            <lineBasicMaterial color="#4A90FF" opacity={0.8} transparent />
+          </lineSegments>
+          {/* Selection rectangle plane */}
+          <mesh position={[
+            ((uiState.dragStart.x + uiState.dragEnd.x) / 2 - (uiState.grid.dimensions.width - 1) / 2) * 0.5,
+            uiState.currentLevel * 0.4 + 0.01,
+            ((uiState.dragStart.z + uiState.dragEnd.z) / 2 - (uiState.grid.dimensions.height - 1) / 2) * 0.5
+          ]}>
+            <planeGeometry args={[
+              Math.abs(uiState.dragEnd.x - uiState.dragStart.x) * 0.5 + 0.5,
+              Math.abs(uiState.dragEnd.z - uiState.dragStart.z) * 0.5 + 0.5
+            ]} />
+            <meshStandardMaterial 
+              color="#4A90FF" 
+              transparent 
+              opacity={0.2}
+              side={THREE.DoubleSide}
+            />
+          </mesh>
+        </group>
+      )}
       
       {/* Simple grid helper */}
       <gridHelper args={[25, 50]} position={[0, 0, 0]} />
