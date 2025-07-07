@@ -102,7 +102,7 @@ function ProfessionalToolbar({
   
   // Map new architecture tools to UI display
   const tools = [
-    { id: ToolType.SELECT, icon: MousePointer2, label: 'Auswählen', shortcut: '1', disabled: true },
+    { id: ToolType.SELECT, icon: MousePointer2, label: 'Auswählen', shortcut: '1', disabled: false },
     { id: ToolType.PLACE, icon: Plus, label: 'Platzieren', shortcut: '2', disabled: false },
     { id: ToolType.DELETE, icon: Trash2, label: 'Löschen', shortcut: '3', disabled: false },
     { id: ToolType.ROTATE, icon: RotateCw, label: 'Drehen', shortcut: '4', disabled: true },
@@ -520,13 +520,60 @@ export function NewPontoonConfigurator({
     const handleKeyDown = (event: KeyboardEvent) => {
       // Tool shortcuts
       switch (event.key) {
-        case '1': handleToolChange(ToolType.PLACE); break;
-        case '2': handleToolChange(ToolType.SELECT); break;
+        case '1': handleToolChange(ToolType.SELECT); break;
+        case '2': handleToolChange(ToolType.PLACE); break;
         case '3': handleToolChange(ToolType.DELETE); break;
         case '4': handleToolChange(ToolType.ROTATE); break;
         case '5': handleToolChange(ToolType.MULTI_DROP); break;
         case '6': handleToolChange(ToolType.MOVE); break;
         case '7': handleToolChange(ToolType.PAINT); break;
+        
+        // Selection shortcuts
+        case 'a': 
+          if (event.ctrlKey || event.metaKey) {
+            // Ctrl+A: Select all pontoons globally
+            const allPontoons = new Set(Array.from(uiState.grid.pontoons.keys()));
+            setUIState(prev => ({ ...prev, selectedPontoonIds: allPontoons }));
+            setLastClickResult(`Selected all ${allPontoons.size} pontoons`);
+          } else {
+            // A: Select all pontoons on current level
+            const levelPontoons = uiState.grid.getPontoonsAtLevel(uiState.currentLevel);
+            const levelIds = new Set(levelPontoons.map(p => p.id));
+            setUIState(prev => ({ ...prev, selectedPontoonIds: levelIds }));
+            setLastClickResult(`Selected ${levelIds.size} pontoons on level ${uiState.currentLevel}`);
+          }
+          break;
+          
+        case 'Escape':
+          // Clear selection
+          setUIState(prev => ({ ...prev, selectedPontoonIds: new Set() }));
+          setLastClickResult('Selection cleared');
+          break;
+          
+        case 'Delete':
+        case 'Backspace':
+          // Delete selected pontoons
+          if (uiState.selectedPontoonIds.size > 0) {
+            let newGrid = uiState.grid;
+            let deletedCount = 0;
+            
+            for (const pontoonId of uiState.selectedPontoonIds) {
+              try {
+                newGrid = newGrid.removePontoon(pontoonId);
+                deletedCount++;
+              } catch (error) {
+                console.warn('Failed to delete pontoon:', pontoonId, error);
+              }
+            }
+            
+            setUIState(prev => ({ 
+              ...prev, 
+              grid: newGrid, 
+              selectedPontoonIds: new Set() 
+            }));
+            setLastClickResult(`Deleted ${deletedCount} selected pontoon(s)`);
+          }
+          break;
         
         // Level shortcuts
         case 'q': handleLevelChange(0); break;
@@ -548,7 +595,7 @@ export function NewPontoonConfigurator({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleToolChange, handleLevelChange, handlePontoonTypeChange, handleGridToggle, handleViewModeToggle, handleRotationChange]);
+  }, [handleToolChange, handleLevelChange, handlePontoonTypeChange, handleGridToggle, handleViewModeToggle, handleRotationChange, uiState.grid, uiState.currentLevel, uiState.selectedPontoonIds]);
 
   // Update statistics when grid changes
   useEffect(() => {
@@ -642,6 +689,29 @@ export function NewPontoonConfigurator({
                 } else {
                   setLastClickResult('FAILED: No pontoon at position');
                 }
+              } else if (uiState.currentTool === ToolType.SELECT) {
+                // Handle selection
+                const pontoon = uiState.grid.getPontoonAt(gridPosition);
+                const newSelection = new Set(uiState.selectedPontoonIds);
+                
+                if (!pontoon) {
+                  // Click on empty space - clear selection
+                  newSelection.clear();
+                  setLastClickResult('Selection cleared');
+                } else {
+                  // Toggle pontoon selection
+                  if (newSelection.has(pontoon.id)) {
+                    newSelection.delete(pontoon.id);
+                    setLastClickResult(`Deselected: ${newSelection.size} pontoon(s)`);
+                  } else {
+                    newSelection.add(pontoon.id);
+                    setLastClickResult(`Selected: ${newSelection.size} pontoon(s)`);
+                  }
+                }
+                
+                setUIState(prev => ({ ...prev, selectedPontoonIds: newSelection }));
+                console.log('🎯 Selection updated:', newSelection.size, 'pontoons selected');
+                
               } else {
                 setLastClickResult(`FAILED: Tool ${uiState.currentTool} not implemented`);
               }
@@ -872,6 +942,9 @@ function SceneContent({
             });
           }
           
+          // Check if pontoon is selected
+          const isSelected = uiState.selectedPontoonIds.has(id);
+          
           // Use original dimensions - rotation will handle the orientation
           const width = config.dimensions.widthMM / 1000;
           const depth = config.dimensions.depthMM / 1000;
@@ -880,18 +953,37 @@ function SceneContent({
           const rotationY = (pontoon.rotation * Math.PI) / 180;
           
           return (
-            <mesh
-              key={id}
-              position={[x, y, z]}
-              rotation={[0, rotationY, 0]}
-            >
-              <boxGeometry args={[width, 0.4, depth]} />
-              <meshStandardMaterial 
-                color={colorConfig.hex} 
-                transparent={false}
-                opacity={1.0}
-              />
-            </mesh>
+            <group key={id}>
+              {/* Main pontoon mesh */}
+              <mesh
+                position={[x, y, z]}
+                rotation={[0, rotationY, 0]}
+              >
+                <boxGeometry args={[width, 0.4, depth]} />
+                <meshStandardMaterial 
+                  color={colorConfig.hex} 
+                  transparent={false}
+                  opacity={1.0}
+                />
+              </mesh>
+              
+              {/* Selection highlight */}
+              {isSelected && (
+                <mesh
+                  position={[x, y + 0.005, z]}
+                  rotation={[0, rotationY, 0]}
+                >
+                  <boxGeometry args={[width + 0.02, 0.41, depth + 0.02]} />
+                  <meshStandardMaterial 
+                    color="#4A90FF" 
+                    transparent={true}
+                    opacity={0.4}
+                    emissive="#4A90FF"
+                    emissiveIntensity={0.3}
+                  />
+                </mesh>
+              )}
+            </group>
           );
         } catch (error) {
           console.error('🎨 Error rendering pontoon:', id, error);

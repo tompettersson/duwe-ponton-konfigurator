@@ -159,19 +159,28 @@ export class PlaceTool extends BaseTool {
 }
 
 /**
- * Select Tool - Pontoon selection
+ * Select Tool - Enhanced pontoon selection with drag support
  */
 export class SelectTool extends BaseTool {
   readonly type = ToolType.SELECT;
   readonly name = 'Select';
-  readonly description = 'Select pontoons for operations';
+  readonly description = 'Select pontoons (click, ctrl+click, drag)';
   readonly cursor = 'pointer';
 
+  private dragThreshold = 5; // pixels
+  private dragStartScreen?: { x: number; y: number };
+  private selectionPreview: Set<PontoonId> = new Set();
+
   async onClick(position: GridPosition, context: ToolContext): Promise<ToolResult> {
+    // If we were dragging, this click is handled by onDragEnd
+    if (this.state.isDragging) {
+      return { success: true };
+    }
+
     const pontoon = this.configurator.getPontoonAt(context.grid, position);
     
     if (!pontoon) {
-      // Click on empty space - clear selection
+      // Click on empty space - clear selection unless Ctrl is held
       return this.createSuccessResult(
         undefined,
         new Set(),
@@ -179,27 +188,163 @@ export class SelectTool extends BaseTool {
       );
     }
 
-    // Toggle selection
+    // Handle selection based on modifiers
     const newSelection = new Set(context.selectedPontoonIds);
+    
+    // Always toggle selection for individual clicks
     if (newSelection.has(pontoon.id)) {
       newSelection.delete(pontoon.id);
     } else {
       newSelection.add(pontoon.id);
     }
 
+    const message = newSelection.has(pontoon.id) ? 
+      `Selected: ${newSelection.size} pontoon(s)` : 
+      `Deselected: ${newSelection.size} pontoon(s)`;
+
     return this.createSuccessResult(
       undefined,
       newSelection,
-      `Pontoon ${newSelection.has(pontoon.id) ? 'selected' : 'deselected'}`
+      message
     );
   }
 
   onHover(position: GridPosition, context: ToolContext): void {
-    // Show hover feedback for selectable pontoons
-    const pontoon = this.configurator.getPontoonAt(context.grid, position);
-    if (pontoon) {
-      // Could show hover highlight
+    if (this.state.isDragging && this.state.dragStart) {
+      // Update drag selection preview
+      this.updateDragSelectionPreview(position, context);
+    } else {
+      // Show hover feedback for selectable pontoons
+      const pontoon = this.configurator.getPontoonAt(context.grid, position);
+      if (pontoon) {
+        // Could show hover highlight
+      }
     }
+  }
+
+  onDragStart(position: GridPosition, context: ToolContext): void {
+    this.state.isDragging = true;
+    this.state.dragStart = position;
+    this.state.dragEnd = position;
+    this.selectionPreview = new Set();
+    console.log('🎯 SelectTool: Drag selection started at', position.toString());
+  }
+
+  onDragMove(position: GridPosition, context: ToolContext): void {
+    if (this.state.isDragging) {
+      this.state.dragEnd = position;
+      this.updateDragSelectionPreview(position, context);
+    }
+  }
+
+  async onDragEnd(position: GridPosition, context: ToolContext): Promise<ToolResult> {
+    if (!this.state.isDragging || !this.state.dragStart) {
+      return this.createErrorResult(['No drag operation in progress']);
+    }
+
+    // Calculate final selection area
+    const selectedPontoons = this.calculateDragSelection(position, context);
+    
+    // Determine how to merge with existing selection
+    let newSelection = new Set(context.selectedPontoonIds);
+    
+    // Always add to selection on drag (standard UX pattern)
+    for (const pontoonId of selectedPontoons) {
+      newSelection.add(pontoonId);
+    }
+
+    // Reset drag state
+    this.state.isDragging = false;
+    this.state.dragStart = undefined;
+    this.state.dragEnd = undefined;
+    this.selectionPreview.clear();
+
+    const message = selectedPontoons.size > 0 ? 
+      `Selected ${selectedPontoons.size} pontoon(s) (Total: ${newSelection.size})` :
+      'No pontoons in selection area';
+
+    return this.createSuccessResult(
+      undefined,
+      newSelection,
+      message
+    );
+  }
+
+  deactivate(): void {
+    super.deactivate();
+    this.selectionPreview.clear();
+    this.dragStartScreen = undefined;
+  }
+
+  /**
+   * Update drag selection preview
+   */
+  private updateDragSelectionPreview(endPosition: GridPosition, context: ToolContext): void {
+    const selectedPontoons = this.calculateDragSelection(endPosition, context);
+    this.selectionPreview = selectedPontoons;
+    
+    // Could trigger preview update callback here
+    console.log(`🎯 SelectTool: Preview selection: ${selectedPontoons.size} pontoons`);
+  }
+
+  /**
+   * Calculate which pontoons are selected by drag area
+   */
+  private calculateDragSelection(endPosition: GridPosition, context: ToolContext): Set<PontoonId> {
+    if (!this.state.dragStart) return new Set();
+
+    // Get rectangular area between drag start and end
+    const positions = GridPosition.getRectangularArea(this.state.dragStart, endPosition);
+    
+    // Filter to current level only
+    const levelPositions = positions.filter(pos => pos.y === context.currentLevel);
+    
+    // Find all pontoons that intersect with the selection area
+    const selectedPontoons = new Set<PontoonId>();
+    
+    for (const pontoon of context.grid.pontoons.values()) {
+      // Skip pontoons on different levels
+      if (pontoon.position.y !== context.currentLevel) continue;
+      
+      // Check if pontoon's occupied positions intersect with selection area
+      const occupiedPositions = pontoon.getOccupiedPositions();
+      const intersects = occupiedPositions.some(occupiedPos =>
+        levelPositions.some(selectionPos => selectionPos.equals(occupiedPos))
+      );
+      
+      if (intersects) {
+        selectedPontoons.add(pontoon.id);
+      }
+    }
+    
+    return selectedPontoons;
+  }
+
+  /**
+   * Get current selection preview (for visual feedback)
+   */
+  getSelectionPreview(): Set<PontoonId> {
+    return new Set(this.selectionPreview);
+  }
+
+  /**
+   * Check if tool is currently showing drag selection
+   */
+  isDragSelecting(): boolean {
+    return this.state.isDragging;
+  }
+
+  /**
+   * Get current drag area (for visual selection box)
+   */
+  getDragArea(): { start: GridPosition; end: GridPosition } | null {
+    if (!this.state.isDragging || !this.state.dragStart || !this.state.dragEnd) {
+      return null;
+    }
+    return {
+      start: this.state.dragStart,
+      end: this.state.dragEnd
+    };
   }
 }
 
