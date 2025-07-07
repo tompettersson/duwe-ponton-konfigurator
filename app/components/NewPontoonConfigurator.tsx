@@ -668,6 +668,7 @@ export function NewPontoonConfigurator({
             setUIState(prev => ({ ...prev, hoveredCell: gridPosition }));
           }}
           onDragStart={(position, camera) => {
+            console.log('🎯 DRAG START HANDLER CALLED with position:', position);
             const gridPosition = screenToGridPosition(position, camera, uiState.grid.dimensions, uiState.currentLevel);
             if (gridPosition) {
               setUIState(prev => ({ 
@@ -678,6 +679,8 @@ export function NewPontoonConfigurator({
                 dragPreviewPositions: []
               }));
               console.log('🎯 Drag started at grid position:', gridPosition);
+            } else {
+              console.log('🎯 DRAG START: Failed to convert screen to grid position');
             }
           }}
           onDragMove={(position, camera) => {
@@ -709,17 +712,24 @@ export function NewPontoonConfigurator({
             }
           }}
           onDragEnd={(position, camera) => {
-            if (uiState.isDragging && uiState.dragStart) {
-              const gridPosition = screenToGridPosition(position, camera, uiState.grid.dimensions, uiState.currentLevel);
-              if (gridPosition) {
-                if (uiState.currentTool === ToolType.MULTI_DROP) {
+            console.log('🎯 DRAG END HANDLER CALLED with position:', position, 'isDragging:', uiState.isDragging);
+            
+            // Use the most recent drag start from state, or fallback to checking if we have proper drag conditions
+            const dragStart = uiState.dragStart;
+            const gridPosition = screenToGridPosition(position, camera, uiState.grid.dimensions, uiState.currentLevel);
+            
+            if (dragStart && gridPosition) {
+              console.log('🎯 DRAG END: Grid position:', gridPosition, 'Start:', dragStart);
+              if (uiState.currentTool === ToolType.MULTI_DROP) {
                   // Execute multi-drop
-                  const allPositions = GridPosition.getRectangularArea(uiState.dragStart, gridPosition);
+                  const allPositions = GridPosition.getRectangularArea(dragStart, gridPosition);
                   let filteredPositions = allPositions.filter(pos => pos.y === uiState.currentLevel);
+                  
+                  console.log('🎯 MULTI-DROP: Area positions:', allPositions.length, 'Filtered:', filteredPositions.length);
                   
                   // Filter for double pontoons
                   if (uiState.currentPontoonType === PontoonType.DOUBLE) {
-                    const minX = Math.min(uiState.dragStart.x, gridPosition.x);
+                    const minX = Math.min(dragStart.x, gridPosition.x);
                     filteredPositions = filteredPositions.filter(pos => {
                       const relativeX = pos.x - minX;
                       return relativeX % 2 === 0;
@@ -753,7 +763,7 @@ export function NewPontoonConfigurator({
                 dragPreviewPositions: []
               }));
             }
-          }}
+          }
           onCanvasClick={(position, camera) => {
             console.log('🎯 Canvas clicked at screen position:', position);
             
@@ -813,6 +823,19 @@ export function NewPontoonConfigurator({
                 
                 setUIState(prev => ({ ...prev, selectedPontoonIds: newSelection }));
                 console.log('🎯 Selection updated:', newSelection.size, 'pontoons selected');
+                
+              } else if (uiState.currentTool === ToolType.MULTI_DROP) {
+                // Multi-drop tool: single click places one pontoon (like Place tool)
+                const newGrid = uiState.grid.placePontoon(
+                  gridPosition,
+                  uiState.currentPontoonType,
+                  uiState.currentPontoonColor,
+                  uiState.currentRotation
+                );
+                
+                console.log('🎯 Multi-drop single placement successful! New grid:', newGrid);
+                setUIState(prev => ({ ...prev, grid: newGrid }));
+                setLastClickResult('SUCCESS: Single pontoon placed (drag for multi-drop)');
                 
               } else {
                 setLastClickResult(`FAILED: Tool ${uiState.currentTool} not implemented`);
@@ -925,13 +948,17 @@ function SceneContent({
     });
   }, [uiState.isGridVisible, uiState.showPreview, uiState.showSelection, uiState.showSupport]);
 
+  // Drag state refs to avoid closure issues
+  const dragStateRef = useRef({
+    isMouseDown: false,
+    dragStartPos: null as { x: number; y: number } | null,
+    hasDragged: false
+  });
+
   // Add interaction handlers with drag support
   useEffect(() => {
     if (!gl.domElement) return;
 
-    let isMouseDown = false;
-    let dragStartPos: { x: number; y: number } | null = null;
-    let hasDragged = false;
     const dragThreshold = 5; // pixels
 
     const getEventPosition = (event: MouseEvent) => {
@@ -943,13 +970,13 @@ function SceneContent({
     };
 
     const handleMouseDown = (event: MouseEvent) => {
-      isMouseDown = true;
-      hasDragged = false;
-      dragStartPos = getEventPosition(event);
+      dragStateRef.current.isMouseDown = true;
+      dragStateRef.current.hasDragged = false;
+      dragStateRef.current.dragStartPos = getEventPosition(event);
       
       // Only start drag for tools that support it
       if ((uiState.currentTool === ToolType.MULTI_DROP || uiState.currentTool === ToolType.SELECT) && onDragStart) {
-        console.log('🎯 Potential drag start at:', dragStartPos);
+        console.log('🎯 Potential drag start at:', dragStateRef.current.dragStartPos);
       }
     };
 
@@ -962,22 +989,23 @@ function SceneContent({
       }
 
       // Handle dragging
-      if (isMouseDown && dragStartPos) {
+      if (dragStateRef.current.isMouseDown && dragStateRef.current.dragStartPos) {
         const dragDistance = Math.sqrt(
-          Math.pow(currentPos.x - dragStartPos.x, 2) + 
-          Math.pow(currentPos.y - dragStartPos.y, 2)
+          Math.pow(currentPos.x - dragStateRef.current.dragStartPos.x, 2) + 
+          Math.pow(currentPos.y - dragStateRef.current.dragStartPos.y, 2)
         );
 
-        if (dragDistance > dragThreshold && !hasDragged) {
+        if (dragDistance > dragThreshold && !dragStateRef.current.hasDragged) {
           // Start drag
-          hasDragged = true;
+          dragStateRef.current.hasDragged = true;
+          console.log('🎯 DRAG THRESHOLD EXCEEDED:', dragDistance, 'px, hasDragged now:', dragStateRef.current.hasDragged);
           if ((uiState.currentTool === ToolType.MULTI_DROP || uiState.currentTool === ToolType.SELECT) && onDragStart) {
-            onDragStart(dragStartPos, camera);
-            console.log('🎯 Drag started at:', dragStartPos);
+            onDragStart(dragStateRef.current.dragStartPos, camera);
+            console.log('🎯 Drag started at:', dragStateRef.current.dragStartPos);
           }
         }
 
-        if (hasDragged && onDragMove) {
+        if (dragStateRef.current.hasDragged && onDragMove) {
           onDragMove(currentPos, camera);
         }
       }
@@ -986,30 +1014,33 @@ function SceneContent({
     const handleMouseUp = (event: MouseEvent) => {
       const currentPos = getEventPosition(event);
       
-      if (hasDragged && onDragEnd) {
+      console.log('🎯 MOUSE UP - hasDragged:', dragStateRef.current.hasDragged, 'position:', currentPos);
+      
+      if (dragStateRef.current.hasDragged && onDragEnd) {
         // End drag
+        console.log('🎯 EXECUTING DRAG END');
         onDragEnd(currentPos, camera);
         console.log('🎯 Drag ended at:', currentPos);
-      } else if (!hasDragged && onCanvasClick) {
+      } else if (!dragStateRef.current.hasDragged && onCanvasClick) {
         // Regular click (no drag)
-        console.log('🎯 Canvas DOM click at:', currentPos);
+        console.log('🎯 EXECUTING CLICK (no drag detected)');
         onCanvasClick(currentPos, camera);
       }
 
       // Reset drag state
-      isMouseDown = false;
-      dragStartPos = null;
-      hasDragged = false;
+      dragStateRef.current.isMouseDown = false;
+      dragStateRef.current.dragStartPos = null;
+      dragStateRef.current.hasDragged = false;
     };
 
     const handleMouseLeave = () => {
       // Cancel any ongoing drag
-      if (hasDragged && onDragEnd && dragStartPos) {
-        onDragEnd(dragStartPos, camera);
+      if (dragStateRef.current.hasDragged && onDragEnd && dragStateRef.current.dragStartPos) {
+        onDragEnd(dragStateRef.current.dragStartPos, camera);
       }
-      isMouseDown = false;
-      dragStartPos = null;
-      hasDragged = false;
+      dragStateRef.current.isMouseDown = false;
+      dragStateRef.current.dragStartPos = null;
+      dragStateRef.current.hasDragged = false;
     };
 
     // Add event listeners
