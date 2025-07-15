@@ -48,6 +48,7 @@ import {
   Eye,
   EyeOff,
   Square,
+  Move,
   Maximize2,
   Box,
   Paintbrush
@@ -73,6 +74,9 @@ interface ConfiguratorUIState {
   dragStart: GridPosition | null;
   dragEnd: GridPosition | null;
   dragPreviewPositions: GridPosition[];
+  // Move state for move tool
+  moveState: 'none' | 'selecting' | 'moving';
+  movingPontoonId: string | null;
 }
 
 // Component props
@@ -115,6 +119,7 @@ function ProfessionalToolbar({
     { id: ToolType.ROTATE, icon: RotateCw, label: 'Drehen', shortcut: '4', disabled: false },
     { id: ToolType.PAINT, icon: Paintbrush, label: 'Malen', shortcut: '5', disabled: false },
     { id: ToolType.MULTI_DROP, icon: Box, label: 'Multi-Drop', shortcut: '6', disabled: false },
+    { id: ToolType.MOVE, icon: Move, label: 'Verschieben', shortcut: '7', disabled: false },
   ];
 
   const pontoonTypes = [
@@ -399,7 +404,10 @@ export function NewPontoonConfigurator({
     isDragging: false,
     dragStart: null,
     dragEnd: null,
-    dragPreviewPositions: []
+    dragPreviewPositions: [],
+    // Initialize move state
+    moveState: 'none',
+    movingPontoonId: null
   }));
 
   // Track last click result for debug panel
@@ -477,7 +485,13 @@ export function NewPontoonConfigurator({
 
   // Tool change handler
   const handleToolChange = useCallback((toolType: ToolType) => {
-    setUIState(prev => ({ ...prev, currentTool: toolType }));
+    setUIState(prev => ({ 
+      ...prev, 
+      currentTool: toolType,
+      // Reset move state when changing tools
+      moveState: 'none',
+      movingPontoonId: null
+    }));
     toolSystemRef.current?.activateTool(toolType);
     console.log('🔧 Tool changed to:', toolType);
   }, []);
@@ -541,9 +555,9 @@ export function NewPontoonConfigurator({
         case '2': handleToolChange(ToolType.PLACE); break;
         case '3': handleToolChange(ToolType.DELETE); break;
         case '4': handleToolChange(ToolType.ROTATE); break;
-        case '5': handleToolChange(ToolType.MULTI_DROP); break;
-        case '6': handleToolChange(ToolType.MOVE); break;
-        case '7': handleToolChange(ToolType.PAINT); break;
+        case '5': handleToolChange(ToolType.PAINT); break;
+        case '6': handleToolChange(ToolType.MULTI_DROP); break;
+        case '7': handleToolChange(ToolType.MOVE); break;
         
         // Selection shortcuts
         case 'a': 
@@ -851,6 +865,64 @@ export function NewPontoonConfigurator({
                 setUIState(prev => ({ ...prev, grid: newGrid }));
                 setLastClickResult('SUCCESS: Single pontoon placed (drag for multi-drop)');
                 
+              } else if (uiState.currentTool === ToolType.MOVE) {
+                // Move tool: Two-click pattern - select then move
+                if (uiState.moveState === 'none') {
+                  // First click - select pontoon to move
+                  const pontoon = uiState.grid.getPontoonAt(gridPosition);
+                  if (!pontoon) {
+                    setLastClickResult('FAILED: No pontoon to move at this position');
+                  } else {
+                    setUIState(prev => ({ 
+                      ...prev, 
+                      moveState: 'moving',
+                      movingPontoonId: pontoon.id,
+                      selectedPontoonIds: new Set([pontoon.id])
+                    }));
+                    setLastClickResult(`Selected pontoon ${pontoon.id} for moving. Click destination.`);
+                    console.log('🎯 Move tool: Selected pontoon for moving:', pontoon.id);
+                  }
+                } else if (uiState.moveState === 'moving' && uiState.movingPontoonId) {
+                  // Second click - move pontoon to destination
+                  const pontoonId = uiState.movingPontoonId;
+                  const pontoon = uiState.grid.pontoons.get(pontoonId);
+                  
+                  if (!pontoon) {
+                    setLastClickResult('FAILED: Selected pontoon not found');
+                    setUIState(prev => ({ 
+                      ...prev, 
+                      moveState: 'none',
+                      movingPontoonId: null,
+                      selectedPontoonIds: new Set()
+                    }));
+                  } else if (pontoon.position.equals(gridPosition)) {
+                    setLastClickResult('FAILED: Pontoon is already at this position');
+                  } else {
+                    try {
+                      const newGrid = uiState.grid.movePontoon(pontoonId, gridPosition);
+                      setUIState(prev => ({ 
+                        ...prev, 
+                        grid: newGrid, 
+                        moveState: 'none',
+                        movingPontoonId: null,
+                        selectedPontoonIds: new Set() // Clear selection after move
+                      }));
+                      setLastClickResult(`SUCCESS: Pontoon moved from ${pontoon.position.toString()} to ${gridPosition.toString()}`);
+                      console.log('🎯 Move tool: Pontoon moved successfully:', pontoonId, 'to', gridPosition.toString());
+                    } catch (error) {
+                      setLastClickResult(`FAILED: Move failed - ${error.message}`);
+                      console.error('🎯 Move tool: Move failed:', error);
+                      // Reset move state on error
+                      setUIState(prev => ({ 
+                        ...prev, 
+                        moveState: 'none',
+                        movingPontoonId: null,
+                        selectedPontoonIds: new Set()
+                      }));
+                    }
+                  }
+                }
+                
               } else {
                 setLastClickResult(`FAILED: Tool ${uiState.currentTool} not implemented`);
               }
@@ -916,6 +988,10 @@ export function NewPontoonConfigurator({
             <div>Selected-Pontoons: {uiState.selectedPontoonIds.size}</div>
             {uiState.selectedPontoonIds.size > 0 && (
               <div>Selected-IDs: {Array.from(uiState.selectedPontoonIds).join(', ')}</div>
+            )}
+            <div>Move-State: {uiState.moveState}</div>
+            {uiState.movingPontoonId && (
+              <div>Moving-Pontoon: {uiState.movingPontoonId}</div>
             )}
           </div>
         </div>

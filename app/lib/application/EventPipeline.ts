@@ -247,6 +247,9 @@ export class EventPipeline {
       case 'paint':
         return this.processPaint(gridPosition, context, startTime);
         
+      case 'move':
+        return this.processMove(gridPosition, context, startTime);
+        
       default:
         return this.createFailureResult(`Unknown tool: ${context.currentTool}`, startTime);
     }
@@ -651,6 +654,195 @@ export class EventPipeline {
         }
       };
     }
+  }
+
+  /**
+   * Process pontoon move - Two-click pattern (select then move)
+   */
+  private async processMove(
+    gridPosition: GridPosition,
+    context: ProcessingContext,
+    startTime: number
+  ): Promise<ProcessingResult> {
+    // Note: This is a simplified implementation. In a full implementation,
+    // the move state would be managed by the UI layer or a dedicated move service
+    
+    // For now, we'll check if there's a single selected pontoon to move
+    const selectedPontoons = Array.from(context.selectedPontoonIds || []);
+    
+    if (selectedPontoons.length === 0) {
+      // No pontoon selected - try to select one at the clicked position
+      const pontoon = this.configurator.getPontoonAt(context.grid, gridPosition);
+      if (!pontoon) {
+        return {
+          success: false,
+          type: 'selection',
+          gridPosition,
+          errors: ['No pontoon to move at this position. Click on a pontoon first.'],
+          debugInfo: {
+            inputProcessed: true,
+            coordinateCalculated: true,
+            validationPerformed: true,
+            operationExecuted: false,
+            processingTimeMs: performance.now() - startTime
+          }
+        };
+      }
+      
+      // Select the pontoon for moving
+      const operation = {
+        type: 'SELECT_FOR_MOVE',
+        id: `op_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        timestamp: Date.now(),
+        data: { 
+          pontoonId: pontoon.id,
+          gridPosition: gridPosition.toString(),
+          action: 'selected_for_move'
+        }
+      };
+      
+      console.log('✅ EventPipeline: Pontoon selected for move:', pontoon.id);
+      
+      return {
+        success: true,
+        type: 'selection',
+        gridPosition,
+        operations: [operation],
+        debugInfo: {
+          inputProcessed: true,
+          coordinateCalculated: true,
+          validationPerformed: true,
+          operationExecuted: true,
+          processingTimeMs: performance.now() - startTime
+        }
+      };
+    }
+    
+    if (selectedPontoons.length === 1) {
+      // One pontoon selected - move it to the clicked position
+      const pontoonId = selectedPontoons[0];
+      const pontoon = context.grid.pontoons.get(pontoonId);
+      
+      if (!pontoon) {
+        return {
+          success: false,
+          type: 'selection',
+          gridPosition,
+          errors: ['Selected pontoon not found'],
+          debugInfo: {
+            inputProcessed: true,
+            coordinateCalculated: true,
+            validationPerformed: true,
+            operationExecuted: false,
+            processingTimeMs: performance.now() - startTime
+          }
+        };
+      }
+      
+      // Check if we're trying to move to the same position
+      if (pontoon.position.equals(gridPosition)) {
+        return {
+          success: false,
+          type: 'selection',
+          gridPosition,
+          errors: ['Pontoon is already at this position'],
+          debugInfo: {
+            inputProcessed: true,
+            coordinateCalculated: true,
+            validationPerformed: true,
+            operationExecuted: false,
+            processingTimeMs: performance.now() - startTime
+          }
+        };
+      }
+      
+      try {
+        // Execute the move operation
+        const result = this.configurator.movePontoon(context.grid, pontoonId, gridPosition);
+        
+        if (!result.success || !result.grid || !result.operation) {
+          return {
+            success: false,
+            type: 'selection',
+            gridPosition,
+            errors: result.errors || ['Move operation failed'],
+            debugInfo: {
+              inputProcessed: true,
+              coordinateCalculated: true,
+              validationPerformed: true,
+              operationExecuted: false,
+              processingTimeMs: performance.now() - startTime
+            }
+          };
+        }
+        
+        // Update history
+        this.history.addEntry(
+          context.grid,
+          result.grid,
+          [result.operation],
+          `Move pontoon from ${pontoon.position.toString()} to ${gridPosition.toString()}`
+        );
+        
+        // Create operation for clearing selection after move
+        const clearSelectionOperation = {
+          type: 'CLEAR_SELECTION_AFTER_MOVE',
+          id: `op_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          timestamp: Date.now(),
+          data: { 
+            movedPontoonId: pontoonId,
+            fromPosition: pontoon.position.toString(),
+            toPosition: gridPosition.toString()
+          }
+        };
+        
+        console.log('✅ EventPipeline: Pontoon moved successfully:', pontoonId, 'to', gridPosition.toString());
+        
+        return {
+          success: true,
+          type: 'selection',
+          gridPosition,
+          newGrid: result.grid,
+          operations: [result.operation, clearSelectionOperation],
+          debugInfo: {
+            inputProcessed: true,
+            coordinateCalculated: true,
+            validationPerformed: true,
+            operationExecuted: true,
+            processingTimeMs: performance.now() - startTime
+          }
+        };
+      } catch (error) {
+        return {
+          success: false,
+          type: 'selection',
+          gridPosition,
+          errors: [error instanceof Error ? error.message : 'Move failed'],
+          debugInfo: {
+            inputProcessed: true,
+            coordinateCalculated: true,
+            validationPerformed: true,
+            operationExecuted: false,
+            processingTimeMs: performance.now() - startTime
+          }
+        };
+      }
+    }
+    
+    // Multiple pontoons selected - not supported for move
+    return {
+      success: false,
+      type: 'selection',
+      gridPosition,
+      errors: ['Cannot move multiple pontoons. Please select only one pontoon.'],
+      debugInfo: {
+        inputProcessed: true,
+        coordinateCalculated: true,
+        validationPerformed: true,
+        operationExecuted: false,
+        processingTimeMs: performance.now() - startTime
+      }
+    };
   }
 
   /**
