@@ -244,6 +244,9 @@ export class EventPipeline {
       case 'rotate':
         return this.processRotation(gridPosition, context, startTime);
         
+      case 'paint':
+        return this.processPaint(gridPosition, context, startTime);
+        
       default:
         return this.createFailureResult(`Unknown tool: ${context.currentTool}`, startTime);
     }
@@ -333,7 +336,7 @@ export class EventPipeline {
   }
 
   /**
-   * Process pontoon selection
+   * Process pontoon selection - Enhanced with ToolSystem integration
    */
   private async processSelection(
     gridPosition: GridPosition,
@@ -343,27 +346,49 @@ export class EventPipeline {
     const pontoon = this.configurator.getPontoonAt(context.grid, gridPosition);
 
     if (!pontoon) {
+      // Click on empty space - clear selection unless Ctrl is held
+      // For now, always clear selection on empty space
       return {
-        success: false,
+        success: true,
         type: 'selection',
         gridPosition,
-        errors: ['No pontoon at this position'],
+        operations: [{
+          type: 'CLEAR_SELECTION',
+          id: `op_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          timestamp: Date.now(),
+          data: { cleared: true }
+        }],
         debugInfo: {
           inputProcessed: true,
           coordinateCalculated: true,
           validationPerformed: true,
-          operationExecuted: false,
+          operationExecuted: true,
           processingTimeMs: performance.now() - startTime
         }
       };
     }
 
-    console.log('✅ EventPipeline: Pontoon selected:', pontoon.id);
+    // Handle selection of existing pontoon
+    // This will be passed to the UI layer to update selection state
+    const operation = {
+      type: 'TOGGLE_SELECTION',
+      id: `op_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      timestamp: Date.now(),
+      data: { 
+        pontoonId: pontoon.id,
+        gridPosition: gridPosition.toString(),
+        pontoonType: pontoon.type,
+        pontoonColor: pontoon.color
+      }
+    };
+
+    console.log('✅ EventPipeline: Pontoon selection toggled:', pontoon.id);
 
     return {
       success: true,
       type: 'selection',
       gridPosition,
+      operations: [operation],
       debugInfo: {
         inputProcessed: true,
         coordinateCalculated: true,
@@ -519,6 +544,104 @@ export class EventPipeline {
         type: 'selection',
         gridPosition,
         errors: [error instanceof Error ? error.message : 'Rotation failed'],
+        debugInfo: {
+          inputProcessed: true,
+          coordinateCalculated: true,
+          validationPerformed: true,
+          operationExecuted: false,
+          processingTimeMs: performance.now() - startTime
+        }
+      };
+    }
+  }
+
+  /**
+   * Process pontoon paint/color change
+   */
+  private async processPaint(
+    gridPosition: GridPosition,
+    context: ProcessingContext,
+    startTime: number
+  ): Promise<ProcessingResult> {
+    const pontoon = this.configurator.getPontoonAt(context.grid, gridPosition);
+
+    if (!pontoon) {
+      return {
+        success: false,
+        type: 'selection',
+        gridPosition,
+        errors: ['No pontoon to paint at this position'],
+        debugInfo: {
+          inputProcessed: true,
+          coordinateCalculated: true,
+          validationPerformed: true,
+          operationExecuted: false,
+          processingTimeMs: performance.now() - startTime
+        }
+      };
+    }
+
+    if (pontoon.color === context.currentPontoonColor) {
+      return {
+        success: false,
+        type: 'selection',
+        gridPosition,
+        errors: ['Pontoon already has this color'],
+        debugInfo: {
+          inputProcessed: true,
+          coordinateCalculated: true,
+          validationPerformed: true,
+          operationExecuted: false,
+          processingTimeMs: performance.now() - startTime
+        }
+      };
+    }
+
+    try {
+      const newGrid = context.grid.updatePontoonColor(pontoon.id, context.currentPontoonColor);
+      
+      // Create operation for history
+      const operation = {
+        type: 'PAINT_PONTOON',
+        id: `op_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        timestamp: Date.now(),
+        data: {
+          pontoonId: pontoon.id,
+          oldColor: pontoon.color,
+          newColor: context.currentPontoonColor
+        }
+      };
+
+      // Update history
+      this.history.addEntry(
+        context.grid,
+        newGrid,
+        [operation],
+        `Paint pontoon`
+      );
+
+      console.log('✅ EventPipeline: Pontoon painted:', pontoon.id, 'to', context.currentPontoonColor);
+
+      return {
+        success: true,
+        type: 'selection',
+        gridPosition,
+        newGrid,
+        operations: [operation],
+        debugInfo: {
+          inputProcessed: true,
+          coordinateCalculated: true,
+          validationPerformed: true,
+          operationExecuted: true,
+          processingTimeMs: performance.now() - startTime
+        }
+      };
+    } catch (error) {
+      return {
+        success: false,
+        type: 'selection',
+        gridPosition,
+        errors: [error instanceof Error ? error.message : 'Paint failed'],
         debugInfo: {
           inputProcessed: true,
           coordinateCalculated: true,

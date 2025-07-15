@@ -49,7 +49,8 @@ import {
   EyeOff,
   Square,
   Maximize2,
-  Box
+  Box,
+  Paintbrush
 } from 'lucide-react';
 
 // UI state interface
@@ -111,8 +112,9 @@ function ProfessionalToolbar({
     { id: ToolType.SELECT, icon: MousePointer2, label: 'Auswählen', shortcut: '1', disabled: false },
     { id: ToolType.PLACE, icon: Plus, label: 'Platzieren', shortcut: '2', disabled: false },
     { id: ToolType.DELETE, icon: Trash2, label: 'Löschen', shortcut: '3', disabled: false },
-    { id: ToolType.ROTATE, icon: RotateCw, label: 'Drehen', shortcut: '4', disabled: true },
-    { id: ToolType.MULTI_DROP, icon: Box, label: 'Multi-Drop', shortcut: '5', disabled: false },
+    { id: ToolType.ROTATE, icon: RotateCw, label: 'Drehen', shortcut: '4', disabled: false },
+    { id: ToolType.PAINT, icon: Paintbrush, label: 'Malen', shortcut: '5', disabled: false },
+    { id: ToolType.MULTI_DROP, icon: Box, label: 'Multi-Drop', shortcut: '6', disabled: false },
   ];
 
   const pontoonTypes = [
@@ -764,7 +766,7 @@ export function NewPontoonConfigurator({
               }));
             }
           }
-          onCanvasClick={(position, camera) => {
+          onCanvasClick={(position, camera, event) => {
             console.log('🎯 Canvas clicked at screen position:', position);
             
             try {
@@ -802,22 +804,34 @@ export function NewPontoonConfigurator({
                   setLastClickResult('FAILED: No pontoon at position');
                 }
               } else if (uiState.currentTool === ToolType.SELECT) {
-                // Handle selection
+                // Handle selection - Enhanced with Ctrl+click support
                 const pontoon = uiState.grid.getPontoonAt(gridPosition);
                 const newSelection = new Set(uiState.selectedPontoonIds);
                 
                 if (!pontoon) {
-                  // Click on empty space - clear selection
-                  newSelection.clear();
-                  setLastClickResult('Selection cleared');
-                } else {
-                  // Toggle pontoon selection
-                  if (newSelection.has(pontoon.id)) {
-                    newSelection.delete(pontoon.id);
-                    setLastClickResult(`Deselected: ${newSelection.size} pontoon(s)`);
+                  // Click on empty space - clear selection unless Ctrl is held
+                  if (!event?.ctrlKey) {
+                    newSelection.clear();
+                    setLastClickResult('Selection cleared');
                   } else {
+                    setLastClickResult('Empty space (Ctrl held - selection preserved)');
+                  }
+                } else {
+                  // Handle pontoon selection based on modifiers
+                  if (event?.ctrlKey) {
+                    // Ctrl+click: toggle individual pontoon
+                    if (newSelection.has(pontoon.id)) {
+                      newSelection.delete(pontoon.id);
+                      setLastClickResult(`Deselected: ${pontoon.id} (${newSelection.size} total)`);
+                    } else {
+                      newSelection.add(pontoon.id);
+                      setLastClickResult(`Selected: ${pontoon.id} (${newSelection.size} total)`);
+                    }
+                  } else {
+                    // Normal click: single selection
+                    newSelection.clear();
                     newSelection.add(pontoon.id);
-                    setLastClickResult(`Selected: ${newSelection.size} pontoon(s)`);
+                    setLastClickResult(`Selected: ${pontoon.id} (1 total)`);
                   }
                 }
                 
@@ -877,6 +891,15 @@ export function NewPontoonConfigurator({
                 <div>Hover: ({uiState.hoveredCell.x}, {uiState.hoveredCell.y}, {uiState.hoveredCell.z})</div>
                 <div>Grid-Cell-Can-Place: {uiState.grid.canPlacePontoon(uiState.hoveredCell, uiState.currentPontoonType) ? '✅' : '❌'}</div>
                 <div>Pontoon-Here: {uiState.grid.hasPontoonAt(uiState.hoveredCell) ? 'YES' : 'NO'}</div>
+                {(() => {
+                  const pontoon = uiState.grid.getPontoonAt(uiState.hoveredCell);
+                  return pontoon ? (
+                    <>
+                      <div>Pontoon-Rotation: {pontoon.rotation}°</div>
+                      <div>Pontoon-Color: {pontoon.color}</div>
+                    </>
+                  ) : null;
+                })()}
               </>
             ) : (
               <>
@@ -889,6 +912,11 @@ export function NewPontoonConfigurator({
             <div>Tool: {uiState.currentTool}</div>
             <div>Level: {uiState.currentLevel}</div>
             <div>Rotation: {uiState.currentRotation}°</div>
+            <div>Current-Color: {uiState.currentPontoonColor}</div>
+            <div>Selected-Pontoons: {uiState.selectedPontoonIds.size}</div>
+            {uiState.selectedPontoonIds.size > 0 && (
+              <div>Selected-IDs: {Array.from(uiState.selectedPontoonIds).join(', ')}</div>
+            )}
           </div>
         </div>
       </div>
@@ -912,7 +940,7 @@ function SceneContent({
   uiState: ConfiguratorUIState;
   onRenderingEngineReady: (engine: RenderingEngine) => void;
   onCanvasHover?: (position: { x: number; y: number }, camera: THREE.Camera) => void;
-  onCanvasClick?: (position: { x: number; y: number }, camera: THREE.Camera) => void;
+  onCanvasClick?: (position: { x: number; y: number }, camera: THREE.Camera, event?: MouseEvent) => void;
   onDragStart?: (position: { x: number; y: number }, camera: THREE.Camera) => void;
   onDragMove?: (position: { x: number; y: number }, camera: THREE.Camera) => void;
   onDragEnd?: (position: { x: number; y: number }, camera: THREE.Camera) => void;
@@ -952,7 +980,13 @@ function SceneContent({
   const dragStateRef = useRef({
     isMouseDown: false,
     dragStartPos: null as { x: number; y: number } | null,
-    hasDragged: false
+    hasDragged: false,
+    modifierKeys: {
+      ctrlKey: false,
+      altKey: false,
+      shiftKey: false,
+      metaKey: false
+    }
   });
 
   // Add interaction handlers with drag support
@@ -973,6 +1007,15 @@ function SceneContent({
       dragStateRef.current.isMouseDown = true;
       dragStateRef.current.hasDragged = false;
       dragStateRef.current.dragStartPos = getEventPosition(event);
+      
+      // Capture modifier keys during mousedown
+      dragStateRef.current.modifierKeys = {
+        ctrlKey: event.ctrlKey,
+        altKey: event.altKey,
+        shiftKey: event.shiftKey,
+        metaKey: event.metaKey
+      };
+      
       
       // Only start drag for tools that support it
       if ((uiState.currentTool === ToolType.MULTI_DROP || uiState.currentTool === ToolType.SELECT) && onDragStart) {
@@ -1024,13 +1067,27 @@ function SceneContent({
       } else if (!dragStateRef.current.hasDragged && onCanvasClick) {
         // Regular click (no drag)
         console.log('🎯 EXECUTING CLICK (no drag detected)');
-        onCanvasClick(currentPos, camera);
+        // Create a synthetic event with the captured modifier keys
+        const syntheticEvent = {
+          ...event,
+          ctrlKey: dragStateRef.current.modifierKeys.ctrlKey,
+          altKey: dragStateRef.current.modifierKeys.altKey,
+          shiftKey: dragStateRef.current.modifierKeys.shiftKey,
+          metaKey: dragStateRef.current.modifierKeys.metaKey
+        };
+        onCanvasClick(currentPos, camera, syntheticEvent);
       }
 
       // Reset drag state
       dragStateRef.current.isMouseDown = false;
       dragStateRef.current.dragStartPos = null;
       dragStateRef.current.hasDragged = false;
+      dragStateRef.current.modifierKeys = {
+        ctrlKey: false,
+        altKey: false,
+        shiftKey: false,
+        metaKey: false
+      };
     };
 
     const handleMouseLeave = () => {
@@ -1041,6 +1098,12 @@ function SceneContent({
       dragStateRef.current.isMouseDown = false;
       dragStateRef.current.dragStartPos = null;
       dragStateRef.current.hasDragged = false;
+      dragStateRef.current.modifierKeys = {
+        ctrlKey: false,
+        altKey: false,
+        shiftKey: false,
+        metaKey: false
+      };
     };
 
     // Add event listeners
