@@ -993,6 +993,14 @@ export function NewPontoonConfigurator({
             {uiState.movingPontoonId && (
               <div>Moving-Pontoon: {uiState.movingPontoonId}</div>
             )}
+            <div>Drag-State: {uiState.isDragging ? 'active' : 'none'}</div>
+            {uiState.isDragging && uiState.dragStart && uiState.dragEnd && (
+              <div>Drag-Area: ({uiState.dragStart.x},{uiState.dragStart.z}) to ({uiState.dragEnd.x},{uiState.dragEnd.z})</div>
+            )}
+            <div>Preview-Pontoons: {uiState.dragPreviewPositions.length}</div>
+            {uiState.currentTool === ToolType.MULTI_DROP && uiState.dragPreviewPositions.length > 0 && (
+              <div>Multi-Drop-Mode: {uiState.currentPontoonType === PontoonType.DOUBLE ? 'Double (every 2nd)' : 'Single'}</div>
+            )}
           </div>
         </div>
       </div>
