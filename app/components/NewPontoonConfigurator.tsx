@@ -29,11 +29,13 @@ import {
   RenderingEngine,
   ToolSystem,
   ToolType,
+  modelLoader,
   type InteractionCallbacks,
   type RenderingOptions,
   type PreviewData,
   type SelectionData,
-  type ToolContext
+  type ToolContext,
+  type ModelInfo
 } from '../lib/ui';
 import { ConfiguratorService } from '../lib/application';
 import Image from 'next/image';
@@ -98,6 +100,9 @@ interface ProfessionalToolbarProps {
   onGridToggle: () => void;
   onViewModeToggle: () => void;
   onClearGrid: () => void;
+  // 3D models toggle
+  onToggle3DModels?: () => void;
+  is3DModelsEnabled?: boolean;
 }
 
 function ProfessionalToolbar({
@@ -108,7 +113,9 @@ function ProfessionalToolbar({
   onColorChange,
   onGridToggle,
   onViewModeToggle,
-  onClearGrid
+  onClearGrid,
+  onToggle3DModels,
+  is3DModelsEnabled
 }: ProfessionalToolbarProps) {
   
   // Map new architecture tools to UI display
@@ -277,6 +284,22 @@ function ProfessionalToolbar({
       </div>
 
       <div className="h-px bg-gray-300" />
+      
+      {/* 3D Model Toggle */}
+      <button
+        onClick={() => onToggle3DModels && onToggle3DModels()}
+        disabled={!onToggle3DModels}
+        className={`p-2 rounded transition-colors text-sm font-medium w-full ${
+          onToggle3DModels
+            ? 'bg-blue-100 hover:bg-blue-200 text-blue-700'
+            : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+        }`}
+        title={onToggle3DModels ? 'Toggle zwischen 3D-Modellen und einfachen Boxen' : 'Rendering-Engine nicht aktiv'}
+      >
+        {(is3DModelsEnabled ?? false) ? '🏗️ 3D-Modelle' : '📦 Boxen'} Toggle
+      </button>
+
+      <div className="h-px bg-gray-300" />
 
       {/* Stats */}
       <div className="text-xs text-gray-600 space-y-1">
@@ -386,8 +409,29 @@ export function NewPontoonConfigurator({
   onError
 }: NewPontoonConfiguratorProps) {
   // Core state
-  const [uiState, setUIState] = useState<ConfiguratorUIState>(() => ({
-    grid: Grid.createEmpty(initialGridSize.width, initialGridSize.height, initialGridSize.levels),
+  const [uiState, setUIState] = useState<ConfiguratorUIState>(() => {
+    // Create initial grid
+    let initialGrid = Grid.createEmpty(initialGridSize.width, initialGridSize.height, initialGridSize.levels);
+    
+    // Add demo pontoon in center to showcase 3D model (use SINGLE to avoid double-model dependency)
+    const centerPosition = new GridPosition(
+      Math.floor(initialGridSize.width / 2),
+      0,
+      Math.floor(initialGridSize.height / 2)
+    );
+    try {
+      initialGrid = initialGrid.placePontoon(
+        centerPosition,
+        PontoonType.SINGLE,
+        PontoonColor.BLUE,
+        Rotation.NORTH
+      );
+    } catch {
+      // ignore demo placement errors
+    }
+    
+    return {
+    grid: initialGrid,
     currentLevel: 0,
     currentTool: ToolType.PLACE,
     currentPontoonType: PontoonType.SINGLE,
@@ -396,7 +440,7 @@ export function NewPontoonConfigurator({
     hoveredCell: null,
     selectedPontoonIds: new Set(),
     isGridVisible: true,
-    viewMode: '3d',
+    viewMode: '2d', // Start with 2D view as default
     showPreview: true,
     showSelection: true,
     showSupport: false,
@@ -408,7 +452,8 @@ export function NewPontoonConfigurator({
     // Initialize move state
     moveState: 'none',
     movingPontoonId: null
-  }));
+    };
+  });
 
   // Track last click result for debug panel
   const [lastClickResult, setLastClickResult] = useState<string>('PENDING');
@@ -421,6 +466,7 @@ export function NewPontoonConfigurator({
   const interactionControllerRef = useRef<InteractionController | null>(null);
   const renderingEngineRef = useRef<RenderingEngine | null>(null);
   const toolSystemRef = useRef<ToolSystem | null>(null);
+  const [is3DModelsEnabled, setIs3DModelsEnabled] = useState(false);
 
   // Statistics state
   const [stats, setStats] = useState({
@@ -523,6 +569,22 @@ export function NewPontoonConfigurator({
       viewMode: prev.viewMode === '2d' ? '3d' : '2d' 
     }));
   }, []);
+
+  // 3D models toggle handler (delegates to RenderingEngine if available)
+  const handleToggle3DModels = useCallback(async () => {
+    const engine: any = renderingEngineRef.current as any;
+    if (!engine || typeof engine.is3DModelsEnabled !== 'function') return;
+    try {
+      const next = !engine.is3DModelsEnabled();
+      if (typeof engine.toggle3DModels === 'function') {
+        await engine.toggle3DModels(next, uiState.grid);
+      }
+      setIs3DModelsEnabled(next);
+      console.log(`Switched to ${next ? '3D models' : 'simple boxes'}`);
+    } catch (error) {
+      console.error('Failed to toggle 3D models:', error);
+    }
+  }, [uiState.grid]);
 
   // Grid visibility toggle
   const handleGridToggle = useCallback(() => {
@@ -655,8 +717,8 @@ export function NewPontoonConfigurator({
       <Canvas
         ref={canvasRef}
         camera={{ 
-          position: uiState.viewMode === '2d' ? [0, 50, 0] : [20, 20, 20],
-          fov: 50,
+          position: uiState.viewMode === '2d' ? [0, 25, 0.01] : [20, 20, 20], // True orthographic top-down
+          fov: uiState.viewMode === '2d' ? 45 : 50, // Adjusted FOV for full grid visibility
           near: 0.1,
           far: 1000
         }}
@@ -677,6 +739,13 @@ export function NewPontoonConfigurator({
           uiState={uiState}
           onRenderingEngineReady={(engine) => {
             renderingEngineRef.current = engine;
+            // Initialize 3D models toggle state if supported
+            try {
+              const isEnabled = (engine as any).is3DModelsEnabled?.() ?? false;
+              setIs3DModelsEnabled(!!isEnabled);
+            } catch {
+              setIs3DModelsEnabled(false);
+            }
           }}
           onCanvasHover={(position, camera) => {
             // Update hover state
@@ -949,6 +1018,8 @@ export function NewPontoonConfigurator({
             const emptyGrid = Grid.createEmpty(uiState.grid.dimensions.width, uiState.grid.dimensions.height, uiState.grid.dimensions.levels);
             setUIState(prev => ({ ...prev, grid: emptyGrid }));
           }}
+          onToggle3DModels={renderingEngineRef.current ? handleToggle3DModels : undefined}
+          is3DModelsEnabled={is3DModelsEnabled}
         />
       </div>
 
@@ -1032,20 +1103,29 @@ function SceneContent({
   const { scene, gl, camera } = useThree();
   const renderingEngineRef = useRef<RenderingEngine | null>(null);
 
-  // Initialize rendering engine - DISABLED to prevent pink rendering issues
+  // Initialize rendering engine (with safe fallback)
   useEffect(() => {
-    if (!renderingEngineRef.current) {
-      // IMPORTANT: RenderingEngine is causing pink/magenta rendering issues
-      // Using fallback Three.js rendering instead
-      console.log('🎨 Using fallback rendering (RenderingEngine disabled)');
+    if (renderingEngineRef.current) return;
+    try {
+      const engine = new RenderingEngine(scene, { use3DModels: true });
+      renderingEngineRef.current = engine;
+      onRenderingEngineReady(engine);
+      console.log('🎨 RenderingEngine enabled');
+      return () => {
+        try { engine.dispose(); } catch {}
+        renderingEngineRef.current = null;
+      };
+    } catch (error) {
+      console.warn('🎨 RenderingEngine failed, using fallback rendering:', error);
       renderingEngineRef.current = null;
-      
-      // Create a dummy engine for stats
+      // Provide dummy engine to keep stats path alive
       onRenderingEngineReady({
         render: () => {},
         updateOptions: () => {},
         dispose: () => {},
-        getStats: () => ({ lastRenderTime: 0 })
+        getStats: () => ({ lastRenderTime: 0 }),
+        is3DModelsEnabled: () => false,
+        toggle3DModels: async () => {}
       } as any);
     }
   }, [scene, onRenderingEngineReady]);
@@ -1236,6 +1316,7 @@ function SceneContent({
   });
 
   // FALLBACK: Simple Three.js rendering if RenderingEngine fails
+  const engineInactive = !renderingEngineRef.current;
   return (
     <>
       {/* 3D Camera Controls */}
@@ -1254,7 +1335,7 @@ function SceneContent({
       
       
       {/* Render pontoons as simple boxes */}
-      {Array.from(uiState.grid.pontoons.entries()).map(([id, pontoon]) => {
+      {engineInactive && Array.from(uiState.grid.pontoons.entries()).map(([id, pontoon]) => {
         try {
           const config = getPontoonTypeConfig(pontoon.type);
           const colorConfig = getPontoonColorConfig(pontoon.color);
@@ -1342,7 +1423,7 @@ function SceneContent({
       }).filter(Boolean)}
       
       {/* Hover Preview - Show transparent pontoon at hovered position */}
-      {uiState.hoveredCell && uiState.currentTool === ToolType.PLACE && (() => {
+      {engineInactive && uiState.hoveredCell && uiState.currentTool === ToolType.PLACE && (() => {
         const config = getPontoonTypeConfig(uiState.currentPontoonType);
         const colorConfig = getPontoonColorConfig(uiState.currentPontoonColor);
         const canPlace = uiState.grid.canPlacePontoon(uiState.hoveredCell, uiState.currentPontoonType);
@@ -1384,7 +1465,7 @@ function SceneContent({
       })()}
       
       {/* Delete Tool Hover - Highlight pontoon to be deleted */}
-      {uiState.hoveredCell && uiState.currentTool === ToolType.DELETE && (() => {
+      {engineInactive && uiState.hoveredCell && uiState.currentTool === ToolType.DELETE && (() => {
         const pontoonToDelete = uiState.grid.getPontoonAt(uiState.hoveredCell);
         
         if (!pontoonToDelete) return null; // No pontoon to highlight
@@ -1429,7 +1510,7 @@ function SceneContent({
       })()}
       
       {/* Multi-Drop Preview - Show preview pontoons during drag */}
-      {uiState.isDragging && uiState.currentTool === ToolType.MULTI_DROP && uiState.dragPreviewPositions.map((position, index) => {
+      {engineInactive && uiState.isDragging && uiState.currentTool === ToolType.MULTI_DROP && uiState.dragPreviewPositions.map((position, index) => {
         const config = getPontoonTypeConfig(uiState.currentPontoonType);
         const colorConfig = getPontoonColorConfig(uiState.currentPontoonColor);
         const canPlace = uiState.grid.canPlacePontoon(position, uiState.currentPontoonType);
@@ -1466,7 +1547,7 @@ function SceneContent({
       })}
       
       {/* Drag Selection Box for Multi-Drop and Select tools */}
-      {uiState.isDragging && uiState.dragStart && uiState.dragEnd && (
+      {engineInactive && uiState.isDragging && uiState.dragStart && uiState.dragEnd && (
         <group>
           {/* Selection rectangle outline */}
           <lineSegments>
@@ -1500,7 +1581,7 @@ function SceneContent({
       )}
       
       {/* Simple grid helper */}
-      <gridHelper args={[25, 50]} position={[0, 0, 0]} />
+      {engineInactive && <gridHelper args={[25, 50]} position={[0, 0, 0]} />}
     </>
   );
 }

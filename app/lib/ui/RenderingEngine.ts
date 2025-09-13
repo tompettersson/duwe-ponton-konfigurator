@@ -16,6 +16,7 @@ import {
   getPontoonTypeConfig,
   getPontoonColorConfig
 } from '../domain';
+import { modelLoader, type ModelInfo } from './ModelLoader';
 
 export interface RenderingOptions {
   showGrid: boolean;
@@ -26,6 +27,7 @@ export interface RenderingOptions {
   previewOpacity: number;
   selectionColor: string;
   supportColor: string;
+  use3DModels: boolean; // NEW: Toggle between simple boxes and 3D models
 }
 
 export interface PreviewData {
@@ -59,6 +61,10 @@ export class RenderingEngine {
   private materialCache = new Map<string, THREE.Material>();
   private geometryCache = new Map<string, THREE.BufferGeometry>();
   
+  // 3D Model cache
+  private modelCache = new Map<string, ModelInfo>();
+  private modelLoadPromises = new Map<string, Promise<ModelInfo>>();
+  
   // Rendering state
   private currentGrid: Grid | null = null;
   private currentOptions: RenderingOptions;
@@ -85,6 +91,7 @@ export class RenderingEngine {
       previewOpacity: 0.6,
       selectionColor: '#ffff00',
       supportColor: '#00ff00',
+      use3DModels: true, // Use 3D models by default
       ...options
     };
     
@@ -98,19 +105,19 @@ export class RenderingEngine {
   /**
    * Main render method - updates all 3D objects
    */
-  render(
+  async render(
     grid: Grid,
     currentLevel: number,
     previewData?: PreviewData,
     selectionData?: SelectionData,
     supportData?: SupportData
-  ): void {
+  ): Promise<void> {
     const startTime = performance.now();
     
     // Update grid if changed
     if (this.currentGrid !== grid) {
       this.renderGrid(grid, currentLevel);
-      this.renderPontoons(grid);
+      await this.renderPontoons(grid);
       this.currentGrid = grid;
     }
     
@@ -184,19 +191,36 @@ export class RenderingEngine {
   /**
    * Render all pontoons
    */
-  private renderPontoons(grid: Grid): void {
+  private async renderPontoons(grid: Grid): Promise<void> {
     this.clearGroup(this.pontoonGroup);
     
-    for (const pontoon of grid.pontoons.values()) {
-      this.renderPontoon(pontoon, grid);
-    }
+    // Render all pontoons in parallel for better performance
+    const renderPromises = Array.from(grid.pontoons.values()).map(pontoon => 
+      this.renderPontoon(pontoon, grid)
+    );
+    
+    await Promise.all(renderPromises);
   }
 
   /**
    * Render single pontoon
    */
-  private renderPontoon(pontoon: Pontoon, grid: Grid): void {
+  private async renderPontoon(pontoon: Pontoon, grid: Grid): Promise<void> {
     const worldPos = grid.gridToWorld(pontoon.position);
+    
+    if (this.currentOptions.use3DModels) {
+      // Use 3D model
+      await this.render3DPontoon(pontoon, worldPos);
+    } else {
+      // Use simple box geometry
+      this.renderBoxPontoon(pontoon, worldPos);
+    }
+  }
+  
+  /**
+   * Render pontoon using simple box geometry
+   */
+  private renderBoxPontoon(pontoon: Pontoon, worldPos: THREE.Vector3): void {
     const geometry = this.getGeometry(pontoon.type);
     const material = this.getMaterial(`pontoon-${pontoon.color}`);
     
@@ -210,6 +234,84 @@ export class RenderingEngine {
     }
     
     this.pontoonGroup.add(mesh);
+  }
+  
+  /**
+   * Render pontoon using 3D model
+   */
+  private async render3DPontoon(pontoon: Pontoon, worldPos: THREE.Vector3): Promise<void> {
+    try {
+      // Load 3D model (cached)
+      const modelInfo = await this.load3DModel(pontoon.type);
+      
+      // Clone the model for this instance
+      const pontoonMesh = modelLoader.cloneModel(modelInfo);
+      
+      // Calculate scale factor for proper size
+      const scaleTarget = pontoon.type === PontoonType.DOUBLE ? 1000 : 500; // millimeters
+      const scaleFactor = modelLoader.calculateScaleFactor(modelInfo, scaleTarget);
+      
+      // Apply positioning and scaling
+      modelLoader.prepareModelForGrid(pontoonMesh, worldPos, scaleFactor);
+      
+      // Set user data
+      pontoonMesh.userData = { pontoonId: pontoon.id, pontoon };
+      
+      // Apply rotation if needed
+      if (pontoon.rotation !== 0) {
+        pontoonMesh.rotation.y = (pontoon.rotation * Math.PI) / 180;
+      }
+      
+      this.pontoonGroup.add(pontoonMesh);
+      
+    } catch (error) {
+      console.warn(`Failed to load 3D model for pontoon ${pontoon.id}, falling back to box:`, error);
+      // Fallback to box rendering
+      this.renderBoxPontoon(pontoon, worldPos);
+    }
+  }
+  
+  /**
+   * Load 3D model with caching
+   */
+  private async load3DModel(type: PontoonType): Promise<ModelInfo> {
+    const cacheKey = `3d-${type}`;
+    
+    // Return cached model if available
+    if (this.modelCache.has(cacheKey)) {
+      return this.modelCache.get(cacheKey)!;
+    }
+    
+    // Return existing promise if already loading
+    if (this.modelLoadPromises.has(cacheKey)) {
+      return this.modelLoadPromises.get(cacheKey)!;
+    }
+    
+    // Start loading
+    const loadPromise = this.loadModelForType(type);
+    this.modelLoadPromises.set(cacheKey, loadPromise);
+    
+    try {
+      const modelInfo = await loadPromise;
+      this.modelCache.set(cacheKey, modelInfo);
+      return modelInfo;
+    } finally {
+      this.modelLoadPromises.delete(cacheKey);
+    }
+  }
+  
+  /**
+   * Load specific model for pontoon type
+   */
+  private async loadModelForType(type: PontoonType): Promise<ModelInfo> {
+    switch (type) {
+      case PontoonType.DOUBLE:
+        return await modelLoader.loadDoublePontoon();
+      case PontoonType.SINGLE:
+        return await modelLoader.loadSinglePontoon();
+      default:
+        throw new Error(`Unknown pontoon type: ${type}`);
+    }
   }
 
   /**
@@ -524,6 +626,32 @@ export class RenderingEngine {
   }
 
   /**
+   * Toggle between 3D models and simple boxes
+   */
+  async toggle3DModels(use3D: boolean, grid?: Grid): Promise<void> {
+    if (this.currentOptions.use3DModels === use3D) {
+      return; // No change needed
+    }
+    
+    this.currentOptions.use3DModels = use3D;
+    
+    // Force re-render if grid is provided
+    if (grid) {
+      this.currentGrid = null; // Force refresh
+      await this.renderPontoons(grid);
+    }
+    
+    console.log(`🎨 RenderingEngine: Switched to ${use3D ? '3D models' : 'simple boxes'}`);
+  }
+  
+  /**
+   * Check if 3D models are currently enabled
+   */
+  is3DModelsEnabled(): boolean {
+    return this.currentOptions.use3DModels;
+  }
+
+  /**
    * Get rendering statistics
    */
   getStats(): {
@@ -531,16 +659,20 @@ export class RenderingEngine {
     pontoonCount: number;
     averageRenderTime: number;
     lastRenderTime: number;
+    use3DModels: boolean;
     cacheStats: {
       materialCount: number;
       geometryCount: number;
+      modelCount: number;
     };
   } {
     return {
       ...this.renderStats,
+      use3DModels: this.currentOptions.use3DModels,
       cacheStats: {
         materialCount: this.materialCache.size,
-        geometryCount: this.geometryCache.size
+        geometryCount: this.geometryCache.size,
+        modelCount: this.modelCache.size
       }
     };
   }

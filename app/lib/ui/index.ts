@@ -9,6 +9,8 @@
 export { InteractionController } from './InteractionController';
 export { RenderingEngine } from './RenderingEngine';
 export { ToolSystem } from './ToolSystem';
+export { ModelLoader, modelLoader } from './ModelLoader';
+export type { ModelInfo } from './ModelLoader';
 
 // Tool Classes
 export {
