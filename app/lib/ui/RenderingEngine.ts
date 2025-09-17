@@ -12,6 +12,7 @@ import {
   Pontoon,
   PontoonType,
   PontoonColor,
+  Rotation,
   CoordinateCalculator,
   getPontoonTypeConfig,
   getPontoonColorConfig
@@ -23,6 +24,7 @@ export interface RenderingOptions {
   showPreview: boolean;
   showSelection: boolean;
   showSupport: boolean;
+  showPlacementDebug: boolean;
   gridOpacity: number;
   previewOpacity: number;
   selectionColor: string;
@@ -35,6 +37,7 @@ export interface PreviewData {
   type: PontoonType;
   color: PontoonColor;
   isValid: boolean;
+  rotation?: Rotation; // Optional rotation for accurate preview alignment
 }
 
 export interface SelectionData {
@@ -46,6 +49,10 @@ export interface SupportData {
   valid: boolean[];
 }
 
+export interface PlacementDebugData {
+  cells: GridPosition[];
+}
+
 export class RenderingEngine {
   private scene: THREE.Scene;
   private calculator: CoordinateCalculator;
@@ -54,6 +61,8 @@ export class RenderingEngine {
   private pontoonGroup: THREE.Group;
   private gridGroup: THREE.Group;
   private previewGroup: THREE.Group;
+  private hoverCellGroup: THREE.Group;
+  private placementDebugGroup: THREE.Group;
   private selectionGroup: THREE.Group;
   private supportGroup: THREE.Group;
   
@@ -87,6 +96,7 @@ export class RenderingEngine {
       showPreview: true,
       showSelection: true,
       showSupport: false,
+      showPlacementDebug: true,
       gridOpacity: 0.3,
       previewOpacity: 0.6,
       selectionColor: '#ffff00',
@@ -110,7 +120,8 @@ export class RenderingEngine {
     currentLevel: number,
     previewData?: PreviewData,
     selectionData?: SelectionData,
-    supportData?: SupportData
+    supportData?: SupportData,
+    placementDebugData?: PlacementDebugData
   ): Promise<void> {
     const startTime = performance.now();
     
@@ -120,12 +131,24 @@ export class RenderingEngine {
       await this.renderPontoons(grid);
       this.currentGrid = grid;
     }
+    // Update placement debug overlay each frame
+    if (this.currentOptions.showPlacementDebug && placementDebugData?.cells?.length) {
+      this.renderPlacementDebug(grid, placementDebugData.cells);
+    } else {
+      this.clearPlacementDebug();
+    }
     
-    // Update preview
-    if (this.currentOptions.showPreview && previewData) {
-      this.renderPreview(previewData);
+    // Update preview and hovered-cell outline
+    if (previewData) {
+      if (this.currentOptions.showPreview) {
+        this.renderPreview(previewData);
+      } else {
+        this.clearPreview();
+      }
+      this.renderHoveredCell(previewData.position);
     } else {
       this.clearPreview();
+      this.clearHoveredCell();
     }
     
     // Update selection
@@ -164,14 +187,14 @@ export class RenderingEngine {
     // Create grid lines
     const gridGeometry = new THREE.BufferGeometry();
     const positions: number[] = [];
-    
+
     // Vertical lines (X direction)
     for (let x = 0; x <= width; x++) {
       const worldX = (x - width / 2) * 0.5; // 0.5m grid spacing
       positions.push(worldX, levelY, -height * 0.25); // Start
       positions.push(worldX, levelY, height * 0.25);   // End
     }
-    
+
     // Horizontal lines (Z direction)
     for (let z = 0; z <= height; z++) {
       const worldZ = (z - height / 2) * 0.5;
@@ -186,6 +209,60 @@ export class RenderingEngine {
     
     // Add level indicator
     this.addLevelIndicator(currentLevel, levelY);
+  }
+
+  /** Show the exact hovered grid cell as an outline + light fill */
+  private renderHoveredCell(position: GridPosition): void {
+    this.clearGroup(this.hoverCellGroup);
+    try {
+      const dims = this.currentGrid?.dimensions ?? { width: 50, height: 50, levels: 3 } as any;
+      const world = this.calculator.gridToWorld(position, dims);
+      const outline = new THREE.Mesh(this.getGeometry('cell-plane'), this.getMaterial('cell-outline'));
+      outline.position.set(world.x, world.y + 0.001, world.z);
+      outline.rotation.x = -Math.PI / 2;
+      this.hoverCellGroup.add(outline);
+
+      const fill = new THREE.Mesh(this.getGeometry('cell-plane'), this.getMaterial('cell-fill'));
+      fill.position.set(world.x, world.y + 0.0005, world.z);
+      fill.rotation.x = -Math.PI / 2;
+      this.hoverCellGroup.add(fill);
+    } catch {}
+  }
+
+  private clearHoveredCell(): void {
+    this.clearGroup(this.hoverCellGroup);
+  }
+
+  /** Highlight the grid cells used for the latest placement (debug helper) */
+  private renderPlacementDebug(grid: Grid, cells: GridPosition[]): void {
+    this.clearGroup(this.placementDebugGroup);
+    if (!cells.length) return;
+
+    try {
+      const seen = new Set<string>();
+
+      for (const cell of cells) {
+        const key = `${cell.x}:${cell.y}:${cell.z}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+
+        const world = grid.gridToWorld(cell);
+
+        const outline = new THREE.Mesh(this.getGeometry('cell-plane'), this.getMaterial('placement-outline'));
+        outline.position.set(world.x, world.y + 0.0008, world.z);
+        outline.rotation.x = -Math.PI / 2;
+        this.placementDebugGroup.add(outline);
+
+        const fill = new THREE.Mesh(this.getGeometry('cell-plane'), this.getMaterial('placement-fill'));
+        fill.position.set(world.x, world.y + 0.0003, world.z);
+        fill.rotation.x = -Math.PI / 2;
+        this.placementDebugGroup.add(fill);
+      }
+    } catch {}
+  }
+
+  private clearPlacementDebug(): void {
+    this.clearGroup(this.placementDebugGroup);
   }
 
   /**
@@ -216,7 +293,7 @@ export class RenderingEngine {
       this.renderBoxPontoon(pontoon, worldPos);
     }
   }
-  
+
   /**
    * Render pontoon using simple box geometry
    */
@@ -225,7 +302,8 @@ export class RenderingEngine {
     const material = this.getMaterial(`pontoon-${pontoon.color}`);
     
     const mesh = new THREE.Mesh(geometry, material);
-    mesh.position.set(worldPos.x, worldPos.y, worldPos.z);
+    const positioned = this.applyFootprintOffsetByType(pontoon.type, pontoon.rotation, worldPos);
+    mesh.position.set(positioned.x, positioned.y, positioned.z);
     mesh.userData = { pontoonId: pontoon.id, pontoon };
     
     // Apply rotation if needed
@@ -243,16 +321,55 @@ export class RenderingEngine {
     try {
       // Load 3D model (cached)
       const modelInfo = await this.load3DModel(pontoon.type);
+
+      // Sanity: if a SINGLE is requested but the loaded model looks DOUBLE, fallback to box
+      if (pontoon.type === PontoonType.SINGLE && modelInfo.inferredType === 'double') {
+        console.warn('3D model appears to be DOUBLE while SINGLE requested. Falling back to box.', modelInfo);
+        this.renderBoxPontoon(pontoon, worldPos);
+        return;
+      }
       
       // Clone the model for this instance
       const pontoonMesh = modelLoader.cloneModel(modelInfo);
       
       // Calculate scale factor for proper size
-      const scaleTarget = pontoon.type === PontoonType.DOUBLE ? 1000 : 500; // millimeters
-      const scaleFactor = modelLoader.calculateScaleFactor(modelInfo, scaleTarget);
+      // For pontoons, use HEIGHT (400mm) as the reliable scaling reference.
+      // Width/depth often include connector overhangs, but height is the
+      // exact body dimension in the real world.
+      const scaleFactor = modelLoader.calculateScaleFactorByHeight(modelInfo, 400);
       
       // Apply positioning and scaling
-      modelLoader.prepareModelForGrid(pontoonMesh, worldPos, scaleFactor);
+      const positioned = this.applyFootprintOffsetByType(pontoon.type, pontoon.rotation, worldPos);
+      modelLoader.prepareModelForGrid(pontoonMesh, positioned, modelInfo, scaleFactor);
+
+      // Optional: compute and log overhang for debugging/validation.
+      try {
+        const targetWidthMM = pontoon.type === PontoonType.DOUBLE ? 1000 : 500;
+        const targetDepthMM = 500;
+        modelLoader.computeOverhang(modelInfo, { targetWidthMM, targetDepthMM, scaleFactor });
+      } catch {}
+      
+      // Apply color/material to match pontoon color
+      const colorHex = getPontoonColorConfig(pontoon.color).hex;
+      pontoonMesh.traverse((obj: any) => {
+        if (obj && obj.isMesh) {
+          const mesh = obj as THREE.Mesh;
+          const current = mesh.material as any;
+          if (Array.isArray(current)) {
+            mesh.material = current.map((m) => {
+              const mat = new THREE.MeshStandardMaterial({ color: colorHex });
+              mat.metalness = 0.0;
+              mat.roughness = 0.9;
+              return mat;
+            });
+          } else {
+            const mat = new THREE.MeshStandardMaterial({ color: colorHex });
+            mat.metalness = 0.0;
+            mat.roughness = 0.9;
+            mesh.material = mat;
+          }
+        }
+      });
       
       // Set user data
       pontoonMesh.userData = { pontoonId: pontoon.id, pontoon };
@@ -269,6 +386,49 @@ export class RenderingEngine {
       // Fallback to box rendering
       this.renderBoxPontoon(pontoon, worldPos);
     }
+  }
+
+  /**
+   * Calculate the correct world position for a pontoon, applying an offset so that
+   * multi-cell pontoons (e.g., DOUBLE) are centered over their full footprint
+   * starting from the anchor grid cell (top-left min corner in domain terms).
+   */
+  private getWorldPositionWithOffset(pontoon: Pontoon, baseWorldPos: THREE.Vector3): THREE.Vector3 {
+    return this.applyFootprintOffsetByType(pontoon.type, pontoon.rotation, baseWorldPos);
+  }
+
+  /**
+   * Apply the same footprint-centering offset used for placed pontoons,
+   * but parameterized by type/rotation so previews can match exactly.
+   */
+  private applyFootprintOffsetByType(
+    type: PontoonType,
+    rotation: Rotation,
+    baseWorldPos: THREE.Vector3
+  ): THREE.Vector3 {
+    // Base world position corresponds to the center of the anchor grid cell
+    const pos = new THREE.Vector3(baseWorldPos.x, baseWorldPos.y, baseWorldPos.z);
+
+    // Determine effective footprint in grid cells considering rotation
+    const config = getPontoonTypeConfig(type);
+    let sizeX = config.gridSize.x;
+    let sizeZ = config.gridSize.z;
+    if (rotation === Rotation.EAST || rotation === Rotation.WEST) {
+      const tmp = sizeX;
+      sizeX = sizeZ;
+      sizeZ = tmp;
+    }
+
+    // Cell size in meters
+    const cellSizeM = CoordinateCalculator.CONSTANTS.CELL_SIZE_MM / 1000;
+
+    // Offset from the anchor cell center to the footprint center
+    const offsetX = ((sizeX - 1) / 2) * cellSizeM;
+    const offsetZ = ((sizeZ - 1) / 2) * cellSizeM;
+
+    pos.x += offsetX;
+    pos.z += offsetZ;
+    return pos;
   }
   
   /**
@@ -320,17 +480,26 @@ export class RenderingEngine {
   private renderPreview(previewData: PreviewData): void {
     this.clearGroup(this.previewGroup);
     
-    const worldPos = this.calculator.gridToWorld(
-      previewData.position,
-      { width: 50, height: 50, levels: 3 } // Default dimensions
-    );
+    const dims = this.currentGrid?.dimensions ?? { width: 50, height: 50, levels: 3 } as any;
+    const worldPos = this.calculator.gridToWorld(previewData.position, dims);
     
     const geometry = this.getGeometry(previewData.type);
     const materialKey = previewData.isValid ? 'preview-valid' : 'preview-invalid';
     const material = this.getMaterial(materialKey);
     
     const mesh = new THREE.Mesh(geometry, material);
-    mesh.position.set(worldPos.x, worldPos.y, worldPos.z);
+    const rotation = previewData.rotation ?? Rotation.NORTH;
+    // Apply the same footprint offset as real placement so preview aligns perfectly
+    const positioned = this.applyFootprintOffsetByType(
+      previewData.type,
+      rotation,
+      new THREE.Vector3(worldPos.x, worldPos.y, worldPos.z)
+    );
+    mesh.position.set(positioned.x, positioned.y, positioned.z);
+    // Apply preview rotation to match placement orientation
+    if (rotation !== 0) {
+      mesh.rotation.y = (rotation * Math.PI) / 180;
+    }
     
     this.previewGroup.add(mesh);
   }
@@ -462,6 +631,14 @@ export class RenderingEngine {
     this.previewGroup.name = 'preview';
     this.scene.add(this.previewGroup);
     
+    this.hoverCellGroup = new THREE.Group();
+    this.hoverCellGroup.name = 'hover-cell';
+    this.scene.add(this.hoverCellGroup);
+    
+    this.placementDebugGroup = new THREE.Group();
+    this.placementDebugGroup.name = 'placement-debug';
+    this.scene.add(this.placementDebugGroup);
+    
     this.selectionGroup = new THREE.Group();
     this.selectionGroup.name = 'selection';
     this.scene.add(this.selectionGroup);
@@ -532,6 +709,21 @@ export class RenderingEngine {
     this.materialCache.set('text', new THREE.MeshBasicMaterial({
       color: 0xffffff
     }));
+    
+    // Hovered cell debug materials
+    this.materialCache.set('cell-outline', new THREE.MeshBasicMaterial({
+      color: 0x4a90ff,
+      wireframe: true
+    }));
+    this.materialCache.set('cell-fill', new THREE.MeshBasicMaterial({
+      color: 0x4a90ff,
+      transparent: true,
+      opacity: 0.12
+    }));
+
+    // Placement debug materials (used to visualize latest drop location)
+    this.materialCache.set('placement-outline', new THREE.MeshBasicMaterial({ color: 0xff3366, wireframe: true }));
+    this.materialCache.set('placement-fill', new THREE.MeshBasicMaterial({ color: 0xff3366, transparent: true, opacity: 0.18 }));
   }
 
   /**
@@ -552,6 +744,12 @@ export class RenderingEngine {
     
     // Level indicator (small box)
     this.geometryCache.set('level-indicator', new THREE.BoxGeometry(0.2, 0.1, 0.2));
+    
+    // Plane representing a single grid cell (XZ plane)
+    this.geometryCache.set('cell-plane', new THREE.PlaneGeometry(
+      CoordinateCalculator.CONSTANTS.CELL_SIZE_MM / 1000,
+      CoordinateCalculator.CONSTANTS.CELL_SIZE_MM / 1000
+    ));
   }
 
   /**
@@ -685,6 +883,8 @@ export class RenderingEngine {
     this.clearGroup(this.pontoonGroup);
     this.clearGroup(this.gridGroup);
     this.clearGroup(this.previewGroup);
+    this.clearGroup(this.hoverCellGroup);
+    this.clearGroup(this.placementDebugGroup);
     this.clearGroup(this.selectionGroup);
     this.clearGroup(this.supportGroup);
     
