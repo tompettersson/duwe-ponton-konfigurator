@@ -146,7 +146,8 @@ export const PONTOON_TYPE_CONFIGS: Record<PontoonType, PontoonTypeConfig> = {
  */
 export const PONTOON_COLOR_CONFIGS: Record<PontoonColor, { hex: string; name: string }> = {
   [PontoonColor.BLUE]: { hex: '#6183c2', name: 'Blue' },
-  [PontoonColor.BLACK]: { hex: '#111111', name: 'Black' },
+  // Adjusted from #111111 to #333333 to reduce darkness
+  [PontoonColor.BLACK]: { hex: '#333333', name: 'Black' },
   [PontoonColor.GREY]: { hex: '#e3e4e5', name: 'Grey' },
   [PontoonColor.YELLOW]: { hex: '#f7e295', name: 'Yellow' }
 };

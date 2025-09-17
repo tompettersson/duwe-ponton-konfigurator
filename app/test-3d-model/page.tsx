@@ -14,16 +14,21 @@ function ModelViewer() {
     async function loadModel() {
       try {
         const modelInfo = await modelLoader.loadDoublePontoon();
-        const scaleFactor = modelLoader.calculateScaleFactor(modelInfo, 1000);
+        const scaleFactor = modelLoader.calculateScaleFactorByHeight(modelInfo, 400);
         
         const instance = modelLoader.cloneModel(modelInfo);
         instance.scale.setScalar(scaleFactor);
         
+        // Compute and show overhang for validation
+        const over = modelLoader.computeOverhang(modelInfo, { targetWidthMM: 1000, targetDepthMM: 500, scaleFactor });
+
         setModel(instance);
         setInfo(`
-          Dimensions: ${modelInfo.dimensions.x.toFixed(0)}mm x ${modelInfo.dimensions.y.toFixed(0)}mm x ${modelInfo.dimensions.z.toFixed(0)}mm
-          Scale Factor: ${scaleFactor.toFixed(3)}
-          Target Width: 1000mm (2 grid cells)
+          Raw (unitless): ${modelInfo.dimensions.x.toFixed(0)} x ${modelInfo.dimensions.y.toFixed(0)} x ${modelInfo.dimensions.z.toFixed(0)}
+          Scale: ${scaleFactor.toFixed(6)} (by height 400mm)
+          Scaled (mm): ${over.scaled.widthMM.toFixed(1)} x ${over.scaled.heightMM.toFixed(1)} x ${over.scaled.depthMM.toFixed(1)}
+          Target footprint: 1000mm x 500mm
+          Overhang per side: X=${over.overhangXPerSideMM.toFixed(1)}mm, Z=${over.overhangZPerSideMM.toFixed(1)}mm
         `);
       } catch (error) {
         setInfo(`Error: ${error}`);

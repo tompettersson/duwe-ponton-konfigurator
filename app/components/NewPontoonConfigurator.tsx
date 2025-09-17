@@ -24,6 +24,7 @@ import {
   getPontoonColorConfig,
   GridDimensions
 } from '../lib/domain';
+import { CoordinateCalculator } from '../lib/domain';
 import { 
   InteractionController,
   RenderingEngine,
@@ -34,6 +35,7 @@ import {
   type RenderingOptions,
   type PreviewData,
   type SelectionData,
+  type PlacementDebugData,
   type ToolContext,
   type ModelInfo
 } from '../lib/ui';
@@ -79,6 +81,39 @@ interface ConfiguratorUIState {
   // Move state for move tool
   moveState: 'none' | 'selecting' | 'moving';
   movingPontoonId: string | null;
+  // Placement debug helpers
+  lastPlacementCells: GridPosition[];
+  lastPlacementTimestamp: number | null;
+}
+
+function getNewPlacementCells(
+  previous: Grid,
+  next: Grid,
+  fallback: GridPosition[] = []
+): GridPosition[] {
+  const seen = new Set<string>();
+  const cells: GridPosition[] = [];
+
+  for (const [id, pontoon] of next.pontoons.entries()) {
+    if (previous.pontoons.has(id)) continue;
+    for (const cell of pontoon.getOccupiedPositions()) {
+      const key = `${cell.x}:${cell.y}:${cell.z}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      cells.push(cell);
+    }
+  }
+
+  if (cells.length === 0) {
+    for (const cell of fallback) {
+      const key = `${cell.x}:${cell.y}:${cell.z}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      cells.push(cell);
+    }
+  }
+
+  return cells;
 }
 
 // Component props
@@ -330,73 +365,19 @@ function screenToGridPosition(
   currentLevel: number = 0
 ): GridPosition | null {
   try {
-    // Get canvas element and its dimensions
     const canvas = document.querySelector('canvas');
-    if (!canvas) {
-      console.error('🎯 Canvas element not found');
-      return null;
-    }
-    
+    if (!canvas) return null;
     const rect = canvas.getBoundingClientRect();
-    
-    // Convert to normalized device coordinates [-1, 1]
-    const mouse = new THREE.Vector2();
-    mouse.x = ((screenPos.x / rect.width) * 2) - 1;
-    mouse.y = -((screenPos.y / rect.height) * 2) + 1;
-    
-    // Create raycaster
-    const raycaster = new THREE.Raycaster();
-    raycaster.setFromCamera(mouse, camera);
-    
-    // Calculate intersection with horizontal plane at current level manually
-    // Ray equation: origin + direction * t
-    // Plane equation: y = levelY
-    const levelY = currentLevel * 0.4; // 0.4m height per level
-    
-    const ray = raycaster.ray;
-    const rayOrigin = ray.origin;
-    const rayDirection = ray.direction;
-    
-    // Find t where ray.y = levelY
-    // rayOrigin.y + rayDirection.y * t = levelY
-    // t = (levelY - rayOrigin.y) / rayDirection.y
-    
-    if (Math.abs(rayDirection.y) < 0.0001) {
-      // Ray is parallel to plane
-      console.log('🎯 Ray is parallel to grid plane');
-      return null;
-    }
-    
-    const t = (levelY - rayOrigin.y) / rayDirection.y;
-    
-    if (t < 0) {
-      // Intersection is behind the camera
-      console.log('🎯 Intersection behind camera');
-      return null;
-    }
-    
-    // Calculate intersection point
-    const worldPos = new THREE.Vector3();
-    worldPos.copy(rayOrigin).add(rayDirection.clone().multiplyScalar(t));
-    
-    // Convert world coordinates to grid coordinates
-    // Grid is centered at world origin, with 0.5m spacing
-    // World range: [-gridWidth/2 * 0.5, +gridWidth/2 * 0.5] 
-    // Grid range: [0, gridWidth-1]
-    const gridX = Math.round(worldPos.x / 0.5 + (gridDimensions.width - 1) / 2);
-    const gridZ = Math.round(worldPos.z / 0.5 + (gridDimensions.height - 1) / 2);
-    
-    // Validate bounds
-    if (gridX >= 0 && gridX < gridDimensions.width && 
-        gridZ >= 0 && gridZ < gridDimensions.height) {
-      
-      console.log(`🎯 Screen (${screenPos.x}, ${screenPos.y}) → World (${worldPos.x.toFixed(2)}, ${worldPos.z.toFixed(2)}) → Grid (${gridX}, ${currentLevel}, ${gridZ})`);
-      return new GridPosition(gridX, currentLevel, gridZ);
-    } else {
-      console.log(`🎯 Grid position out of bounds: (${gridX}, ${gridZ}) for grid size ${gridDimensions.width}x${gridDimensions.height}`);
-    }
-    
-    return null;
+
+    const calculator = new CoordinateCalculator();
+    const gridPos = calculator.screenToGrid(
+      { x: screenPos.x, y: screenPos.y },
+      camera,
+      { width: rect.width, height: rect.height },
+      gridDimensions,
+      currentLevel
+    );
+    return gridPos;
   } catch (error) {
     console.error('🎯 Screen to grid conversion failed:', error);
     return null;
@@ -431,27 +412,30 @@ export function NewPontoonConfigurator({
     }
     
     return {
-    grid: initialGrid,
-    currentLevel: 0,
-    currentTool: ToolType.PLACE,
-    currentPontoonType: PontoonType.SINGLE,
-    currentPontoonColor: PontoonColor.BLUE,
-    currentRotation: Rotation.NORTH,
-    hoveredCell: null,
-    selectedPontoonIds: new Set(),
-    isGridVisible: true,
-    viewMode: '2d', // Start with 2D view as default
-    showPreview: true,
-    showSelection: true,
-    showSupport: false,
-    // Initialize drag state
-    isDragging: false,
-    dragStart: null,
-    dragEnd: null,
-    dragPreviewPositions: [],
-    // Initialize move state
-    moveState: 'none',
-    movingPontoonId: null
+      grid: initialGrid,
+      currentLevel: 0,
+      currentTool: ToolType.PLACE,
+      currentPontoonType: PontoonType.SINGLE,
+      currentPontoonColor: PontoonColor.BLUE,
+      currentRotation: Rotation.NORTH,
+      hoveredCell: null,
+      selectedPontoonIds: new Set(),
+      isGridVisible: true,
+      viewMode: '2d', // Start with 2D view as default
+      showPreview: true,
+      showSelection: true,
+      showSupport: false,
+      // Initialize drag state
+      isDragging: false,
+      dragStart: null,
+      dragEnd: null,
+      dragPreviewPositions: [],
+      // Initialize move state
+      moveState: 'none',
+      movingPontoonId: null,
+      // Placement debug
+      lastPlacementCells: [],
+      lastPlacementTimestamp: null
     };
   });
 
@@ -478,7 +462,16 @@ export function NewPontoonConfigurator({
   // Interaction callbacks
   const interactionCallbacks: InteractionCallbacks = useMemo(() => ({
     onGridUpdate: (newGrid: Grid) => {
-      setUIState(prev => ({ ...prev, grid: newGrid }));
+      setUIState(prev => {
+        const placementCells = getNewPlacementCells(prev.grid, newGrid);
+        const hasNewPlacement = placementCells.length > 0;
+        return {
+          ...prev,
+          grid: newGrid,
+          lastPlacementCells: hasNewPlacement ? placementCells : prev.lastPlacementCells,
+          lastPlacementTimestamp: hasNewPlacement ? Date.now() : prev.lastPlacementTimestamp
+        };
+      });
       onGridChange?.(newGrid);
       console.log('✅ Grid updated:', newGrid.getPontoonCount(), 'pontoons');
     },
@@ -831,7 +824,13 @@ export function NewPontoonConfigurator({
                   });
                   
                   if (result.success && result.grid) {
-                    setUIState(prev => ({ ...prev, grid: result.grid }));
+                    const placementCells = getNewPlacementCells(uiState.grid, result.grid, filteredPositions);
+                    setUIState(prev => ({
+                      ...prev,
+                      grid: result.grid,
+                      lastPlacementCells: placementCells,
+                      lastPlacementTimestamp: Date.now()
+                    }));
                     setLastClickResult(`Multi-drop: ${result.successCount} pontoons placed`);
                   } else {
                     setLastClickResult(`Multi-drop failed: ${result.errors.join(', ')}`);
@@ -873,7 +872,13 @@ export function NewPontoonConfigurator({
                 );
                 
                 console.log('🎯 Placement successful! New grid:', newGrid);
-                setUIState(prev => ({ ...prev, grid: newGrid }));
+                const placementCells = getNewPlacementCells(uiState.grid, newGrid, [gridPosition]);
+                setUIState(prev => ({
+                  ...prev,
+                  grid: newGrid,
+                  lastPlacementCells: placementCells,
+                  lastPlacementTimestamp: Date.now()
+                }));
                 setLastClickResult('SUCCESS');
                 
               } else if (uiState.currentTool === ToolType.DELETE) {
@@ -933,6 +938,25 @@ export function NewPontoonConfigurator({
                 console.log('🎯 Multi-drop single placement successful! New grid:', newGrid);
                 setUIState(prev => ({ ...prev, grid: newGrid }));
                 setLastClickResult('SUCCESS: Single pontoon placed (drag for multi-drop)');
+                
+              } else if (uiState.currentTool === ToolType.PAINT) {
+                // Paint tool: change color of pontoon at position
+                const pontoon = uiState.grid.getPontoonAt(gridPosition);
+                if (!pontoon) {
+                  setLastClickResult('FAILED: No pontoon to paint at this position');
+                } else if (pontoon.color === uiState.currentPontoonColor) {
+                  setLastClickResult('NO-OP: Pontoon already has selected color');
+                } else {
+                  try {
+                    const newGrid = uiState.grid.updatePontoonColor(pontoon.id, uiState.currentPontoonColor);
+                    setUIState(prev => ({ ...prev, grid: newGrid }));
+                    setLastClickResult(`SUCCESS: Painted ${pontoon.id} → ${uiState.currentPontoonColor}`);
+                    console.log('🎨 Paint tool: Updated color for pontoon:', pontoon.id, 'to', uiState.currentPontoonColor);
+                  } catch (error) {
+                    setLastClickResult(`FAILED: Paint failed - ${error.message}`);
+                    console.error('🎨 Paint tool: Paint failed:', error);
+                  }
+                }
                 
               } else if (uiState.currentTool === ToolType.MOVE) {
                 // Move tool: Two-click pattern - select then move
@@ -1018,7 +1042,7 @@ export function NewPontoonConfigurator({
             const emptyGrid = Grid.createEmpty(uiState.grid.dimensions.width, uiState.grid.dimensions.height, uiState.grid.dimensions.levels);
             setUIState(prev => ({ ...prev, grid: emptyGrid }));
           }}
-          onToggle3DModels={renderingEngineRef.current ? handleToggle3DModels : undefined}
+          onToggle3DModels={handleToggle3DModels}
           is3DModelsEnabled={is3DModelsEnabled}
         />
       </div>
@@ -1294,19 +1318,26 @@ function SceneContent({
         position: uiState.hoveredCell,
         type: uiState.currentPontoonType,
         color: uiState.currentPontoonColor,
-        isValid: uiState.grid.canPlacePontoon(uiState.hoveredCell, uiState.currentPontoonType)
+        isValid: uiState.grid.canPlacePontoon(uiState.hoveredCell, uiState.currentPontoonType),
+        rotation: uiState.currentRotation
       } : undefined;
 
       const selectionData: SelectionData = {
         pontoonIds: uiState.selectedPontoonIds
       };
 
+      const placementDebugData: PlacementDebugData | undefined = uiState.lastPlacementCells.length > 0 ? {
+        cells: uiState.lastPlacementCells
+      } : undefined;
+
       // Render frame
       renderingEngineRef.current.render(
         uiState.grid,
         uiState.currentLevel,
         previewData,
-        selectionData
+        selectionData,
+        undefined,
+        placementDebugData
       );
     } catch (error) {
       console.error('🎨 Render frame failed, disabling RenderingEngine:', error);

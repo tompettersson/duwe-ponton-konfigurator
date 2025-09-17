@@ -34,7 +34,8 @@ export type {
   RenderingOptions,
   PreviewData,
   SelectionData,
-  SupportData
+  SupportData,
+  PlacementDebugData
 } from './RenderingEngine';
 
 export type {
