@@ -19,6 +19,17 @@ import {
 } from '../domain';
 import { modelLoader, type ModelInfo } from './ModelLoader';
 
+const CONNECTOR_TARGET_HEIGHT_MM = CoordinateCalculator.CONSTANTS.PONTOON_HEIGHT_MM + 40; // slight extra for top cap
+const CONNECTOR_VERTICAL_OFFSET = 0.0005; // lift above deck to avoid z-fighting
+
+type ConnectorVariant = 'standard' | 'long';
+
+interface ConnectorPlacement {
+  key: string;
+  level: number;
+  worldPosition: THREE.Vector3;
+}
+
 export interface RenderingOptions {
   showGrid: boolean;
   showPreview: boolean;
@@ -59,6 +70,7 @@ export class RenderingEngine {
   
   // Object groups for efficient management
   private pontoonGroup: THREE.Group;
+  private connectorGroup: THREE.Group;
   private gridGroup: THREE.Group;
   private previewGroup: THREE.Group;
   private hoverCellGroup: THREE.Group;
@@ -73,6 +85,7 @@ export class RenderingEngine {
   // 3D Model cache
   private modelCache = new Map<string, ModelInfo>();
   private modelLoadPromises = new Map<string, Promise<ModelInfo>>();
+  private connectorScaleCache = new Map<ConnectorVariant, number>();
   
   // Rendering state
   private currentGrid: Grid | null = null;
@@ -129,6 +142,7 @@ export class RenderingEngine {
     if (this.currentGrid !== grid) {
       this.renderGrid(grid, currentLevel);
       await this.renderPontoons(grid);
+      await this.renderConnectors(grid);
       this.currentGrid = grid;
     }
     // Update placement debug overlay each frame
@@ -280,6 +294,41 @@ export class RenderingEngine {
   }
 
   /**
+   * Render automatically generated connectors between adjacent pontoons
+   */
+  private async renderConnectors(grid: Grid): Promise<void> {
+    this.clearGroup(this.connectorGroup);
+
+    const placements = this.computeConnectorPlacements(grid);
+    if (placements.length === 0) {
+      return;
+    }
+
+    try {
+      const variant: ConnectorVariant = 'standard';
+      const modelInfo = await this.loadConnectorModel(variant);
+      const scaleFactor = this.getConnectorScaleFactor(modelInfo, variant);
+
+      for (const placement of placements) {
+        const mesh = modelLoader.cloneModel(modelInfo);
+        const position = placement.worldPosition.clone();
+        position.y += CONNECTOR_VERTICAL_OFFSET;
+
+        modelLoader.prepareModelForGrid(mesh, position, modelInfo, scaleFactor);
+        mesh.userData = {
+          connectorKey: placement.key,
+          level: placement.level,
+          variant
+        };
+
+        this.connectorGroup.add(mesh);
+      }
+    } catch (error) {
+      console.warn('RenderingEngine: Failed to render connectors – skipping this frame.', error);
+    }
+  }
+
+  /**
    * Render single pontoon
    */
   private async renderPontoon(pontoon: Pontoon, grid: Grid): Promise<void> {
@@ -395,6 +444,90 @@ export class RenderingEngine {
    */
   private getWorldPositionWithOffset(pontoon: Pontoon, baseWorldPos: THREE.Vector3): THREE.Vector3 {
     return this.applyFootprintOffsetByType(pontoon.type, pontoon.rotation, baseWorldPos);
+  }
+
+  private getConnectorScaleFactor(modelInfo: ModelInfo, variant: ConnectorVariant): number {
+    if (this.connectorScaleCache.has(variant)) {
+      return this.connectorScaleCache.get(variant)!;
+    }
+
+    const scale = modelLoader.calculateScaleFactorByHeight(modelInfo, CONNECTOR_TARGET_HEIGHT_MM);
+    this.connectorScaleCache.set(variant, scale);
+    return scale;
+  }
+
+  private computeConnectorPlacements(grid: Grid): ConnectorPlacement[] {
+    if (grid.pontoons.size === 0) {
+      return [];
+    }
+
+    const occupancy = new Map<string, { pontoonId: string; position: GridPosition }>();
+
+    for (const pontoon of grid.pontoons.values()) {
+      for (const cell of pontoon.getOccupiedPositions()) {
+        occupancy.set(cell.toString(), { pontoonId: pontoon.id, position: cell });
+      }
+    }
+
+    const connectorMap = new Map<string, ConnectorPlacement>();
+    const neighborDirections = [
+      { dx: 1, dz: 0 }, // East neighbor (horizontal adjacency)
+      { dx: 0, dz: 1 }  // South neighbor (vertical adjacency)
+    ];
+
+    for (const { pontoonId, position } of occupancy.values()) {
+      const { x, y, z } = position;
+
+      for (const { dx, dz } of neighborDirections) {
+        const neighborKey = `${x + dx},${y},${z + dz}`;
+        const neighbor = occupancy.get(neighborKey);
+
+        if (!neighbor || neighbor.pontoonId === pontoonId) {
+          continue; // No adjacent pontoon or same physical pontoon (double pontoon)
+        }
+
+        const intersections = dx === 1
+          ? [ { x: x + 1, z: z }, { x: x + 1, z: z + 1 } ]
+          : [ { x: x, z: z + 1 }, { x: x + 1, z: z + 1 } ];
+
+        for (const intersection of intersections) {
+          const key = `${y}:${intersection.x}:${intersection.z}`;
+          if (connectorMap.has(key)) continue;
+
+          const world = this.calculator.gridIntersectionToWorld(intersection, y, grid.dimensions);
+          connectorMap.set(key, {
+            key,
+            level: y,
+            worldPosition: new THREE.Vector3(world.x, world.y, world.z)
+          });
+        }
+      }
+    }
+
+    return Array.from(connectorMap.values());
+  }
+
+  private async loadConnectorModel(variant: ConnectorVariant): Promise<ModelInfo> {
+    const cacheKey = `connector-${variant}`;
+
+    if (this.modelCache.has(cacheKey)) {
+      return this.modelCache.get(cacheKey)!;
+    }
+
+    if (this.modelLoadPromises.has(cacheKey)) {
+      return this.modelLoadPromises.get(cacheKey)!;
+    }
+
+    const loadPromise = modelLoader.loadConnector(variant);
+    this.modelLoadPromises.set(cacheKey, loadPromise);
+
+    try {
+      const modelInfo = await loadPromise;
+      this.modelCache.set(cacheKey, modelInfo);
+      return modelInfo;
+    } finally {
+      this.modelLoadPromises.delete(cacheKey);
+    }
   }
 
   /**
@@ -622,6 +755,10 @@ export class RenderingEngine {
     this.pontoonGroup = new THREE.Group();
     this.pontoonGroup.name = 'pontoons';
     this.scene.add(this.pontoonGroup);
+
+    this.connectorGroup = new THREE.Group();
+    this.connectorGroup.name = 'connectors';
+    this.scene.add(this.connectorGroup);
     
     this.gridGroup = new THREE.Group();
     this.gridGroup.name = 'grid';
@@ -837,6 +974,7 @@ export class RenderingEngine {
     if (grid) {
       this.currentGrid = null; // Force refresh
       await this.renderPontoons(grid);
+      await this.renderConnectors(grid);
     }
     
     console.log(`🎨 RenderingEngine: Switched to ${use3D ? '3D models' : 'simple boxes'}`);
@@ -881,6 +1019,7 @@ export class RenderingEngine {
   dispose(): void {
     // Clear all groups
     this.clearGroup(this.pontoonGroup);
+    this.clearGroup(this.connectorGroup);
     this.clearGroup(this.gridGroup);
     this.clearGroup(this.previewGroup);
     this.clearGroup(this.hoverCellGroup);

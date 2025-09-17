@@ -110,6 +110,29 @@ export class CoordinateCalculator {
   }
 
   /**
+   * Convert grid intersection (cell corner) to world position.
+   * Intersections are expressed in cell coordinates [0..width] / [0..height].
+   */
+  gridIntersectionToWorld(
+    intersection: { x: number; z: number },
+    level: number,
+    gridDimensions: GridDimensions
+  ): WorldPosition {
+    const halfGridWidthMM = (gridDimensions.width * this.CELL_SIZE_MM) / 2;
+    const halfGridHeightMM = (gridDimensions.height * this.CELL_SIZE_MM) / 2;
+
+    const xMM = intersection.x * this.CELL_SIZE_MM - halfGridWidthMM;
+    const zMM = intersection.z * this.CELL_SIZE_MM - halfGridHeightMM;
+    const yMeters = this.getLevelPhysicalY(level) / this.PRECISION_FACTOR;
+
+    return {
+      x: xMM / this.PRECISION_FACTOR,
+      y: yMeters,
+      z: zMM / this.PRECISION_FACTOR
+    };
+  }
+
+  /**
    * Convert world position to grid position
    * SINGLE implementation - eliminates dual Y-coordinate systems
    */

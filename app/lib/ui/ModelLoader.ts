@@ -30,26 +30,31 @@ export class ModelLoader {
    * (expected to be ~400mm after scaling) and rotate the group so that this
    * axis maps to Y. Then re-center the model.
    */
-  private alignYUpAndCenter(model: THREE.Group): { dimensions: THREE.Vector3; center: THREE.Vector3 } {
+  private alignYUpAndCenter(
+    model: THREE.Group,
+    options: { axisPreference?: 'smallest' | 'largest' } = {}
+  ): { dimensions: THREE.Vector3; center: THREE.Vector3 } {
+    const { axisPreference = 'smallest' } = options;
     // Compute initial bounds
     let box = new THREE.Box3().setFromObject(model);
     let size = box.getSize(new THREE.Vector3());
     
-    // Identify smallest axis (pontoon height ~ 400mm, width/depth >= 500mm)
+    // Identify axis based on preference (pontoons rely on smallest axis ≈ height,
+    // connectors on largest axis because they are tall and slender).
     const axes: Array<{ key: 'x'|'y'|'z'; value: number }> = [
       { key: 'x', value: size.x },
       { key: 'y', value: size.y },
       { key: 'z', value: size.z }
     ];
     axes.sort((a,b) => a.value - b.value);
-    const smallest = axes[0].key;
+    const targetAxis = axisPreference === 'largest' ? axes[axes.length - 1].key : axes[0].key;
 
-    // Rotate so that the smallest axis becomes Y
-    // - If smallest is X: rotate +90° around Z → X maps to Y
-    // - If smallest is Z: rotate -90° around X → Z maps to Y
-    if (smallest === 'x') {
+    // Rotate so that the target axis becomes Y
+    // - If axis is X: rotate +90° around Z → X maps to Y
+    // - If axis is Z: rotate -90° around X → Z maps to Y
+    if (targetAxis === 'x') {
       model.rotateZ(Math.PI / 2);
-    } else if (smallest === 'z') {
+    } else if (targetAxis === 'z') {
       model.rotateX(-Math.PI / 2);
     }
 
@@ -144,6 +149,55 @@ export class ModelLoader {
       return info;
     } catch (error) {
       console.error('Failed to load single pontoon model:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Load connector models (standard / long variants)
+   */
+  async loadConnector(variant: 'standard' | 'long' = 'standard'): Promise<ModelInfo> {
+    const cacheKey = variant === 'standard' ? 'connector-standard' : 'connector-long';
+    if (this.modelCache.has(cacheKey)) {
+      return this.modelCache.get(cacheKey)!;
+    }
+
+    const objPath = variant === 'standard' ? '/3d/fc/Verbinder.obj' : '/3d/fc/Verbinderlang.obj';
+    const mtlPath = variant === 'standard' ? '/3d/fc/Verbinder.mtl' : '/3d/fc/Verbinderlang.mtl';
+
+    try {
+      let materials: any;
+      try {
+        const mtlLoader = new MTLLoader();
+        materials = await mtlLoader.loadAsync(mtlPath);
+        if ((materials as any)?.preload) {
+          (materials as any).preload();
+        }
+      } catch (mtlError) {
+        console.warn('Connector MTL load failed, continuing without materials:', mtlError);
+      }
+
+      const objLoader = new OBJLoader();
+      if (materials) {
+        objLoader.setMaterials(materials as any);
+      }
+
+      const model = await objLoader.loadAsync(objPath);
+      const { dimensions, center } = this.alignYUpAndCenter(model, { axisPreference: 'largest' });
+
+      const info: ModelInfo = {
+        model,
+        dimensions,
+        center,
+        originalScale: 1,
+        meshCount: this.countMeshes(model),
+        inferredType: 'unknown'
+      };
+
+      this.modelCache.set(cacheKey, info);
+      return info;
+    } catch (error) {
+      console.error('Failed to load connector model:', { variant, error });
       throw error;
     }
   }

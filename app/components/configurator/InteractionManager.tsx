@@ -130,16 +130,14 @@ export function InteractionManager() {
 
       // First, check for pontoon clicks
       raycaster.current.layers.set(LAYERS.PONTOONS);
-      const pontoonIntersects = raycaster.current.intersectObjects(scene.children);
+      const pontoonHit = raycaster.current
+        .intersectObjects(scene.children)
+        .find(hit => !!hit.object.userData?.pontoonId);
 
-      if (pontoonIntersects.length > 0) {
-        const object = pontoonIntersects[0].object;
-        const pontoonId = object.userData.pontoonId;
-
-        if (pontoonId) {
-          handlePontoonClick(pontoonId, event);
-          return;
-        }
+      if (pontoonHit) {
+        const pontoonId = pontoonHit.object.userData.pontoonId;
+        handlePontoonClick(pontoonId, event);
+        return;
       }
 
       // SINGLE SOURCE OF TRUTH: Always use hoveredCell for clicks to ensure consistency
