@@ -19,14 +19,19 @@ import {
 } from '../domain';
 import { modelLoader, type ModelInfo } from './ModelLoader';
 
-const CONNECTOR_TARGET_HEIGHT_MM = CoordinateCalculator.CONSTANTS.PONTOON_HEIGHT_MM + 40; // slight extra for top cap
-const CONNECTOR_VERTICAL_OFFSET = 0.0005; // lift above deck to avoid z-fighting
+const CONNECTOR_TARGET_HEIGHT_MM = 240; // Four stacked lugs (~60mm each) for a single-layer pin
+const CONNECTOR_HEAD_ABOVE_TOP_MM = 0; // Keep connector head flush with deck by default
+const EDGE_CONNECTOR_BOLT_HEIGHT_MM = 105;
+const EDGE_CONNECTOR_NUT_HEIGHT_MM = 30;
+const EDGE_SPACER_DOUBLE_HEIGHT_MM = 32;
+const EDGE_SPACER_SINGLE_HEIGHT_MM = 16;
 
 type ConnectorVariant = 'standard' | 'long';
 
 interface ConnectorPlacement {
   key: string;
   level: number;
+  lugCount: number;
   worldPosition: THREE.Vector3;
 }
 
@@ -85,7 +90,7 @@ export class RenderingEngine {
   // 3D Model cache
   private modelCache = new Map<string, ModelInfo>();
   private modelLoadPromises = new Map<string, Promise<ModelInfo>>();
-  private connectorScaleCache = new Map<ConnectorVariant, number>();
+  private connectorScaleCache = new Map<string, number>();
   
   // Rendering state
   private currentGrid: Grid | null = null;
@@ -304,27 +309,43 @@ export class RenderingEngine {
       return;
     }
 
-    try {
-      const variant: ConnectorVariant = 'standard';
-      const modelInfo = await this.loadConnectorModel(variant);
-      const scaleFactor = this.getConnectorScaleFactor(modelInfo, variant);
+    const interiorPlacements = placements.filter(p => p.lugCount >= 4);
+    const edgePlacements = placements.filter(p => p.lugCount === 2 || p.lugCount === 3);
 
-      for (const placement of placements) {
-        const mesh = modelLoader.cloneModel(modelInfo);
-        const position = placement.worldPosition.clone();
-        position.y += CONNECTOR_VERTICAL_OFFSET;
+    if (interiorPlacements.length) {
+      try {
+        const variant: ConnectorVariant = 'standard';
+        const modelInfo = await this.loadConnectorModel(variant);
+        const scaleFactor = this.getScaleFactorForHardware(`connector-${variant}`, modelInfo, CONNECTOR_TARGET_HEIGHT_MM);
+        const connectorHeightM = modelInfo.dimensions.y * scaleFactor;
 
-        modelLoader.prepareModelForGrid(mesh, position, modelInfo, scaleFactor);
-        mesh.userData = {
-          connectorKey: placement.key,
-          level: placement.level,
-          variant
-        };
+        for (const placement of interiorPlacements) {
+          const mesh = modelLoader.cloneModel(modelInfo);
+          const base = placement.worldPosition;
+          const centerY = this.getConnectorCenterY(placement.level, connectorHeightM);
+          const position = new THREE.Vector3(base.x, centerY, base.z);
 
-        this.connectorGroup.add(mesh);
+          modelLoader.prepareModelForGrid(mesh, position, modelInfo, scaleFactor);
+          mesh.userData = {
+            connectorKey: placement.key,
+            level: placement.level,
+            lugCount: placement.lugCount,
+            variant
+          };
+
+          this.connectorGroup.add(mesh);
+        }
+      } catch (error) {
+        console.warn('RenderingEngine: Failed to render standard connectors – skipping these placements.', error);
       }
-    } catch (error) {
-      console.warn('RenderingEngine: Failed to render connectors – skipping this frame.', error);
+    }
+
+    if (edgePlacements.length) {
+      try {
+        await this.renderEdgeConnectors(edgePlacements);
+      } catch (error) {
+        console.warn('RenderingEngine: Failed to render edge connectors – skipping these placements.', error);
+      }
     }
   }
 
@@ -446,14 +467,91 @@ export class RenderingEngine {
     return this.applyFootprintOffsetByType(pontoon.type, pontoon.rotation, baseWorldPos);
   }
 
-  private getConnectorScaleFactor(modelInfo: ModelInfo, variant: ConnectorVariant): number {
-    if (this.connectorScaleCache.has(variant)) {
-      return this.connectorScaleCache.get(variant)!;
+  private getScaleFactorForHardware(cacheKey: string, modelInfo: ModelInfo, targetHeightMM: number): number {
+    if (this.connectorScaleCache.has(cacheKey)) {
+      return this.connectorScaleCache.get(cacheKey)!;
     }
 
-    const scale = modelLoader.calculateScaleFactorByHeight(modelInfo, CONNECTOR_TARGET_HEIGHT_MM);
-    this.connectorScaleCache.set(variant, scale);
+    const scale = modelLoader.calculateScaleFactorByHeight(modelInfo, targetHeightMM);
+    this.connectorScaleCache.set(cacheKey, scale);
     return scale;
+  }
+
+  private async renderEdgeConnectors(placements: ConnectorPlacement[]): Promise<void> {
+    const [boltInfo, nutInfo, spacerDoubleInfo, spacerSingleInfo] = await Promise.all([
+      modelLoader.loadEdgeConnectorBolt(),
+      modelLoader.loadEdgeConnectorNut(),
+      modelLoader.loadEdgeSpacer('double'),
+      modelLoader.loadEdgeSpacer('single')
+    ]);
+
+    const boltScale = this.getScaleFactorForHardware('edge-bolt', boltInfo, EDGE_CONNECTOR_BOLT_HEIGHT_MM);
+    const nutScale = this.getScaleFactorForHardware('edge-nut', nutInfo, EDGE_CONNECTOR_NUT_HEIGHT_MM);
+    const spacerDoubleScale = this.getScaleFactorForHardware('edge-spacer-double', spacerDoubleInfo, EDGE_SPACER_DOUBLE_HEIGHT_MM);
+    const spacerSingleScale = this.getScaleFactorForHardware('edge-spacer-single', spacerSingleInfo, EDGE_SPACER_SINGLE_HEIGHT_MM);
+
+    const pontoonHeightM = CoordinateCalculator.CONSTANTS.PONTOON_HEIGHT_MM / CoordinateCalculator.CONSTANTS.PRECISION_FACTOR;
+    const deckOffsetM = pontoonHeightM / 2;
+
+    for (const placement of placements) {
+      const base = placement.worldPosition;
+      const deckTopM = placement.level * pontoonHeightM + deckOffsetM;
+
+      const boltHeightM = boltInfo.dimensions.y * boltScale;
+      const nutHeightM = nutInfo.dimensions.y * nutScale;
+
+      const useDoubleSpacer = placement.lugCount === 2;
+      const spacerInfo = useDoubleSpacer ? spacerDoubleInfo : spacerSingleInfo;
+      const spacerScale = useDoubleSpacer ? spacerDoubleScale : spacerSingleScale;
+      const spacerHeightM = spacerInfo.dimensions.y * spacerScale;
+
+      // Bolt (includes head) - top aligns with top of nut for visual clarity
+      const boltMesh = modelLoader.cloneModel(boltInfo);
+      const boltCenterY = deckTopM + spacerHeightM + nutHeightM - boltHeightM / 2;
+      modelLoader.prepareModelForGrid(boltMesh, new THREE.Vector3(base.x, boltCenterY, base.z), boltInfo, boltScale);
+      boltMesh.userData = {
+        connectorKey: placement.key,
+        level: placement.level,
+        lugCount: placement.lugCount,
+        variant: 'edge-bolt'
+      };
+      this.connectorGroup.add(boltMesh);
+
+      // Spacer (washer stack)
+      if (spacerHeightM > 0) {
+        const spacerMesh = modelLoader.cloneModel(spacerInfo);
+        const spacerCenterY = deckTopM + spacerHeightM / 2;
+        modelLoader.prepareModelForGrid(spacerMesh, new THREE.Vector3(base.x, spacerCenterY, base.z), spacerInfo, spacerScale);
+        spacerMesh.userData = {
+          connectorKey: placement.key,
+          level: placement.level,
+          lugCount: placement.lugCount,
+          variant: useDoubleSpacer ? 'edge-spacer-double' : 'edge-spacer-single'
+        };
+        this.connectorGroup.add(spacerMesh);
+      }
+
+      // Nut sits above spacer stack
+      const nutMesh = modelLoader.cloneModel(nutInfo);
+      const nutCenterY = deckTopM + spacerHeightM + nutHeightM / 2;
+      modelLoader.prepareModelForGrid(nutMesh, new THREE.Vector3(base.x, nutCenterY, base.z), nutInfo, nutScale);
+      nutMesh.userData = {
+        connectorKey: placement.key,
+        level: placement.level,
+        lugCount: placement.lugCount,
+        variant: 'edge-nut'
+      };
+      this.connectorGroup.add(nutMesh);
+    }
+  }
+
+  private getConnectorCenterY(level: number, connectorHeightM: number): number {
+    const pontoonHeightM = CoordinateCalculator.CONSTANTS.PONTOON_HEIGHT_MM / CoordinateCalculator.CONSTANTS.PRECISION_FACTOR;
+    // CoordinateCalculator reports level positions at pontoon centerlines, so the deck
+    // surface for a level sits half a pontoon height above that origin.
+    const deckTopM = level * pontoonHeightM + pontoonHeightM / 2;
+    const headOffsetM = CONNECTOR_HEAD_ABOVE_TOP_MM / 1000;
+    return deckTopM + headOffsetM - connectorHeightM / 2;
   }
 
   private computeConnectorPlacements(grid: Grid): ConnectorPlacement[] {
@@ -461,50 +559,71 @@ export class RenderingEngine {
       return [];
     }
 
-    const occupancy = new Map<string, { pontoonId: string; position: GridPosition }>();
+    type Intersection = {
+      level: number;
+      cells: Set<string>;
+      pontoonIds: Set<string>;
+    };
+
+    const intersections = new Map<string, Intersection>();
+
+    const registerIntersection = (
+      level: number,
+      corner: { x: number; z: number },
+      cellKey: string,
+      pontoonId: string
+    ) => {
+      const key = `${level}:${corner.x}:${corner.z}`;
+      let entry = intersections.get(key);
+      if (!entry) {
+        entry = {
+          level,
+          cells: new Set<string>(),
+          pontoonIds: new Set<string>()
+        };
+        intersections.set(key, entry);
+      }
+      entry.cells.add(cellKey);
+      entry.pontoonIds.add(pontoonId);
+    };
 
     for (const pontoon of grid.pontoons.values()) {
       for (const cell of pontoon.getOccupiedPositions()) {
-        occupancy.set(cell.toString(), { pontoonId: pontoon.id, position: cell });
-      }
-    }
+        const cellKey = `${cell.x},${cell.z}`;
+        const corners = [
+          { x: cell.x, z: cell.z },
+          { x: cell.x + 1, z: cell.z },
+          { x: cell.x, z: cell.z + 1 },
+          { x: cell.x + 1, z: cell.z + 1 }
+        ];
 
-    const connectorMap = new Map<string, ConnectorPlacement>();
-    const neighborDirections = [
-      { dx: 1, dz: 0 }, // East neighbor (horizontal adjacency)
-      { dx: 0, dz: 1 }  // South neighbor (vertical adjacency)
-    ];
-
-    for (const { pontoonId, position } of occupancy.values()) {
-      const { x, y, z } = position;
-
-      for (const { dx, dz } of neighborDirections) {
-        const neighborKey = `${x + dx},${y},${z + dz}`;
-        const neighbor = occupancy.get(neighborKey);
-
-        if (!neighbor || neighbor.pontoonId === pontoonId) {
-          continue; // No adjacent pontoon or same physical pontoon (double pontoon)
-        }
-
-        const intersections = dx === 1
-          ? [ { x: x + 1, z: z }, { x: x + 1, z: z + 1 } ]
-          : [ { x: x, z: z + 1 }, { x: x + 1, z: z + 1 } ];
-
-        for (const intersection of intersections) {
-          const key = `${y}:${intersection.x}:${intersection.z}`;
-          if (connectorMap.has(key)) continue;
-
-          const world = this.calculator.gridIntersectionToWorld(intersection, y, grid.dimensions);
-          connectorMap.set(key, {
-            key,
-            level: y,
-            worldPosition: new THREE.Vector3(world.x, world.y, world.z)
-          });
+        for (const corner of corners) {
+          registerIntersection(cell.y, corner, cellKey, pontoon.id);
         }
       }
     }
 
-    return Array.from(connectorMap.values());
+    const placements: ConnectorPlacement[] = [];
+
+    for (const [key, data] of intersections.entries()) {
+      const lugCount = data.cells.size;
+      if (lugCount < 2 || data.pontoonIds.size < 2) {
+        continue; // Need at least two lugs and two distinct pontoons to warrant hardware
+      }
+
+      const [, xStr, zStr] = key.split(':');
+      const corner = { x: Number(xStr), z: Number(zStr) };
+      const world = this.calculator.gridIntersectionToWorld(corner, data.level, grid.dimensions);
+
+      placements.push({
+        key,
+        level: data.level,
+        lugCount,
+        worldPosition: new THREE.Vector3(world.x, world.y, world.z)
+      });
+    }
+
+    return placements;
   }
 
   private async loadConnectorModel(variant: ConnectorVariant): Promise<ModelInfo> {
