@@ -507,7 +507,7 @@ export class RenderingEngine {
 
       // Bolt (includes head) - top aligns with top of nut for visual clarity
       const boltMesh = modelLoader.cloneModel(boltInfo);
-      const boltCenterY = deckTopM + spacerHeightM + nutHeightM - boltHeightM / 2;
+      const boltCenterY = deckTopM + nutHeightM - boltHeightM / 2;
       modelLoader.prepareModelForGrid(boltMesh, new THREE.Vector3(base.x, boltCenterY, base.z), boltInfo, boltScale);
       boltMesh.userData = {
         connectorKey: placement.key,
@@ -520,7 +520,8 @@ export class RenderingEngine {
       // Spacer (washer stack)
       if (spacerHeightM > 0) {
         const spacerMesh = modelLoader.cloneModel(spacerInfo);
-        const spacerCenterY = deckTopM + spacerHeightM / 2;
+        // Spacers nest inside the lug stack, so their top aligns with the deck surface.
+        const spacerCenterY = deckTopM - spacerHeightM / 2;
         modelLoader.prepareModelForGrid(spacerMesh, new THREE.Vector3(base.x, spacerCenterY, base.z), spacerInfo, spacerScale);
         spacerMesh.userData = {
           connectorKey: placement.key,
@@ -533,7 +534,7 @@ export class RenderingEngine {
 
       // Nut sits above spacer stack
       const nutMesh = modelLoader.cloneModel(nutInfo);
-      const nutCenterY = deckTopM + spacerHeightM + nutHeightM / 2;
+      const nutCenterY = deckTopM + nutHeightM / 2;
       modelLoader.prepareModelForGrid(nutMesh, new THREE.Vector3(base.x, nutCenterY, base.z), nutInfo, nutScale);
       nutMesh.userData = {
         connectorKey: placement.key,
