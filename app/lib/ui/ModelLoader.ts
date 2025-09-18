@@ -21,6 +21,55 @@ export interface ModelInfo {
 export class ModelLoader {
   private modelCache: Map<string, ModelInfo> = new Map();
   
+  private async loadObjModel(
+    cacheKey: string,
+    objPath: string,
+    options: {
+      mtlPath?: string;
+      axisPreference?: 'smallest' | 'largest';
+      inferredType?: ModelInfo['inferredType'];
+    } = {}
+  ): Promise<ModelInfo> {
+    if (this.modelCache.has(cacheKey)) {
+      return this.modelCache.get(cacheKey)!;
+    }
+
+    const { mtlPath, axisPreference, inferredType = 'unknown' } = options;
+
+    let materials: any;
+    if (mtlPath) {
+      try {
+        const mtlLoader = new MTLLoader();
+        materials = await mtlLoader.loadAsync(mtlPath);
+        if ((materials as any)?.preload) {
+          (materials as any).preload();
+        }
+      } catch (error) {
+        console.warn(`ModelLoader: Failed to load MTL for ${cacheKey} (${mtlPath})`, error);
+      }
+    }
+
+    const objLoader = new OBJLoader();
+    if (materials) {
+      objLoader.setMaterials(materials as any);
+    }
+
+    const model = await objLoader.loadAsync(objPath);
+    const { dimensions, center } = this.alignYUpAndCenter(model, { axisPreference });
+
+    const info: ModelInfo = {
+      model,
+      dimensions,
+      center,
+      originalScale: 1,
+      meshCount: this.countMeshes(model),
+      inferredType
+    };
+
+    this.modelCache.set(cacheKey, info);
+    return info;
+  }
+
   /**
    * Ensure the model's UP axis matches Three.js (Y-up) such that the
    * real-world pontoon height is aligned to the Y dimension. Also recenters
@@ -200,6 +249,34 @@ export class ModelLoader {
       console.error('Failed to load connector model:', { variant, error });
       throw error;
     }
+  }
+
+  async loadEdgeConnectorBolt(): Promise<ModelInfo> {
+    return this.loadObjModel('edge-connector-bolt', '/3d/fc/Randverbinder1.obj', {
+      mtlPath: '/3d/fc/Randverbinder1.mtl',
+      axisPreference: 'largest'
+    });
+  }
+
+  async loadEdgeConnectorNut(): Promise<ModelInfo> {
+    return this.loadObjModel('edge-connector-nut', '/3d/fc/Randverbinder2.obj', {
+      mtlPath: '/3d/fc/Randverbinder2.mtl',
+      axisPreference: 'smallest'
+    });
+  }
+
+  async loadEdgeSpacer(variant: 'double' | 'single'): Promise<ModelInfo> {
+    if (variant === 'double') {
+      return this.loadObjModel('edge-spacer-double', '/3d/fc/Scheibe.obj', {
+        mtlPath: '/3d/fc/Scheibe.mtl',
+        axisPreference: 'smallest'
+      });
+    }
+
+    return this.loadObjModel('edge-spacer-single', '/3d/fc/Einzel-Scheibe.obj', {
+      mtlPath: '/3d/fc/Einzel-Scheibe.mtl',
+      axisPreference: 'smallest'
+    });
   }
 
   /** Quick heuristic: estimate SINGLE vs DOUBLE from X/Z aspect ratio */
