@@ -25,6 +25,7 @@ const EDGE_CONNECTOR_BOLT_HEIGHT_MM = 105;
 const EDGE_CONNECTOR_NUT_HEIGHT_MM = 30;
 const EDGE_SPACER_DOUBLE_HEIGHT_MM = 32;
 const EDGE_SPACER_SINGLE_HEIGHT_MM = 16;
+const EDGE_LUG_PLANE_OFFSET_MM = 178; // Deck surface sits ~178mm above pontoon center in the CAD model
 
 type ConnectorVariant = 'standard' | 'long';
 
@@ -491,14 +492,12 @@ export class RenderingEngine {
     const spacerSingleScale = this.getScaleFactorForHardware('edge-spacer-single', spacerSingleInfo, EDGE_SPACER_SINGLE_HEIGHT_MM);
 
     const pontoonHeightM = CoordinateCalculator.CONSTANTS.PONTOON_HEIGHT_MM / CoordinateCalculator.CONSTANTS.PRECISION_FACTOR;
-    const deckOffsetM = pontoonHeightM / 2;
+    const deckOffsetM = EDGE_LUG_PLANE_OFFSET_MM / 1000;
 
     for (const placement of placements) {
       const base = placement.worldPosition;
-      const deckTopM = placement.level * pontoonHeightM + deckOffsetM;
-
-      const boltHeightM = boltInfo.dimensions.y * boltScale;
-      const nutHeightM = nutInfo.dimensions.y * nutScale;
+      const levelCenterM = placement.level * pontoonHeightM;
+      const deckPlaneM = levelCenterM + deckOffsetM;
 
       const useDoubleSpacer = placement.lugCount === 2;
       const spacerInfo = useDoubleSpacer ? spacerDoubleInfo : spacerSingleInfo;
@@ -507,8 +506,8 @@ export class RenderingEngine {
 
       // Bolt (includes head) - top aligns with top of nut for visual clarity
       const boltMesh = modelLoader.cloneModel(boltInfo);
-      const boltCenterY = deckTopM + nutHeightM - boltHeightM / 2;
-      modelLoader.prepareModelForGrid(boltMesh, new THREE.Vector3(base.x, boltCenterY, base.z), boltInfo, boltScale);
+      const boltPositionY = this.computeModelPositionForPlane(boltInfo, boltScale, 0, deckPlaneM);
+      modelLoader.prepareModelForGrid(boltMesh, new THREE.Vector3(base.x, boltPositionY, base.z), boltInfo, boltScale);
       boltMesh.userData = {
         connectorKey: placement.key,
         level: placement.level,
@@ -520,9 +519,8 @@ export class RenderingEngine {
       // Spacer (washer stack)
       if (spacerHeightM > 0) {
         const spacerMesh = modelLoader.cloneModel(spacerInfo);
-        // Spacers nest inside the lug stack, so their top aligns with the deck surface.
-        const spacerCenterY = deckTopM - spacerHeightM / 2;
-        modelLoader.prepareModelForGrid(spacerMesh, new THREE.Vector3(base.x, spacerCenterY, base.z), spacerInfo, spacerScale);
+        const spacerPositionY = this.computeModelPositionForPlane(spacerInfo, spacerScale, 0, deckPlaneM);
+        modelLoader.prepareModelForGrid(spacerMesh, new THREE.Vector3(base.x, spacerPositionY, base.z), spacerInfo, spacerScale);
         spacerMesh.userData = {
           connectorKey: placement.key,
           level: placement.level,
@@ -534,8 +532,9 @@ export class RenderingEngine {
 
       // Nut sits above spacer stack
       const nutMesh = modelLoader.cloneModel(nutInfo);
-      const nutCenterY = deckTopM + nutHeightM / 2;
-      modelLoader.prepareModelForGrid(nutMesh, new THREE.Vector3(base.x, nutCenterY, base.z), nutInfo, nutScale);
+      const nutBaseM = deckPlaneM + spacerHeightM;
+      const nutPositionY = this.computeModelPositionForPlane(nutInfo, nutScale, 0, nutBaseM);
+      modelLoader.prepareModelForGrid(nutMesh, new THREE.Vector3(base.x, nutPositionY, base.z), nutInfo, nutScale);
       nutMesh.userData = {
         connectorKey: placement.key,
         level: placement.level,
@@ -553,6 +552,16 @@ export class RenderingEngine {
     const deckTopM = level * pontoonHeightM + pontoonHeightM / 2;
     const headOffsetM = CONNECTOR_HEAD_ABOVE_TOP_MM / 1000;
     return deckTopM + headOffsetM - connectorHeightM / 2;
+  }
+
+  private computeModelPositionForPlane(
+    modelInfo: ModelInfo,
+    scaleFactor: number,
+    modelPlaneY: number,
+    targetWorldY: number
+  ): number {
+    const centerY = modelInfo.center.y;
+    return targetWorldY - (modelPlaneY - centerY) * scaleFactor;
   }
 
   private computeConnectorPlacements(grid: Grid): ConnectorPlacement[] {
