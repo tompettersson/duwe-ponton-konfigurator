@@ -25,7 +25,7 @@ const EDGE_CONNECTOR_BOLT_HEIGHT_MM = 105;
 const EDGE_CONNECTOR_NUT_HEIGHT_MM = 30;
 const EDGE_SPACER_DOUBLE_HEIGHT_MM = 32;
 const EDGE_SPACER_SINGLE_HEIGHT_MM = 16;
-const EDGE_LUG_PLANE_OFFSET_MM = 178; // Deck surface sits ~178mm above pontoon center in the CAD model
+const EDGE_LUG_PLANE_OFFSET_MM = 72.6; // Lug plane (through-holes) is ~72.6mm above pontoon center in the CAD model
 
 type ConnectorVariant = 'standard' | 'long';
 
