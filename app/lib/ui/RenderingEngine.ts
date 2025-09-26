@@ -29,7 +29,6 @@ const EDGE_NUT_COMPRESSION_MM = 3; // Allow nut to compress washer stack slightl
 const DRAIN_PLUG_HEIGHT_MM = 35;
 const DRAIN_PLUG_SURFACE_OFFSET_MM = 10; // push plug slightly outwards from pontoon face
 const DRAIN_PLUG_VERTICAL_OFFSET_MM = -80; // relative to pontoon center (negative = towards waterline)
-const HOVER_CELL_SURFACE_OFFSET_MM = CoordinateCalculator.CONSTANTS.PONTOON_HEIGHT_MM / 2 + 5; // sit slightly above deck
 const EDGE_LUG_PLANE_OFFSET_MM = 72.6; // Lug plane (through-holes) is ~72.6mm above pontoon center in the CAD model
 
 type ConnectorVariant = 'standard' | 'long';
@@ -245,14 +244,13 @@ export class RenderingEngine {
     try {
       const dims = this.currentGrid?.dimensions ?? { width: 50, height: 50, levels: 3 } as any;
       const world = this.calculator.gridToWorld(position, dims);
-      const hoverY = world.y + HOVER_CELL_SURFACE_OFFSET_MM / CoordinateCalculator.CONSTANTS.PRECISION_FACTOR;
       const outline = new THREE.Mesh(this.getGeometry('cell-plane'), this.getMaterial('cell-outline'));
-      outline.position.set(world.x, hoverY + 0.0005, world.z);
+      outline.position.set(world.x, world.y + 0.001, world.z);
       outline.rotation.x = -Math.PI / 2;
       this.hoverCellGroup.add(outline);
 
       const fill = new THREE.Mesh(this.getGeometry('cell-plane'), this.getMaterial('cell-fill'));
-      fill.position.set(world.x, hoverY, world.z);
+      fill.position.set(world.x, world.y + 0.0005, world.z);
       fill.rotation.x = -Math.PI / 2;
       this.hoverCellGroup.add(fill);
     } catch {}
@@ -1043,17 +1041,14 @@ export class RenderingEngine {
     }));
     
     // Hovered cell debug materials
-    const hoverMaterialProps = { depthTest: false, depthWrite: false } as const;
     this.materialCache.set('cell-outline', new THREE.MeshBasicMaterial({
-      color: 0x00ff66,
-      wireframe: true,
-      ...hoverMaterialProps
+      color: 0x4a90ff,
+      wireframe: true
     }));
     this.materialCache.set('cell-fill', new THREE.MeshBasicMaterial({
-      color: 0x00ff66,
+      color: 0x4a90ff,
       transparent: true,
-      opacity: 0.18,
-      ...hoverMaterialProps
+      opacity: 0.12
     }));
 
     // Placement debug materials (used to visualize latest drop location)
