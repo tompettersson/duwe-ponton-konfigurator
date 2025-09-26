@@ -25,6 +25,11 @@ const EDGE_CONNECTOR_BOLT_HEIGHT_MM = 105;
 const EDGE_CONNECTOR_NUT_HEIGHT_MM = 30;
 const EDGE_SPACER_DOUBLE_HEIGHT_MM = 32;
 const EDGE_SPACER_SINGLE_HEIGHT_MM = 16;
+const EDGE_NUT_COMPRESSION_MM = 3; // Allow nut to compress washer stack slightly so it sits flush
+const DRAIN_PLUG_HEIGHT_MM = 35;
+const DRAIN_PLUG_SURFACE_OFFSET_MM = 10; // push plug slightly outwards from pontoon face
+const DRAIN_PLUG_VERTICAL_OFFSET_MM = -80; // relative to pontoon center (negative = towards waterline)
+const HOVER_CELL_SURFACE_OFFSET_MM = CoordinateCalculator.CONSTANTS.PONTOON_HEIGHT_MM / 2 + 5; // sit slightly above deck
 const EDGE_LUG_PLANE_OFFSET_MM = 72.6; // Lug plane (through-holes) is ~72.6mm above pontoon center in the CAD model
 
 type ConnectorVariant = 'standard' | 'long';
@@ -77,6 +82,7 @@ export class RenderingEngine {
   // Object groups for efficient management
   private pontoonGroup: THREE.Group;
   private connectorGroup: THREE.Group;
+  private drainGroup: THREE.Group;
   private gridGroup: THREE.Group;
   private previewGroup: THREE.Group;
   private hoverCellGroup: THREE.Group;
@@ -140,7 +146,8 @@ export class RenderingEngine {
     previewData?: PreviewData,
     selectionData?: SelectionData,
     supportData?: SupportData,
-    placementDebugData?: PlacementDebugData
+    placementDebugData?: PlacementDebugData,
+    hoveredPosition?: GridPosition | null
   ): Promise<void> {
     const startTime = performance.now();
     
@@ -149,6 +156,7 @@ export class RenderingEngine {
       this.renderGrid(grid, currentLevel);
       await this.renderPontoons(grid);
       await this.renderConnectors(grid);
+      await this.renderDrainPlugs(grid);
       this.currentGrid = grid;
     }
     // Update placement debug overlay each frame
@@ -159,15 +167,15 @@ export class RenderingEngine {
     }
     
     // Update preview and hovered-cell outline
-    if (previewData) {
-      if (this.currentOptions.showPreview) {
-        this.renderPreview(previewData);
-      } else {
-        this.clearPreview();
-      }
-      this.renderHoveredCell(previewData.position);
+    if (previewData && this.currentOptions.showPreview) {
+      this.renderPreview(previewData);
     } else {
       this.clearPreview();
+    }
+
+    if (hoveredPosition) {
+      this.renderHoveredCell(hoveredPosition);
+    } else {
       this.clearHoveredCell();
     }
     
@@ -237,13 +245,14 @@ export class RenderingEngine {
     try {
       const dims = this.currentGrid?.dimensions ?? { width: 50, height: 50, levels: 3 } as any;
       const world = this.calculator.gridToWorld(position, dims);
+      const hoverY = world.y + HOVER_CELL_SURFACE_OFFSET_MM / CoordinateCalculator.CONSTANTS.PRECISION_FACTOR;
       const outline = new THREE.Mesh(this.getGeometry('cell-plane'), this.getMaterial('cell-outline'));
-      outline.position.set(world.x, world.y + 0.001, world.z);
+      outline.position.set(world.x, hoverY + 0.0005, world.z);
       outline.rotation.x = -Math.PI / 2;
       this.hoverCellGroup.add(outline);
 
       const fill = new THREE.Mesh(this.getGeometry('cell-plane'), this.getMaterial('cell-fill'));
-      fill.position.set(world.x, world.y + 0.0005, world.z);
+      fill.position.set(world.x, hoverY, world.z);
       fill.rotation.x = -Math.PI / 2;
       this.hoverCellGroup.add(fill);
     } catch {}
@@ -311,7 +320,7 @@ export class RenderingEngine {
     }
 
     const interiorPlacements = placements.filter(p => p.lugCount >= 4);
-    const edgePlacements = placements.filter(p => p.lugCount === 2 || p.lugCount === 3);
+    const edgePlacements = placements.filter(p => p.lugCount >= 1 && p.lugCount <= 3);
 
     if (interiorPlacements.length) {
       try {
@@ -347,6 +356,54 @@ export class RenderingEngine {
       } catch (error) {
         console.warn('RenderingEngine: Failed to render edge connectors – skipping these placements.', error);
       }
+    }
+  }
+
+  private async renderDrainPlugs(grid: Grid): Promise<void> {
+    this.clearGroup(this.drainGroup);
+
+    if (!this.currentOptions.use3DModels || grid.pontoons.size === 0) {
+      return;
+    }
+
+    let drainInfo: ModelInfo;
+    try {
+      drainInfo = await modelLoader.loadDrainPlug();
+    } catch (error) {
+      console.warn('RenderingEngine: Failed to load drain plug model – skipping.', error);
+      return;
+    }
+
+    const scaleFactor = this.getScaleFactorForHardware('drain-plug', drainInfo, DRAIN_PLUG_HEIGHT_MM);
+    const cellSizeM = CoordinateCalculator.CONSTANTS.CELL_SIZE_MM / CoordinateCalculator.CONSTANTS.PRECISION_FACTOR;
+    const surfaceOffsetM = DRAIN_PLUG_SURFACE_OFFSET_MM / 1000;
+    const verticalOffsetM = DRAIN_PLUG_VERTICAL_OFFSET_MM / 1000;
+
+    const localForwardOffset = cellSizeM / 2 + surfaceOffsetM;
+    const rotationAxis = new THREE.Vector3(0, 1, 0);
+
+    for (const pontoon of grid.pontoons.values()) {
+      const baseWorld = grid.gridToWorld(pontoon.position);
+      const center = this.applyFootprintOffsetByType(pontoon.type, pontoon.rotation, baseWorld.clone());
+
+      const localOffset = new THREE.Vector3(0, verticalOffsetM, localForwardOffset);
+      const rotationRadians = THREE.MathUtils.degToRad(pontoon.rotation);
+      localOffset.applyAxisAngle(rotationAxis, rotationRadians);
+
+      const position = new THREE.Vector3(
+        center.x + localOffset.x,
+        center.y + localOffset.y,
+        center.z + localOffset.z
+      );
+
+      const plugMesh = modelLoader.cloneModel(drainInfo);
+      modelLoader.prepareModelForGrid(plugMesh, position, drainInfo, scaleFactor);
+      plugMesh.rotation.y = rotationRadians;
+      plugMesh.userData = {
+        pontoonId: pontoon.id,
+        variant: 'drain-plug'
+      };
+      this.drainGroup.add(plugMesh);
     }
   }
 
@@ -499,7 +556,7 @@ export class RenderingEngine {
       const levelCenterM = placement.level * pontoonHeightM;
       const deckPlaneM = levelCenterM + deckOffsetM;
 
-      const useDoubleSpacer = placement.lugCount === 2;
+      const useDoubleSpacer = placement.lugCount <= 2;
       const spacerInfo = useDoubleSpacer ? spacerDoubleInfo : spacerSingleInfo;
       const spacerScale = useDoubleSpacer ? spacerDoubleScale : spacerSingleScale;
       const spacerHeightM = spacerInfo.dimensions.y * spacerScale;
@@ -532,7 +589,8 @@ export class RenderingEngine {
 
       // Nut sits above spacer stack
       const nutMesh = modelLoader.cloneModel(nutInfo);
-      const nutBaseM = deckPlaneM + spacerHeightM;
+      const nutCompressionM = Math.min(spacerHeightM, EDGE_NUT_COMPRESSION_MM / 1000);
+      const nutBaseM = deckPlaneM + spacerHeightM - nutCompressionM;
       const nutPositionY = this.computeModelPositionForPlane(nutInfo, nutScale, 0, nutBaseM);
       modelLoader.prepareModelForGrid(nutMesh, new THREE.Vector3(base.x, nutPositionY, base.z), nutInfo, nutScale);
       nutMesh.userData = {
@@ -617,8 +675,12 @@ export class RenderingEngine {
 
     for (const [key, data] of intersections.entries()) {
       const lugCount = data.cells.size;
-      if (lugCount < 2 || data.pontoonIds.size < 2) {
-        continue; // Need at least two lugs and two distinct pontoons to warrant hardware
+      if (lugCount < 1) {
+        continue;
+      }
+
+      if (lugCount > 1 && data.pontoonIds.size < 2) {
+        continue; // Only allow multi-lug placements when at least two pontoons join here
       }
 
       const [, xStr, zStr] = key.split(':');
@@ -888,6 +950,10 @@ export class RenderingEngine {
     this.connectorGroup = new THREE.Group();
     this.connectorGroup.name = 'connectors';
     this.scene.add(this.connectorGroup);
+
+    this.drainGroup = new THREE.Group();
+    this.drainGroup.name = 'drain-plugs';
+    this.scene.add(this.drainGroup);
     
     this.gridGroup = new THREE.Group();
     this.gridGroup.name = 'grid';
@@ -977,14 +1043,17 @@ export class RenderingEngine {
     }));
     
     // Hovered cell debug materials
+    const hoverMaterialProps = { depthTest: false, depthWrite: false } as const;
     this.materialCache.set('cell-outline', new THREE.MeshBasicMaterial({
-      color: 0x4a90ff,
-      wireframe: true
+      color: 0x00ff66,
+      wireframe: true,
+      ...hoverMaterialProps
     }));
     this.materialCache.set('cell-fill', new THREE.MeshBasicMaterial({
-      color: 0x4a90ff,
+      color: 0x00ff66,
       transparent: true,
-      opacity: 0.12
+      opacity: 0.18,
+      ...hoverMaterialProps
     }));
 
     // Placement debug materials (used to visualize latest drop location)
@@ -1149,6 +1218,7 @@ export class RenderingEngine {
     // Clear all groups
     this.clearGroup(this.pontoonGroup);
     this.clearGroup(this.connectorGroup);
+    this.clearGroup(this.drainGroup);
     this.clearGroup(this.gridGroup);
     this.clearGroup(this.previewGroup);
     this.clearGroup(this.hoverCellGroup);

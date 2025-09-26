@@ -279,6 +279,13 @@ export class ModelLoader {
     });
   }
 
+  async loadDrainPlug(): Promise<ModelInfo> {
+    return this.loadObjModel('drain-plug', '/3d/fc/Flutschraube.obj', {
+      mtlPath: '/3d/fc/Flutschraube.mtl',
+      axisPreference: 'smallest'
+    });
+  }
+
   /** Quick heuristic: estimate SINGLE vs DOUBLE from X/Z aspect ratio */
   private inferTypeFromDimensions(dim: THREE.Vector3): 'single' | 'double' | 'unknown' {
     const a = Math.max(dim.x, dim.z);

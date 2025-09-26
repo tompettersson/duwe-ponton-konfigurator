@@ -362,12 +362,13 @@ function screenToGridPosition(
   screenPos: { x: number; y: number },
   camera: THREE.Camera,
   gridDimensions: GridDimensions,
-  currentLevel: number = 0
+  currentLevel: number = 0,
+  canvasElement?: HTMLCanvasElement | null
 ): GridPosition | null {
   try {
-    const canvas = document.querySelector('canvas');
-    if (!canvas) return null;
-    const rect = canvas.getBoundingClientRect();
+    const targetCanvas = canvasElement ?? (typeof document !== 'undefined' ? document.querySelector('canvas') : null);
+    if (!targetCanvas) return null;
+    const rect = targetCanvas.getBoundingClientRect();
 
     const calculator = new CoordinateCalculator();
     const gridPos = calculator.screenToGrid(
@@ -728,7 +729,7 @@ export function NewPontoonConfigurator({
         <directionalLight position={[10, 15, 5]} intensity={0.8} />
         
         {/* 3D Scene Content */}
-        <SceneContent 
+       <SceneContent 
           uiState={uiState}
           onRenderingEngineReady={(engine) => {
             renderingEngineRef.current = engine;
@@ -742,12 +743,12 @@ export function NewPontoonConfigurator({
           }}
           onCanvasHover={(position, camera) => {
             // Update hover state
-            const gridPosition = screenToGridPosition(position, camera, uiState.grid.dimensions, uiState.currentLevel);
+            const gridPosition = screenToGridPosition(position, camera, uiState.grid.dimensions, uiState.currentLevel, canvasRef.current);
             setUIState(prev => ({ ...prev, hoveredCell: gridPosition }));
           }}
           onDragStart={(position, camera) => {
             console.log('🎯 DRAG START HANDLER CALLED with position:', position);
-            const gridPosition = screenToGridPosition(position, camera, uiState.grid.dimensions, uiState.currentLevel);
+            const gridPosition = screenToGridPosition(position, camera, uiState.grid.dimensions, uiState.currentLevel, canvasRef.current);
             if (gridPosition) {
               setUIState(prev => ({ 
                 ...prev, 
@@ -763,7 +764,7 @@ export function NewPontoonConfigurator({
           }}
           onDragMove={(position, camera) => {
             if (uiState.isDragging && uiState.dragStart) {
-              const gridPosition = screenToGridPosition(position, camera, uiState.grid.dimensions, uiState.currentLevel);
+              const gridPosition = screenToGridPosition(position, camera, uiState.grid.dimensions, uiState.currentLevel, canvasRef.current);
               if (gridPosition) {
                 // Calculate preview positions for multi-drop
                 let previewPositions: GridPosition[] = [];
@@ -794,7 +795,7 @@ export function NewPontoonConfigurator({
             
             // Use the most recent drag start from state, or fallback to checking if we have proper drag conditions
             const dragStart = uiState.dragStart;
-            const gridPosition = screenToGridPosition(position, camera, uiState.grid.dimensions, uiState.currentLevel);
+            const gridPosition = screenToGridPosition(position, camera, uiState.grid.dimensions, uiState.currentLevel, canvasRef.current);
             
             if (dragStart && gridPosition) {
               console.log('🎯 DRAG END: Grid position:', gridPosition, 'Start:', dragStart);
@@ -853,7 +854,7 @@ export function NewPontoonConfigurator({
             
             try {
               // Convert screen position to grid coordinates
-              const gridPosition = screenToGridPosition(position, camera, uiState.grid.dimensions, uiState.currentLevel);
+              const gridPosition = screenToGridPosition(position, camera, uiState.grid.dimensions, uiState.currentLevel, canvasRef.current);
               
               if (!gridPosition) {
                 setLastClickResult('FAILED: Could not convert screen position to grid');
@@ -1337,7 +1338,8 @@ function SceneContent({
         previewData,
         selectionData,
         undefined,
-        placementDebugData
+        placementDebugData,
+        uiState.hoveredCell
       );
     } catch (error) {
       console.error('🎨 Render frame failed, disabling RenderingEngine:', error);
@@ -1356,7 +1358,7 @@ function SceneContent({
           enablePan={true}
           enableZoom={true}
           enableRotate={true}
-          minDistance={5}
+          minDistance={1.5}
           maxDistance={100}
           maxPolarAngle={Math.PI / 2.2} // Prevent going too low below the grid
           dampingFactor={0.05}

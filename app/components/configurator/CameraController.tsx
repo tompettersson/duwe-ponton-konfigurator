@@ -83,7 +83,7 @@ export function CameraController({ mode, disableControls = false }: CameraContro
       controls.minPolarAngle = 0;
 
       // Set zoom limits for 3D view
-      controls.minDistance = 5;
+      controls.minDistance = 1.5;
       controls.maxDistance = 300;
     }
 
