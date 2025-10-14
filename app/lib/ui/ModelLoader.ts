@@ -8,6 +8,8 @@
 import * as THREE from 'three';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader';
 import { MTLLoader } from 'three/examples/jsm/loaders/MTLLoader';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils';
+import { PontoonType } from '../domain';
 
 export interface ModelInfo {
   model: THREE.Group;
@@ -17,6 +19,7 @@ export interface ModelInfo {
   meshCount?: number;
   inferredType?: 'single' | 'double' | 'unknown';
   baseQuaternion: THREE.Quaternion;
+  mergedGeometry?: THREE.BufferGeometry;
 }
 
 export class ModelLoader {
@@ -58,6 +61,7 @@ export class ModelLoader {
     const model = await objLoader.loadAsync(objPath);
     const { dimensions, center } = this.alignYUpAndCenter(model, { axisPreference });
     const baseQuaternion = model.quaternion.clone();
+    const mergedGeometry = this.createMergedGeometry(model);
 
     const info: ModelInfo = {
       model,
@@ -66,7 +70,8 @@ export class ModelLoader {
       originalScale: 1,
       meshCount: this.countMeshes(model),
       inferredType,
-      baseQuaternion
+      baseQuaternion,
+      mergedGeometry
     };
 
     this.modelCache.set(cacheKey, info);
@@ -146,6 +151,7 @@ export class ModelLoader {
       // Align orientation (Y-up) and center at origin, then measure
       const { dimensions, center } = this.alignYUpAndCenter(model);
       const baseQuaternion = model.quaternion.clone();
+      const mergedGeometry = this.createMergedGeometry(model);
 
       // Log analysis for debugging
       console.log('Double Pontoon Model Analysis:');
@@ -163,7 +169,8 @@ export class ModelLoader {
         originalScale: 1,
         meshCount: this.countMeshes(model),
         inferredType: this.inferTypeFromDimensions(dimensions),
-        baseQuaternion
+        baseQuaternion,
+        mergedGeometry
       };
       
       // Cache for reuse
@@ -191,6 +198,7 @@ export class ModelLoader {
       // Align orientation (Y-up) and center at origin
       const { dimensions, center } = this.alignYUpAndCenter(model);
       const baseQuaternion = model.quaternion.clone();
+      const mergedGeometry = this.createMergedGeometry(model);
       
       const info: ModelInfo = {
         model,
@@ -199,7 +207,8 @@ export class ModelLoader {
         originalScale: 1,
         meshCount: this.countMeshes(model),
         inferredType: this.inferTypeFromDimensions(dimensions),
-        baseQuaternion
+        baseQuaternion,
+        mergedGeometry
       };
       this.modelCache.set('single-pontoon', info);
       return info;
@@ -321,6 +330,12 @@ export class ModelLoader {
   cloneModel(modelInfo: ModelInfo): THREE.Group {
     return modelInfo.model.clone();
   }
+
+  getMergedGeometry(type: PontoonType): THREE.BufferGeometry | undefined {
+    const cacheKey = type === PontoonType.DOUBLE ? 'double-pontoon' : 'single-pontoon';
+    const info = this.modelCache.get(cacheKey);
+    return info?.mergedGeometry;
+  }
   
   /**
    * Calculate scale factor to fit model into grid cell
@@ -432,6 +447,29 @@ export class ModelLoader {
    */
   clearCache(): void {
     this.modelCache.clear();
+  }
+
+  private createMergedGeometry(source: THREE.Group): THREE.BufferGeometry | undefined {
+    const clone = source.clone(true);
+    clone.updateMatrixWorld(true);
+    const rootInverse = clone.matrixWorld.clone().invert();
+
+    const geometries: THREE.BufferGeometry[] = [];
+    clone.traverse((obj: any) => {
+      if (!obj || !obj.isMesh) return;
+      const mesh = obj as THREE.Mesh;
+      if (!mesh.geometry) return;
+      const geom = mesh.geometry.clone();
+      const worldMatrix = mesh.matrixWorld.clone().premultiply(rootInverse);
+      geom.applyMatrix4(worldMatrix);
+      geometries.push(geom);
+    });
+
+    if (!geometries.length) {
+      return undefined;
+    }
+
+    return mergeGeometries(geometries, false) ?? undefined;
   }
 }
 

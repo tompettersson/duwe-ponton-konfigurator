@@ -73,6 +73,17 @@ export interface PlacementDebugData {
   cells: GridPosition[];
 }
 
+interface PontoonInstanceMeta {
+  instanced: THREE.InstancedMesh;
+  type: PontoonType;
+  color: PontoonColor;
+  scaleFactor: number;
+  centerOffset: THREE.Vector3;
+  baseQuaternion: THREE.Quaternion;
+  capacity: number;
+  baseGeometry: THREE.BufferGeometry;
+}
+
 export class RenderingEngine {
   private scene: THREE.Scene;
   private calculator: CoordinateCalculator;
@@ -97,6 +108,7 @@ export class RenderingEngine {
   private modelLoadPromises = new Map<string, Promise<ModelInfo>>();
   private connectorScaleCache = new Map<string, number>();
   private pontoonMaterialCacheKeyPrefix = 'pontoon-standard-';
+  private pontoonInstanceMeta = new Map<string, PontoonInstanceMeta>();
   
   // Rendering state
   private currentGrid: Grid | null = null;
@@ -301,14 +313,185 @@ export class RenderingEngine {
    * Render all pontoons
    */
   private async renderPontoons(grid: Grid): Promise<void> {
+    if (this.currentOptions.use3DModels) {
+      await this.renderPontoonsInstanced(grid);
+    } else {
+      this.renderPontoonBoxes(grid);
+    }
+  }
+
+  private async renderPontoonsInstanced(grid: Grid): Promise<void> {
+    if (this.pontoonInstanceMeta.size === 0 && this.pontoonGroup.children.length > 0) {
+      this.clearGroup(this.pontoonGroup);
+    }
+
+    const groups = new Map<string, Pontoon[]>();
+    for (const pontoon of grid.pontoons.values()) {
+      const key = this.getPontoonInstanceKey(pontoon.type, pontoon.color);
+      const bucket = groups.get(key);
+      if (bucket) {
+        bucket.push(pontoon);
+      } else {
+        groups.set(key, [pontoon]);
+      }
+    }
+
+    const staleKeys = new Set(this.pontoonInstanceMeta.keys());
+    const yAxis = new THREE.Vector3(0, 1, 0);
+    const rotationQuaternion = new THREE.Quaternion();
+    const totalQuaternion = new THREE.Quaternion();
+    const matrix = new THREE.Matrix4();
+    const translation = new THREE.Vector3();
+    const scaleVector = new THREE.Vector3();
+
+    for (const [key, pontoons] of groups.entries()) {
+      staleKeys.delete(key);
+
+      const sample = pontoons[0];
+      const meta = await this.ensurePontoonInstanceMeta(key, sample.type, sample.color, pontoons.length);
+      if (!meta) {
+        // Fallback to discrete meshes if instancing is unavailable for this type
+        const worldPromises = pontoons.map(async pontoon => {
+          const worldPos = grid.gridToWorld(pontoon.position);
+          await this.render3DPontoon(pontoon, worldPos);
+        });
+        await Promise.all(worldPromises);
+        continue;
+      }
+
+      const updatedMeta = pontoons.length > meta.capacity
+        ? this.rebuildPontoonInstanceMeta(meta, pontoons.length)
+        : meta;
+
+      if (updatedMeta !== meta) {
+        this.pontoonInstanceMeta.set(key, updatedMeta);
+      }
+
+      const instanced = updatedMeta.instanced;
+      scaleVector.setScalar(updatedMeta.scaleFactor);
+
+      for (let index = 0; index < pontoons.length; index++) {
+        const pontoon = pontoons[index];
+        const positioned = this.applyFootprintOffsetByType(
+          pontoon.type,
+          pontoon.rotation,
+          grid.gridToWorld(pontoon.position)
+        );
+
+        translation.set(
+          positioned.x - updatedMeta.centerOffset.x,
+          positioned.y - updatedMeta.centerOffset.y,
+          positioned.z - updatedMeta.centerOffset.z
+        );
+
+        rotationQuaternion.setFromAxisAngle(yAxis, THREE.MathUtils.degToRad(pontoon.rotation));
+        totalQuaternion.copy(updatedMeta.baseQuaternion).multiply(rotationQuaternion);
+
+        matrix.compose(translation, totalQuaternion, scaleVector);
+        instanced.setMatrixAt(index, matrix);
+      }
+
+      instanced.count = pontoons.length;
+      instanced.instanceMatrix.needsUpdate = true;
+    }
+
+    for (const staleKey of staleKeys) {
+      this.removePontoonInstance(staleKey);
+    }
+  }
+
+  private renderPontoonBoxes(grid: Grid): void {
+    this.disposePontoonInstances();
     this.clearGroup(this.pontoonGroup);
-    
-    // Render all pontoons in parallel for better performance
-    const renderPromises = Array.from(grid.pontoons.values()).map(pontoon => 
-      this.renderPontoon(pontoon, grid)
-    );
-    
-    await Promise.all(renderPromises);
+    for (const pontoon of grid.pontoons.values()) {
+      const worldPos = grid.gridToWorld(pontoon.position);
+      this.renderBoxPontoon(pontoon, worldPos);
+    }
+  }
+
+  private async ensurePontoonInstanceMeta(
+    key: string,
+    type: PontoonType,
+    color: PontoonColor,
+    requiredCount: number
+  ): Promise<PontoonInstanceMeta | null> {
+    let meta = this.pontoonInstanceMeta.get(key);
+    if (meta) {
+      return meta;
+    }
+
+    const modelInfo = await this.load3DModel(type).catch(() => null);
+    if (!modelInfo) {
+      return null;
+    }
+
+    const mergedGeometry = modelLoader.getMergedGeometry(type);
+    if (!mergedGeometry) {
+      return null;
+    }
+
+    const capacity = Math.max(requiredCount, 1);
+    const geometry = mergedGeometry.clone();
+    const material = this.getSharedPontoonMaterial(color);
+    const instanced = new THREE.InstancedMesh(geometry, material, capacity);
+    instanced.name = `pontoon-${type}-${color}-instances`;
+    instanced.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    this.pontoonGroup.add(instanced);
+
+    const scaleFactor = modelLoader.calculateScaleFactorByHeight(modelInfo, 400);
+    const centerOffset = modelInfo.center.clone().multiplyScalar(scaleFactor);
+    const baseQuaternion = modelInfo.baseQuaternion.clone();
+
+    meta = {
+      instanced,
+      type,
+      color,
+      scaleFactor,
+      centerOffset,
+      baseQuaternion,
+      capacity,
+      baseGeometry: mergedGeometry
+    };
+
+    this.pontoonInstanceMeta.set(key, meta);
+    return meta;
+  }
+
+  private rebuildPontoonInstanceMeta(meta: PontoonInstanceMeta, requiredCount: number): PontoonInstanceMeta {
+    this.pontoonGroup.remove(meta.instanced);
+    meta.instanced.geometry.dispose();
+
+    const newCapacity = Math.max(requiredCount, meta.capacity * 2);
+    const geometry = meta.baseGeometry.clone();
+    const material = this.getSharedPontoonMaterial(meta.color);
+    const instanced = new THREE.InstancedMesh(geometry, material, newCapacity);
+    instanced.name = `pontoon-${meta.type}-${meta.color}-instances`;
+    instanced.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    this.pontoonGroup.add(instanced);
+
+    return {
+      ...meta,
+      instanced,
+      capacity: newCapacity
+    };
+  }
+
+  private removePontoonInstance(key: string): void {
+    const meta = this.pontoonInstanceMeta.get(key);
+    if (!meta) return;
+    this.pontoonGroup.remove(meta.instanced);
+    meta.instanced.geometry.dispose();
+    this.pontoonInstanceMeta.delete(key);
+  }
+
+  private disposePontoonInstances(): void {
+    for (const key of [...this.pontoonInstanceMeta.keys()]) {
+      this.removePontoonInstance(key);
+    }
+  }
+
+  private getPontoonInstanceKey(type: PontoonType, color: PontoonColor): string {
+    return `${type}-${color}`;
   }
 
   /**
@@ -1176,6 +1359,10 @@ export class RenderingEngine {
     }
     
     this.currentOptions.use3DModels = use3D;
+
+    if (!use3D) {
+      this.disposePontoonInstances();
+    }
     
     // Force re-render if grid is provided
     if (grid) {
@@ -1226,6 +1413,7 @@ export class RenderingEngine {
    */
   dispose(): void {
     // Clear all groups
+    this.disposePontoonInstances();
     this.clearGroup(this.pontoonGroup);
     this.clearGroup(this.connectorGroup);
     this.clearGroup(this.drainGroup);
