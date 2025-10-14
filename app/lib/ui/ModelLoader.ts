@@ -16,6 +16,7 @@ export interface ModelInfo {
   originalScale: number;
   meshCount?: number;
   inferredType?: 'single' | 'double' | 'unknown';
+  baseQuaternion: THREE.Quaternion;
 }
 
 export class ModelLoader {
@@ -56,6 +57,7 @@ export class ModelLoader {
 
     const model = await objLoader.loadAsync(objPath);
     const { dimensions, center } = this.alignYUpAndCenter(model, { axisPreference });
+    const baseQuaternion = model.quaternion.clone();
 
     const info: ModelInfo = {
       model,
@@ -63,7 +65,8 @@ export class ModelLoader {
       center,
       originalScale: 1,
       meshCount: this.countMeshes(model),
-      inferredType
+      inferredType,
+      baseQuaternion
     };
 
     this.modelCache.set(cacheKey, info);
@@ -142,6 +145,7 @@ export class ModelLoader {
       
       // Align orientation (Y-up) and center at origin, then measure
       const { dimensions, center } = this.alignYUpAndCenter(model);
+      const baseQuaternion = model.quaternion.clone();
 
       // Log analysis for debugging
       console.log('Double Pontoon Model Analysis:');
@@ -158,7 +162,8 @@ export class ModelLoader {
         center,
         originalScale: 1,
         meshCount: this.countMeshes(model),
-        inferredType: this.inferTypeFromDimensions(dimensions)
+        inferredType: this.inferTypeFromDimensions(dimensions),
+        baseQuaternion
       };
       
       // Cache for reuse
@@ -185,6 +190,7 @@ export class ModelLoader {
       
       // Align orientation (Y-up) and center at origin
       const { dimensions, center } = this.alignYUpAndCenter(model);
+      const baseQuaternion = model.quaternion.clone();
       
       const info: ModelInfo = {
         model,
@@ -192,7 +198,8 @@ export class ModelLoader {
         center,
         originalScale: 1,
         meshCount: this.countMeshes(model),
-        inferredType: this.inferTypeFromDimensions(dimensions)
+        inferredType: this.inferTypeFromDimensions(dimensions),
+        baseQuaternion
       };
       this.modelCache.set('single-pontoon', info);
       return info;
@@ -233,6 +240,7 @@ export class ModelLoader {
 
       const model = await objLoader.loadAsync(objPath);
       const { dimensions, center } = this.alignYUpAndCenter(model, { axisPreference: 'largest' });
+      const baseQuaternion = model.quaternion.clone();
 
       const info: ModelInfo = {
         model,
@@ -240,7 +248,8 @@ export class ModelLoader {
         center,
         originalScale: 1,
         meshCount: this.countMeshes(model),
-        inferredType: 'unknown'
+        inferredType: 'unknown',
+        baseQuaternion
       };
 
       this.modelCache.set(cacheKey, info);

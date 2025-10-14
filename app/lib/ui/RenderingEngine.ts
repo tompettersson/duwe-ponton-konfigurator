@@ -18,8 +18,15 @@ import {
   getPontoonColorConfig
 } from '../domain';
 import { modelLoader, type ModelInfo } from './ModelLoader';
+import {
+  computeConnectorPlacements,
+  determineConnectorVariant,
+  type ConnectorPlacement,
+  type ConnectorVariant
+} from './connectorPlanner';
 
-const CONNECTOR_TARGET_HEIGHT_MM = 240; // Four stacked lugs (~60mm each) for a single-layer pin
+const CONNECTOR_STANDARD_HEIGHT_MM = 240; // Four stacked lugs (~60mm each) for a single-layer pin
+const CONNECTOR_LONG_HEIGHT_MM = CONNECTOR_STANDARD_HEIGHT_MM + CoordinateCalculator.CONSTANTS.PONTOON_HEIGHT_MM; // span one extra pontoon height
 const CONNECTOR_HEAD_ABOVE_TOP_MM = 0; // Keep connector head flush with deck by default
 const EDGE_CONNECTOR_BOLT_HEIGHT_MM = 105;
 const EDGE_CONNECTOR_NUT_HEIGHT_MM = 30;
@@ -31,15 +38,6 @@ const DRAIN_PLUG_SURFACE_OFFSET_MM = 10; // push plug slightly outwards from pon
 const DRAIN_PLUG_VERTICAL_OFFSET_MM = -80; // relative to pontoon center (negative = towards waterline)
 const HOVER_CELL_SURFACE_OFFSET_MM = CoordinateCalculator.CONSTANTS.PONTOON_HEIGHT_MM / 2 + 5; // ~deck height plus margin
 const EDGE_LUG_PLANE_OFFSET_MM = 72.6; // Lug plane (through-holes) is ~72.6mm above pontoon center in the CAD model
-
-type ConnectorVariant = 'standard' | 'long';
-
-interface ConnectorPlacement {
-  key: string;
-  level: number;
-  lugCount: number;
-  worldPosition: THREE.Vector3;
-}
 
 export interface RenderingOptions {
   showGrid: boolean;
@@ -98,6 +96,7 @@ export class RenderingEngine {
   private modelCache = new Map<string, ModelInfo>();
   private modelLoadPromises = new Map<string, Promise<ModelInfo>>();
   private connectorScaleCache = new Map<string, number>();
+  private pontoonMaterialCacheKeyPrefix = 'pontoon-standard-';
   
   // Rendering state
   private currentGrid: Grid | null = null;
@@ -121,7 +120,7 @@ export class RenderingEngine {
       showPreview: true,
       showSelection: true,
       showSupport: false,
-      showPlacementDebug: true,
+      showPlacementDebug: false,
       gridOpacity: 0.3,
       previewOpacity: 0.6,
       selectionColor: '#ffff00',
@@ -255,7 +254,9 @@ export class RenderingEngine {
       fill.position.set(world.x, hoverY, world.z);
       fill.rotation.x = -Math.PI / 2;
       this.hoverCellGroup.add(fill);
-    } catch {}
+    } catch (error) {
+      console.warn('RenderingEngine: failed to render hovered cell', error);
+    }
   }
 
   private clearHoveredCell(): void {
@@ -287,7 +288,9 @@ export class RenderingEngine {
         fill.rotation.x = -Math.PI / 2;
         this.placementDebugGroup.add(fill);
       }
-    } catch {}
+    } catch (error) {
+      console.warn('RenderingEngine: failed to render placement debug overlay', error);
+    }
   }
 
   private clearPlacementDebug(): void {
@@ -314,7 +317,7 @@ export class RenderingEngine {
   private async renderConnectors(grid: Grid): Promise<void> {
     this.clearGroup(this.connectorGroup);
 
-    const placements = this.computeConnectorPlacements(grid);
+    const placements = computeConnectorPlacements(grid, { calculator: this.calculator });
     if (placements.length === 0) {
       return;
     }
@@ -324,26 +327,50 @@ export class RenderingEngine {
 
     if (interiorPlacements.length) {
       try {
-        const variant: ConnectorVariant = 'standard';
-        const modelInfo = await this.loadConnectorModel(variant);
-        const scaleFactor = this.getScaleFactorForHardware(`connector-${variant}`, modelInfo, CONNECTOR_TARGET_HEIGHT_MM);
-        const connectorHeightM = modelInfo.dimensions.y * scaleFactor;
+        const groupedByVariant: Record<ConnectorVariant, ConnectorPlacement[]> = {
+          standard: [],
+          long: []
+        };
 
         for (const placement of interiorPlacements) {
-          const mesh = modelLoader.cloneModel(modelInfo);
-          const base = placement.worldPosition;
-          const centerY = this.getConnectorCenterY(placement.level, connectorHeightM);
-          const position = new THREE.Vector3(base.x, centerY, base.z);
+          const variant: ConnectorVariant = determineConnectorVariant(placement);
+          groupedByVariant[variant].push(placement);
+        }
 
-          modelLoader.prepareModelForGrid(mesh, position, modelInfo, scaleFactor);
-          mesh.userData = {
-            connectorKey: placement.key,
-            level: placement.level,
-            lugCount: placement.lugCount,
-            variant
-          };
+        for (const variant of Object.keys(groupedByVariant) as ConnectorVariant[]) {
+          const variantPlacements = groupedByVariant[variant];
+          if (!variantPlacements.length) continue;
 
-          this.connectorGroup.add(mesh);
+          const modelInfo = await this.loadConnectorModel(variant);
+          const targetHeight = variant === 'long' ? CONNECTOR_LONG_HEIGHT_MM : CONNECTOR_STANDARD_HEIGHT_MM;
+          const scaleFactor = this.getScaleFactorForHardware(`connector-${variant}`, modelInfo, targetHeight);
+          const connectorHeightM = modelInfo.dimensions.y * scaleFactor;
+
+          for (const placement of variantPlacements) {
+            console.debug('RenderingEngine: placing connector', {
+              variant,
+              level: placement.level,
+              hasLowerSupport: placement.hasLowerSupport,
+              lugCount: placement.lugCount,
+              targetHeight,
+              rawHeight: modelInfo.dimensions.y,
+              scaledHeightM: connectorHeightM
+            });
+            const mesh = modelLoader.cloneModel(modelInfo);
+            const base = placement.worldPosition;
+            const centerY = this.getConnectorCenterY(placement.level, connectorHeightM);
+            const position = new THREE.Vector3(base.x, centerY, base.z);
+
+            modelLoader.prepareModelForGrid(mesh, position, modelInfo, scaleFactor);
+            mesh.userData = {
+              connectorKey: placement.key,
+              level: placement.level,
+              lugCount: placement.lugCount,
+              variant
+            };
+
+            this.connectorGroup.add(mesh);
+          }
         }
       } catch (error) {
         console.warn('RenderingEngine: Failed to render standard connectors – skipping these placements.', error);
@@ -384,7 +411,8 @@ export class RenderingEngine {
 
     for (const pontoon of grid.pontoons.values()) {
       const baseWorld = grid.gridToWorld(pontoon.position);
-      const center = this.applyFootprintOffsetByType(pontoon.type, pontoon.rotation, baseWorld.clone());
+      const baseWorldVector = new THREE.Vector3(baseWorld.x, baseWorld.y, baseWorld.z);
+      const center = this.applyFootprintOffsetByType(pontoon.type, pontoon.rotation, baseWorldVector);
 
       const localOffset = new THREE.Vector3(0, verticalOffsetM, localForwardOffset);
       const rotationRadians = THREE.MathUtils.degToRad(pontoon.rotation);
@@ -475,37 +503,28 @@ export class RenderingEngine {
         const targetWidthMM = pontoon.type === PontoonType.DOUBLE ? 1000 : 500;
         const targetDepthMM = 500;
         modelLoader.computeOverhang(modelInfo, { targetWidthMM, targetDepthMM, scaleFactor });
-      } catch {}
+      } catch (error) {
+        console.debug('RenderingEngine: pontoon overhang computation skipped', error);
+      }
       
-      // Apply color/material to match pontoon color
-      const colorHex = getPontoonColorConfig(pontoon.color).hex;
+      // Apply color/material to match pontoon color using shared cache
+      const sharedMaterial = this.getSharedPontoonMaterial(pontoon.color);
       pontoonMesh.traverse((obj: any) => {
         if (obj && obj.isMesh) {
           const mesh = obj as THREE.Mesh;
-          const current = mesh.material as any;
-          if (Array.isArray(current)) {
-            mesh.material = current.map((m) => {
-              const mat = new THREE.MeshStandardMaterial({ color: colorHex });
-              mat.metalness = 0.0;
-              mat.roughness = 0.9;
-              return mat;
-            });
-          } else {
-            const mat = new THREE.MeshStandardMaterial({ color: colorHex });
-            mat.metalness = 0.0;
-            mat.roughness = 0.9;
-            mesh.material = mat;
-          }
+          mesh.material = sharedMaterial;
         }
       });
       
       // Set user data
       pontoonMesh.userData = { pontoonId: pontoon.id, pontoon };
       
-      // Apply rotation if needed
-      if (pontoon.rotation !== 0) {
-        pontoonMesh.rotation.y = (pontoon.rotation * Math.PI) / 180;
-      }
+      const baseQuaternion = modelInfo.baseQuaternion ?? pontoonMesh.quaternion.clone();
+      const rotationQuaternion = new THREE.Quaternion().setFromAxisAngle(
+        new THREE.Vector3(0, 1, 0),
+        THREE.MathUtils.degToRad(pontoon.rotation)
+      );
+      pontoonMesh.setRotationFromQuaternion(baseQuaternion.clone().multiply(rotationQuaternion));
       
       this.pontoonGroup.add(pontoonMesh);
       
@@ -620,82 +639,6 @@ export class RenderingEngine {
   ): number {
     const centerY = modelInfo.center.y;
     return targetWorldY - (modelPlaneY - centerY) * scaleFactor;
-  }
-
-  private computeConnectorPlacements(grid: Grid): ConnectorPlacement[] {
-    if (grid.pontoons.size === 0) {
-      return [];
-    }
-
-    type Intersection = {
-      level: number;
-      cells: Set<string>;
-      pontoonIds: Set<string>;
-    };
-
-    const intersections = new Map<string, Intersection>();
-
-    const registerIntersection = (
-      level: number,
-      corner: { x: number; z: number },
-      cellKey: string,
-      pontoonId: string
-    ) => {
-      const key = `${level}:${corner.x}:${corner.z}`;
-      let entry = intersections.get(key);
-      if (!entry) {
-        entry = {
-          level,
-          cells: new Set<string>(),
-          pontoonIds: new Set<string>()
-        };
-        intersections.set(key, entry);
-      }
-      entry.cells.add(cellKey);
-      entry.pontoonIds.add(pontoonId);
-    };
-
-    for (const pontoon of grid.pontoons.values()) {
-      for (const cell of pontoon.getOccupiedPositions()) {
-        const cellKey = `${cell.x},${cell.z}`;
-        const corners = [
-          { x: cell.x, z: cell.z },
-          { x: cell.x + 1, z: cell.z },
-          { x: cell.x, z: cell.z + 1 },
-          { x: cell.x + 1, z: cell.z + 1 }
-        ];
-
-        for (const corner of corners) {
-          registerIntersection(cell.y, corner, cellKey, pontoon.id);
-        }
-      }
-    }
-
-    const placements: ConnectorPlacement[] = [];
-
-    for (const [key, data] of intersections.entries()) {
-      const lugCount = data.cells.size;
-      if (lugCount < 1) {
-        continue;
-      }
-
-      if (lugCount > 1 && data.pontoonIds.size < 2) {
-        continue; // Only allow multi-lug placements when at least two pontoons join here
-      }
-
-      const [, xStr, zStr] = key.split(':');
-      const corner = { x: Number(xStr), z: Number(zStr) };
-      const world = this.calculator.gridIntersectionToWorld(corner, data.level, grid.dimensions);
-
-      placements.push({
-        key,
-        level: data.level,
-        lugCount,
-        worldPosition: new THREE.Vector3(world.x, world.y, world.z)
-      });
-    }
-
-    return placements;
   }
 
   private async loadConnectorModel(variant: ConnectorVariant): Promise<ModelInfo> {
@@ -839,12 +782,37 @@ export class RenderingEngine {
       if (!pontoon) continue;
       
       const worldPos = grid.gridToWorld(pontoon.position);
+      const positioned = this.applyFootprintOffsetByType(pontoon.type, pontoon.rotation, worldPos);
       const geometry = this.getGeometry('selection-outline');
       const material = this.getMaterial('selection');
       
       const outline = new THREE.Mesh(geometry, material);
-      outline.position.set(worldPos.x, worldPos.y, worldPos.z);
-      outline.scale.set(1.1, 1.1, 1.1); // Slightly larger for outline effect
+      outline.position.set(positioned.x, positioned.y, positioned.z);
+
+      const typeConfig = getPontoonTypeConfig(pontoon.type);
+      const cellSizeM = CoordinateCalculator.CONSTANTS.CELL_SIZE_MM / 1000;
+      let sizeX = typeConfig.gridSize.x;
+      let sizeZ = typeConfig.gridSize.z;
+      if (pontoon.rotation === Rotation.EAST || pontoon.rotation === Rotation.WEST) {
+        const tmp = sizeX;
+        sizeX = sizeZ;
+        sizeZ = tmp;
+      }
+
+      const outlineWidth = sizeX * cellSizeM;
+      const outlineDepth = sizeZ * cellSizeM;
+      const baseWidth = 0.55; // geometry width defined in createGeometries()
+      const baseDepth = 0.55;
+      const margin = 1.08; // slight enlargement for readability
+
+      outline.scale.set(
+        (outlineWidth * margin) / baseWidth,
+        1.05,
+        (outlineDepth * margin) / baseDepth
+      );
+      if (pontoon.rotation !== Rotation.NORTH) {
+        outline.rotation.y = THREE.MathUtils.degToRad(pontoon.rotation);
+      }
       
       this.selectionGroup.add(outline);
     }
@@ -907,15 +875,43 @@ export class RenderingEngine {
     while (group.children.length > 0) {
       const child = group.children[0];
       group.remove(child);
-      
-      // Dispose geometry and material if needed
+
       if (child instanceof THREE.Mesh) {
-        if (child.geometry) child.geometry.dispose();
-        if (child.material instanceof THREE.Material) {
-          child.material.dispose();
+        const { geometry, material } = child;
+
+        if (geometry && !this.isCachedGeometry(geometry)) {
+          geometry.dispose();
+        }
+
+        if (Array.isArray(material)) {
+          for (const mat of material) {
+            if (mat && mat instanceof THREE.Material && !this.isCachedMaterial(mat)) {
+              mat.dispose();
+            }
+          }
+        } else if (material instanceof THREE.Material && !this.isCachedMaterial(material)) {
+          material.dispose();
         }
       }
     }
+  }
+
+  private isCachedGeometry(geometry: THREE.BufferGeometry): boolean {
+    for (const cachedGeometry of this.geometryCache.values()) {
+      if (cachedGeometry === geometry) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private isCachedMaterial(material: THREE.Material): boolean {
+    for (const cachedMaterial of this.materialCache.values()) {
+      if (cachedMaterial === material) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /**
@@ -1030,18 +1026,18 @@ export class RenderingEngine {
       opacity: 0.5,
       transparent: true
     }));
-    
+
     this.materialCache.set('support-invalid', new THREE.MeshBasicMaterial({
       color: 0xff0000,
       opacity: 0.5,
       transparent: true
     }));
-    
+
     // Text material
     this.materialCache.set('text', new THREE.MeshBasicMaterial({
       color: 0xffffff
     }));
-    
+
     // Hovered cell debug materials
     const hoverMaterialProps = { depthTest: false, depthWrite: false } as const;
     this.materialCache.set('cell-outline', new THREE.MeshBasicMaterial({
@@ -1059,6 +1055,19 @@ export class RenderingEngine {
     // Placement debug materials (used to visualize latest drop location)
     this.materialCache.set('placement-outline', new THREE.MeshBasicMaterial({ color: 0xff3366, wireframe: true }));
     this.materialCache.set('placement-fill', new THREE.MeshBasicMaterial({ color: 0xff3366, transparent: true, opacity: 0.18 }));
+  }
+
+  private getSharedPontoonMaterial(color: PontoonColor): THREE.MeshStandardMaterial {
+    const key = `${this.pontoonMaterialCacheKeyPrefix}${color}`;
+    let material = this.materialCache.get(key) as THREE.MeshStandardMaterial | undefined;
+    if (!material) {
+      const colorHex = getPontoonColorConfig(color).hex;
+      material = new THREE.MeshStandardMaterial({ color: colorHex });
+      material.metalness = 0.0;
+      material.roughness = 0.9;
+      this.materialCache.set(key, material);
+    }
+    return material;
   }
 
   /**
@@ -1079,7 +1088,7 @@ export class RenderingEngine {
     
     // Level indicator (small box)
     this.geometryCache.set('level-indicator', new THREE.BoxGeometry(0.2, 0.1, 0.2));
-    
+
     // Plane representing a single grid cell (XZ plane)
     this.geometryCache.set('cell-plane', new THREE.PlaneGeometry(
       CoordinateCalculator.CONSTANTS.CELL_SIZE_MM / 1000,
@@ -1173,6 +1182,7 @@ export class RenderingEngine {
       this.currentGrid = null; // Force refresh
       await this.renderPontoons(grid);
       await this.renderConnectors(grid);
+      await this.renderDrainPlugs(grid);
     }
     
     console.log(`🎨 RenderingEngine: Switched to ${use3D ? '3D models' : 'simple boxes'}`);
