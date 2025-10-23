@@ -8,9 +8,9 @@
 'use client';
 
 import React, { useRef, useEffect, useState, useCallback, useMemo } from 'react';
+import * as THREE from 'three';
 import { Canvas, useThree } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
-import * as THREE from 'three';
 
 // Import new architecture
 import { 
@@ -50,14 +50,18 @@ import {
   type MaterialCategory,
   type MaterialSummaryItem
 } from '../lib/application/materialSummary';
+import { computeAccessoryPlacements, type AccessoryPlacement } from '../lib/ui/accessoryPlanner';
 
 const PLACEMENT_DEBUG_HIDE_DELAY_MS = 1500;
 const MATERIAL_CATEGORY_ORDER: MaterialCategory[] = ['Pontoons', 'Connectors', 'Edge Hardware', 'Accessories'];
+const SHOW_DEBUG_PANEL = false;
 
 interface MaterialGroup {
   category: MaterialCategory;
   items: MaterialSummaryItem[];
 }
+
+type AccessoryTool = 'none' | 'ladder';
 
 // UI state interface
 interface ConfiguratorUIState {
@@ -75,6 +79,8 @@ interface ConfiguratorUIState {
   showSelection: boolean;
   showSupport: boolean;
   showPlacementDebug: boolean;
+  activeAccessory: AccessoryTool;
+  placedAccessories: Record<string, AccessoryPlacement>;
   // Drag state for multi-drop and select tools
   isDragging: boolean;
   dragStart: GridPosition | null;
@@ -140,6 +146,9 @@ interface ProfessionalToolbarProps {
   // 3D models toggle
   onToggle3DModels?: () => void;
   is3DModelsEnabled?: boolean;
+  onAccessorySelect?: (tool: AccessoryTool) => void;
+  onToggleShowcase?: () => void;
+  isShowcaseVisible?: boolean;
 }
 
 function ProfessionalToolbar({
@@ -152,7 +161,10 @@ function ProfessionalToolbar({
   onViewModeToggle,
   onClearGrid,
   onToggle3DModels,
-  is3DModelsEnabled
+  is3DModelsEnabled,
+  onAccessorySelect,
+  onToggleShowcase,
+  isShowcaseVisible
 }: ProfessionalToolbarProps) {
   
   // Map new architecture tools to UI display
@@ -167,15 +179,19 @@ function ProfessionalToolbar({
   ];
 
   const pontoonTypes = [
-    { id: PontoonType.SINGLE, label: 'Einzel', icon: '■' },
     { id: PontoonType.DOUBLE, label: 'Doppel', icon: '■■' },
+    { id: PontoonType.SINGLE, label: 'Einzel', icon: '■' },
   ];
 
   const pontoonColors = [
     { id: PontoonColor.BLUE, label: 'Blau', color: '#6183c2' },
     { id: PontoonColor.BLACK, label: 'Schwarz', color: '#111111' },
     { id: PontoonColor.GREY, label: 'Grau', color: '#e3e4e5' },
-    { id: PontoonColor.YELLOW, label: 'Gelb', color: '#f7e295' },
+    { id: PontoonColor.YELLOW, label: 'Sand', color: '#f7e295' },
+  ];
+
+  const accessories: Array<{ id: AccessoryTool; label: string; icon: string }> = [
+    { id: 'ladder', label: 'Badeleiter', icon: '🪜' }
   ];
 
   return (
@@ -207,7 +223,7 @@ function ProfessionalToolbar({
               className={`p-2 rounded transition-colors text-sm flex items-center gap-2 ${
                 tool.disabled
                   ? 'bg-gray-50 text-gray-400 cursor-not-allowed'
-                  : uiState.currentTool === tool.id
+                  : uiState.activeAccessory === 'none' && uiState.currentTool === tool.id
                     ? 'bg-blue-500 text-white'
                     : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
               }`}
@@ -230,7 +246,7 @@ function ProfessionalToolbar({
               onClick={() => onLevelChange(i)}
               data-testid={`level-${i}`}
               className={`px-3 py-2 rounded transition-colors text-sm font-medium ${
-                uiState.currentLevel === i
+                uiState.currentLevel === i && uiState.activeAccessory === 'none'
                   ? 'bg-blue-500 text-white'
                   : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
               }`}
@@ -252,7 +268,7 @@ function ProfessionalToolbar({
               onClick={() => onPontoonTypeChange(type.id)}
               data-testid={`pontoon-${type.id}`}
               className={`p-2 rounded transition-colors text-sm flex items-center gap-2 ${
-                uiState.currentPontoonType === type.id
+                uiState.activeAccessory === 'none' && uiState.currentPontoonType === type.id
                   ? 'bg-blue-500 text-white'
                   : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
               }`}
@@ -336,6 +352,45 @@ function ProfessionalToolbar({
         {(is3DModelsEnabled ?? false) ? '🏗️ 3D-Modelle' : '📦 Boxen'} Toggle
       </button>
 
+      {/* Showcase Toggle */}
+      <button
+        onClick={() => onToggleShowcase && onToggleShowcase()}
+        disabled={!onToggleShowcase}
+        className={`p-2 rounded transition-colors text-sm font-medium w-full ${
+          onToggleShowcase
+            ? (isShowcaseVisible
+              ? 'bg-emerald-100 hover:bg-emerald-200 text-emerald-700'
+              : 'bg-amber-100 hover:bg-amber-200 text-amber-700')
+            : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+        }`}
+        title={onToggleShowcase ? 'Alle konvertierten Assets an der Bühnenkante ein-/ausblenden' : 'Rendering-Engine nicht aktiv'}
+      >
+        {isShowcaseVisible ? '🔍 Showcase ausblenden' : '✨ Showcase anzeigen'}
+      </button>
+
+      {/* Zubehör */}
+      <div className="flex flex-col gap-1">
+        <div className="text-xs font-semibold text-gray-600 mb-1">Zubehör</div>
+        <div className="grid grid-cols-1 gap-1">
+          {accessories.map(accessory => {
+            const isActive = uiState.activeAccessory === accessory.id;
+            const nextTool: AccessoryTool = isActive ? 'none' : accessory.id;
+            return (
+              <button
+                key={accessory.id}
+                onClick={() => onAccessorySelect?.(nextTool)}
+                className={`p-2 rounded transition-colors text-sm flex items-center gap-2 ${
+                  isActive ? 'bg-purple-500 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                }`}
+              >
+                <span>{accessory.icon}</span>
+                <span className="text-xs">{accessory.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       <div className="h-px bg-gray-300" />
 
       {/* Stats */}
@@ -397,7 +452,7 @@ export function NewPontoonConfigurator({
     // Create initial grid
     let initialGrid = Grid.createEmpty(initialGridSize.width, initialGridSize.height, initialGridSize.levels);
     
-    // Add demo pontoon in center to showcase 3D model (use SINGLE to avoid double-model dependency)
+    // Add demo pontoon in center to showcase 3D model
     const centerPosition = new GridPosition(
       Math.floor(initialGridSize.width / 2),
       0,
@@ -406,7 +461,7 @@ export function NewPontoonConfigurator({
     try {
       initialGrid = initialGrid.placePontoon(
         centerPosition,
-        PontoonType.SINGLE,
+        PontoonType.DOUBLE,
         PontoonColor.BLUE,
         Rotation.NORTH
       );
@@ -418,7 +473,7 @@ export function NewPontoonConfigurator({
       grid: initialGrid,
       currentLevel: 0,
       currentTool: ToolType.PLACE,
-      currentPontoonType: PontoonType.SINGLE,
+      currentPontoonType: PontoonType.DOUBLE,
       currentPontoonColor: PontoonColor.BLUE,
       currentRotation: Rotation.NORTH,
       hoveredCell: null,
@@ -429,6 +484,8 @@ export function NewPontoonConfigurator({
       showSelection: true,
       showSupport: false,
       showPlacementDebug: false,
+      activeAccessory: 'none',
+      placedAccessories: {},
       // Initialize drag state
       isDragging: false,
       dragStart: null,
@@ -453,10 +510,17 @@ export function NewPontoonConfigurator({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const renderingEngineRef = useRef<RenderingEngine | null>(null);
   const [is3DModelsEnabled, setIs3DModelsEnabled] = useState(false);
+  const [isShowcaseVisible, setIsShowcaseVisible] = useState(false);
   const [isMaterialPanelOpen, setIsMaterialPanelOpen] = useState(true);
   useEffect(() => {
     return () => {
-      renderingEngineRef.current?.dispose();
+      if (renderingEngineRef.current) {
+        try {
+          renderingEngineRef.current.dispose();
+        } finally {
+          renderingEngineRef.current = null;
+        }
+      }
     };
   }, []);
 
@@ -493,6 +557,88 @@ export function NewPontoonConfigurator({
       }));
   }, [materialSummary]);
 
+  const allAccessoryPlacements = useMemo<AccessoryPlacement[]>(() => {
+    return computeAccessoryPlacements(uiState.grid);
+  }, [uiState.grid]);
+
+  useEffect(() => {
+    const validIds = new Set(allAccessoryPlacements.map(placement => placement.id));
+    setUIState(prev => {
+      const currentIds = Object.keys(prev.placedAccessories);
+      const invalidIds = currentIds.filter(id => !validIds.has(id));
+      if (!invalidIds.length) {
+        return prev;
+      }
+      const nextPlaced = { ...prev.placedAccessories };
+      for (const id of invalidIds) {
+        delete nextPlaced[id];
+      }
+      return {
+        ...prev,
+        placedAccessories: nextPlaced
+      };
+    });
+  }, [allAccessoryPlacements]);
+
+  const placedAccessoryPlacements = useMemo<AccessoryPlacement[]>(() => {
+    return Object.values(uiState.placedAccessories);
+  }, [uiState.placedAccessories]);
+
+  const activeAccessoryPlacements = useMemo<AccessoryPlacement[]>(() => {
+    if (uiState.activeAccessory === 'ladder') {
+      const placedIds = new Set(Object.keys(uiState.placedAccessories));
+      return allAccessoryPlacements.filter(placement => placement.type === 'ladder-placeholder' && !placedIds.has(placement.id));
+    }
+    return [];
+  }, [allAccessoryPlacements, uiState.activeAccessory, uiState.placedAccessories]);
+
+  const highlightedAccessoryPlacement = useMemo<AccessoryPlacement | null>(() => {
+    if (uiState.activeAccessory === 'none') return null;
+    if (!uiState.hoveredCell) return null;
+
+    const relevantPlacements: AccessoryPlacement[] = [];
+    if (uiState.activeAccessory === 'ladder') {
+      relevantPlacements.push(
+        ...placedAccessoryPlacements.filter(p => p.type === 'ladder-placeholder'),
+        ...activeAccessoryPlacements
+      );
+    }
+
+    if (!relevantPlacements.length) return null;
+
+    const worldPoint = uiState.grid.gridToWorld(uiState.hoveredCell);
+    const worldVec = new THREE.Vector3(worldPoint.x, worldPoint.y, worldPoint.z);
+    const threshold = CoordinateCalculator.CONSTANTS.CELL_SIZE_MM / CoordinateCalculator.CONSTANTS.PRECISION_FACTOR * 0.6;
+
+    let best: { placement: AccessoryPlacement; distance: number } | null = null;
+    for (const placement of relevantPlacements) {
+      const distance = placement.position.distanceTo(worldVec);
+      if (!best || distance < best.distance) {
+        best = { placement, distance };
+      }
+    }
+
+    if (best && best.distance <= threshold) {
+      return best.placement;
+    }
+    return null;
+  }, [activeAccessoryPlacements, placedAccessoryPlacements, uiState.activeAccessory, uiState.grid, uiState.hoveredCell]);
+
+  const accessoryInstruction = useMemo(() => {
+    if (uiState.activeAccessory === 'ladder') {
+      return {
+        title: 'Badeleiter platzieren',
+        lines: [
+          'Wähle eine freie Außenkante aus, die zwei zusammenhängende Pontons hat.',
+          `Verfügbare Slots: ${activeAccessoryPlacements.length}`,
+          `Bereits platziert: ${placedAccessoryPlacements.length}`,
+          highlightedAccessoryPlacement ? 'Klicke, um Leiter zu platzieren oder erneut, um sie zu entfernen.' : 'Bewege den Cursor über einen cyanfarbenen Slot, um ihn zu aktivieren.'
+        ]
+      };
+    }
+    return null;
+  }, [uiState.activeAccessory, activeAccessoryPlacements.length, placedAccessoryPlacements.length, highlightedAccessoryPlacement]);
+
   useEffect(() => {
     if (!uiState.lastPlacementCells.length || !uiState.lastPlacementTimestamp) {
       return;
@@ -514,11 +660,31 @@ export function NewPontoonConfigurator({
     return () => window.clearTimeout(timeout);
   }, [uiState.lastPlacementCells.length, uiState.lastPlacementTimestamp, setUIState]);
 
+  const handleRenderingEngineReady = useCallback((engine: RenderingEngine | null) => {
+    renderingEngineRef.current = engine;
+    if (!engine) {
+      setIs3DModelsEnabled(false);
+      setIsShowcaseVisible(false);
+      return;
+    }
+
+    try {
+      const isEnabled = engine.is3DModelsEnabled?.() ?? false;
+      setIs3DModelsEnabled(!!isEnabled);
+      const showcaseEnabled = engine.isShowcaseVisible?.() ?? false;
+      setIsShowcaseVisible(!!showcaseEnabled);
+    } catch {
+      setIs3DModelsEnabled(false);
+      setIsShowcaseVisible(false);
+    }
+  }, [renderingEngineRef, setIs3DModelsEnabled, setIsShowcaseVisible]);
+
   // Tool change handler
   const handleToolChange = useCallback((toolType: ToolType) => {
     setUIState(prev => ({ 
       ...prev, 
       currentTool: toolType,
+      activeAccessory: 'none',
       // Reset move state when changing tools
       moveState: 'none',
       movingPontoonId: null
@@ -558,6 +724,9 @@ export function NewPontoonConfigurator({
   const handleToggle3DModels = useCallback(async () => {
     const engine: any = renderingEngineRef.current as any;
     if (!engine || typeof engine.is3DModelsEnabled !== 'function') return;
+    if (typeof engine.isDisposed === 'function' && engine.isDisposed()) {
+      return;
+    }
     try {
       const next = !engine.is3DModelsEnabled();
       if (typeof engine.toggle3DModels === 'function') {
@@ -570,10 +739,54 @@ export function NewPontoonConfigurator({
     }
   }, [uiState.grid]);
 
+  const handleToggleShowcase = useCallback(async () => {
+    const engine = renderingEngineRef.current;
+    if (!engine || typeof engine.isShowcaseVisible !== 'function' || typeof engine.setShowcaseVisibility !== 'function') {
+      return;
+    }
+    if (typeof (engine as any).isDisposed === 'function' && (engine as any).isDisposed()) {
+      return;
+    }
+    try {
+      const next = !engine.isShowcaseVisible();
+      await engine.setShowcaseVisibility(next, uiState.grid);
+      setIsShowcaseVisible(next);
+      console.log(`Asset showcase ${next ? 'aktiviert' : 'deaktiviert'}`);
+    } catch (error) {
+      console.error('Failed to toggle asset showcase:', error);
+    }
+  }, [uiState.grid]);
+
   // Grid visibility toggle
   const handleGridToggle = useCallback(() => {
     setUIState(prev => ({ ...prev, isGridVisible: !prev.isGridVisible }));
   }, []);
+
+  const handleAccessorySelect = useCallback((tool: AccessoryTool) => {
+    setUIState(prev => ({
+      ...prev,
+      activeAccessory: tool
+    }));
+    if (tool !== 'none') {
+      setLastClickResult(`Accessory tool active: ${tool}`);
+    }
+  }, [setLastClickResult]);
+
+  useEffect(() => {
+    const engine = renderingEngineRef.current;
+    if (!engine || !isShowcaseVisible) {
+      return;
+    }
+    if (typeof engine.setShowcaseVisibility !== 'function') {
+      return;
+    }
+    if (typeof (engine as any).isDisposed === 'function' && (engine as any).isDisposed()) {
+      return;
+    }
+    engine.setShowcaseVisibility(true, uiState.grid).catch(error => {
+      console.error('Failed to refresh asset showcase:', error);
+    });
+  }, [uiState.grid, isShowcaseVisible]);
 
   // Rotation handler
   const handleRotationChange = useCallback(() => {
@@ -698,19 +911,13 @@ export function NewPontoonConfigurator({
         <ambientLight intensity={0.6} />
         <directionalLight position={[10, 15, 5]} intensity={0.8} />
         
-        {/* 3D Scene Content */}
+       {/* 3D Scene Content */}
        <SceneContent 
           uiState={uiState}
-          onRenderingEngineReady={(engine) => {
-            renderingEngineRef.current = engine;
-            // Initialize 3D models toggle state if supported
-            try {
-              const isEnabled = (engine as any).is3DModelsEnabled?.() ?? false;
-              setIs3DModelsEnabled(!!isEnabled);
-            } catch {
-              setIs3DModelsEnabled(false);
-            }
-          }}
+          accessoryPlacements={activeAccessoryPlacements}
+          placedAccessoryPlacements={placedAccessoryPlacements}
+          highlightedAccessoryId={highlightedAccessoryPlacement?.id ?? null}
+          onRenderingEngineReady={handleRenderingEngineReady}
           onCanvasHover={(position, camera) => {
             // Update hover state
             const gridPosition = screenToGridPosition(position, camera, uiState.grid.dimensions, uiState.currentLevel, canvasRef.current);
@@ -830,7 +1037,28 @@ export function NewPontoonConfigurator({
                 setLastClickResult('FAILED: Could not convert screen position to grid');
                 return;
               }
-              
+
+              if (uiState.activeAccessory !== 'none') {
+                if (highlightedAccessoryPlacement) {
+                  const wasPlaced = Boolean(uiState.placedAccessories[highlightedAccessoryPlacement.id]);
+                  const updatedPlacements = { ...uiState.placedAccessories };
+                  if (wasPlaced) {
+                    delete updatedPlacements[highlightedAccessoryPlacement.id];
+                    setLastClickResult(`Accessory entfernt: ${highlightedAccessoryPlacement.id}`);
+                  } else {
+                    updatedPlacements[highlightedAccessoryPlacement.id] = { ...highlightedAccessoryPlacement };
+                    setLastClickResult(`Accessory platziert: ${highlightedAccessoryPlacement.id}`);
+                  }
+                  setUIState(prev => ({
+                    ...prev,
+                    placedAccessories: updatedPlacements
+                  }));
+                } else {
+                  setLastClickResult('Accessory mode: Kein gültiger Slot unter dem Cursor');
+                }
+                return;
+              }
+
               console.log('🎯 Tool:', uiState.currentTool, 'at grid position:', gridPosition);
               
               if (uiState.currentTool === ToolType.PLACE) {
@@ -1030,6 +1258,22 @@ export function NewPontoonConfigurator({
         />
       </Canvas>
 
+      {accessoryInstruction && (
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20">
+          <div className="bg-white/95 backdrop-blur shadow-lg border border-purple-200 rounded-lg px-4 py-3 w-72">
+            <h3 className="text-sm font-semibold text-purple-700 mb-2 flex items-center gap-2">
+              <span>🪜</span>
+              <span>{accessoryInstruction.title}</span>
+            </h3>
+            <ul className="space-y-1 text-xs text-gray-700">
+              {accessoryInstruction.lines.map((line, index) => (
+                <li key={index} className="leading-tight">{line}</li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
+
       {/* Professional UI Overlay - Based on proven design */}
       <div className="absolute top-4 left-4 z-10">
         <ProfessionalToolbar 
@@ -1046,6 +1290,9 @@ export function NewPontoonConfigurator({
           }}
           onToggle3DModels={handleToggle3DModels}
           is3DModelsEnabled={is3DModelsEnabled}
+          onAccessorySelect={handleAccessorySelect}
+          onToggleShowcase={handleToggleShowcase}
+          isShowcaseVisible={isShowcaseVisible}
         />
       </div>
 
@@ -1101,57 +1348,61 @@ export function NewPontoonConfigurator({
       </div>
 
 
-      {/* Debug Panel */}
-      <div className="absolute bottom-4 left-4 z-10" data-testid="debug-panel">
-        <div className="bg-black bg-opacity-80 text-white rounded-lg shadow-lg p-4 font-mono text-xs">
-          <h3 className="text-sm font-semibold mb-2">Debug Info</h3>
-          <div className="space-y-1">
-            {uiState.hoveredCell ? (
-              <>
-                <div>Hover: ({uiState.hoveredCell.x}, {uiState.hoveredCell.y}, {uiState.hoveredCell.z})</div>
-                <div>Grid-Cell-Can-Place: {uiState.grid.canPlacePontoon(uiState.hoveredCell, uiState.currentPontoonType) ? '✅' : '❌'}</div>
-                <div>Pontoon-Here: {uiState.grid.hasPontoonAt(uiState.hoveredCell) ? 'YES' : 'NO'}</div>
-                {(() => {
-                  const pontoon = uiState.grid.getPontoonAt(uiState.hoveredCell);
-                  return pontoon ? (
-                    <>
-                      <div>Pontoon-Rotation: {pontoon.rotation}°</div>
-                      <div>Pontoon-Color: {pontoon.color}</div>
-                    </>
-                  ) : null;
-                })()}
-              </>
-            ) : (
-              <>
-                <div>Hover: No position</div>
-                <div>Grid-Cell-Can-Place: N/A</div>
-                <div>Pontoon-Here: N/A</div>
-              </>
-            )}
-            <div>Last-Click: {lastClickResult}</div>
-            <div>Tool: {uiState.currentTool}</div>
-            <div>Level: {uiState.currentLevel}</div>
-            <div>Rotation: {uiState.currentRotation}°</div>
-            <div>Current-Color: {uiState.currentPontoonColor}</div>
-            <div>Selected-Pontoons: {uiState.selectedPontoonIds.size}</div>
-            {uiState.selectedPontoonIds.size > 0 && (
-              <div>Selected-IDs: {Array.from(uiState.selectedPontoonIds).join(', ')}</div>
-            )}
-            <div>Move-State: {uiState.moveState}</div>
-            {uiState.movingPontoonId && (
-              <div>Moving-Pontoon: {uiState.movingPontoonId}</div>
-            )}
-            <div>Drag-State: {uiState.isDragging ? 'active' : 'none'}</div>
-            {uiState.isDragging && uiState.dragStart && uiState.dragEnd && (
-              <div>Drag-Area: ({uiState.dragStart.x},{uiState.dragStart.z}) to ({uiState.dragEnd.x},{uiState.dragEnd.z})</div>
-            )}
-            <div>Preview-Pontoons: {uiState.dragPreviewPositions.length}</div>
-            {uiState.currentTool === ToolType.MULTI_DROP && uiState.dragPreviewPositions.length > 0 && (
-              <div>Multi-Drop-Mode: {uiState.currentPontoonType === PontoonType.DOUBLE ? 'Double (every 2nd)' : 'Single'}</div>
-            )}
+      {SHOW_DEBUG_PANEL && (
+        <div className="absolute bottom-4 left-4 z-10" data-testid="debug-panel">
+          <div className="bg-black bg-opacity-80 text-white rounded-lg shadow-lg p-4 font-mono text-xs">
+            <h3 className="text-sm font-semibold mb-2">Debug Info</h3>
+            <div className="space-y-1">
+              {uiState.hoveredCell ? (
+                <>
+                  <div>Hover: ({uiState.hoveredCell.x}, {uiState.hoveredCell.y}, {uiState.hoveredCell.z})</div>
+                  <div>Grid-Cell-Can-Place: {uiState.grid.canPlacePontoon(uiState.hoveredCell, uiState.currentPontoonType) ? '✅' : '❌'}</div>
+                  <div>Pontoon-Here: {uiState.grid.hasPontoonAt(uiState.hoveredCell) ? 'YES' : 'NO'}</div>
+                  {(() => {
+                    const pontoon = uiState.grid.getPontoonAt(uiState.hoveredCell);
+                    return pontoon ? (
+                      <>
+                        <div>Pontoon-Rotation: {pontoon.rotation}°</div>
+                        <div>Pontoon-Color: {pontoon.color}</div>
+                      </>
+                    ) : null;
+                  })()}
+                </>
+              ) : (
+                <>
+                  <div>Hover: No position</div>
+                  <div>Grid-Cell-Can-Place: N/A</div>
+                  <div>Pontoon-Here: N/A</div>
+                </>
+              )}
+              <div>Last-Click: {lastClickResult}</div>
+              <div>Tool: {uiState.currentTool}</div>
+              <div>Level: {uiState.currentLevel}</div>
+              <div>Rotation: {uiState.currentRotation}°</div>
+              <div>Current-Color: {uiState.currentPontoonColor}</div>
+              <div>Selected-Pontoons: {uiState.selectedPontoonIds.size}</div>
+              {uiState.selectedPontoonIds.size > 0 && (
+                <div>Selected-IDs: {Array.from(uiState.selectedPontoonIds).join(', ')}</div>
+              )}
+              <div>Move-State: {uiState.moveState}</div>
+              {uiState.movingPontoonId && (
+                <div>Moving-Pontoon: {uiState.movingPontoonId}</div>
+              )}
+              <div>Drag-State: {uiState.isDragging ? 'active' : 'none'}</div>
+              <div>Accessory-Tool: {uiState.activeAccessory}</div>
+              <div>Accessory-Hover: {highlightedAccessoryPlacement?.id ?? 'none'}</div>
+              <div>Accessories-Placed: {placedAccessoryPlacements.length}</div>
+              {uiState.isDragging && uiState.dragStart && uiState.dragEnd && (
+                <div>Drag-Area: ({uiState.dragStart.x},{uiState.dragStart.z}) to ({uiState.dragEnd.x},{uiState.dragEnd.z})</div>
+              )}
+              <div>Preview-Pontoons: {uiState.dragPreviewPositions.length}</div>
+              {uiState.currentTool === ToolType.MULTI_DROP && uiState.dragPreviewPositions.length > 0 && (
+                <div>Multi-Drop-Mode: {uiState.currentPontoonType === PontoonType.DOUBLE ? 'Double (every 2nd)' : 'Single'}</div>
+              )}
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
     </div>
   );
@@ -1162,6 +1413,9 @@ export function NewPontoonConfigurator({
  */
 function SceneContent({ 
   uiState, 
+  accessoryPlacements,
+  placedAccessoryPlacements,
+  highlightedAccessoryId,
   onRenderingEngineReady,
   onCanvasHover,
   onCanvasClick,
@@ -1170,7 +1424,10 @@ function SceneContent({
   onDragEnd
 }: { 
   uiState: ConfiguratorUIState;
-  onRenderingEngineReady: (engine: RenderingEngine) => void;
+  accessoryPlacements: AccessoryPlacement[];
+  placedAccessoryPlacements: AccessoryPlacement[];
+  highlightedAccessoryId: string | null;
+  onRenderingEngineReady: (engine: RenderingEngine | null) => void;
   onCanvasHover?: (position: { x: number; y: number }, camera: THREE.Camera) => void;
   onCanvasClick?: (position: { x: number; y: number }, camera: THREE.Camera, event?: MouseEvent) => void;
   onDragStart?: (position: { x: number; y: number }, camera: THREE.Camera) => void;
@@ -1182,25 +1439,40 @@ function SceneContent({
 
   // Initialize rendering engine (with safe fallback)
   useEffect(() => {
-    if (renderingEngineRef.current) return;
+    const current = renderingEngineRef.current;
+    if (current && typeof current.isDisposed === 'function' && !current.isDisposed()) {
+      return;
+    }
+
     try {
       const engine = new RenderingEngine(scene, { use3DModels: true });
       renderingEngineRef.current = engine;
       onRenderingEngineReady(engine);
       console.log('🎨 RenderingEngine enabled');
       return () => {
-        try { engine.dispose(); } catch {}
-        renderingEngineRef.current = null;
+        try {
+          engine.dispose();
+        } finally {
+          renderingEngineRef.current = null;
+          onRenderingEngineReady(null);
+        }
       };
     } catch (error) {
       console.error('🎨 RenderingEngine failed during initialization:', error);
+      onRenderingEngineReady(null);
       throw error;
     }
   }, [scene, onRenderingEngineReady]);
 
   // Update rendering engine options
   useEffect(() => {
-    renderingEngineRef.current?.updateOptions({
+    const engine = renderingEngineRef.current;
+    if (!engine) return;
+    if (typeof engine.isDisposed === 'function' && engine.isDisposed()) {
+      return;
+    }
+
+    engine.updateOptions({
       showGrid: uiState.isGridVisible,
       showPreview: uiState.showPreview,
       showSelection: uiState.showSelection,
@@ -1361,13 +1633,19 @@ function SceneContent({
 
   // Render frame
   useEffect(() => {
-    if (!renderingEngineRef.current) return;
+    const engine = renderingEngineRef.current;
+    if (!engine) return;
+    if (typeof engine.isDisposed === 'function' && engine.isDisposed()) {
+      return;
+    }
 
     const renderFrame = async () => {
       if (!renderingEngineRef.current) return;
 
       try {
+        const isAccessoryMode = uiState.activeAccessory !== 'none';
         const shouldShowPreview =
+          !isAccessoryMode &&
           uiState.hoveredCell !== null &&
           (uiState.currentTool === ToolType.PLACE || uiState.currentTool === ToolType.MULTI_DROP);
 
@@ -1401,14 +1679,17 @@ function SceneContent({
             ? { cells: activePlacementCells }
             : undefined;
 
-        await renderingEngineRef.current.render(
+        await engine.render(
           uiState.grid,
           uiState.currentLevel,
           previewData,
           selectionData,
           undefined,
           placementDebugData,
-          uiState.hoveredCell
+          uiState.hoveredCell,
+          accessoryPlacements,
+          highlightedAccessoryId,
+          placedAccessoryPlacements
         );
       } catch (error) {
         console.error('🎨 Render frame failed:', error);

@@ -131,13 +131,13 @@ export const PONTOON_TYPE_CONFIGS: Record<PontoonType, PontoonTypeConfig> = {
     type: PontoonType.SINGLE,
     dimensions: PhysicalDimensions.SINGLE_PONTOON,
     gridSize: { x: 1, y: 1, z: 1 },
-    displayName: 'Single Pontoon'
+    displayName: 'Einzelelement'
   },
   [PontoonType.DOUBLE]: {
     type: PontoonType.DOUBLE,
     dimensions: PhysicalDimensions.DOUBLE_PONTOON,
     gridSize: { x: 2, y: 1, z: 1 },
-    displayName: 'Double Pontoon'
+    displayName: 'Doppelelement'
   }
 };
 
@@ -145,11 +145,11 @@ export const PONTOON_TYPE_CONFIGS: Record<PontoonType, PontoonTypeConfig> = {
  * Pontoon color configurations
  */
 export const PONTOON_COLOR_CONFIGS: Record<PontoonColor, { hex: string; name: string }> = {
-  [PontoonColor.BLUE]: { hex: '#6183c2', name: 'Blue' },
+  [PontoonColor.BLUE]: { hex: '#6183c2', name: 'Blau' },
   // Adjusted from #111111 to #333333 to reduce darkness
-  [PontoonColor.BLACK]: { hex: '#333333', name: 'Black' },
-  [PontoonColor.GREY]: { hex: '#e3e4e5', name: 'Grey' },
-  [PontoonColor.YELLOW]: { hex: '#f7e295', name: 'Yellow' }
+  [PontoonColor.BLACK]: { hex: '#333333', name: 'Schwarz' },
+  [PontoonColor.GREY]: { hex: '#e3e4e5', name: 'Grau' },
+  [PontoonColor.YELLOW]: { hex: '#f7e295', name: 'Sand' }
 };
 
 /**

@@ -8,8 +8,19 @@
 import * as THREE from 'three';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader';
 import { MTLLoader } from 'three/examples/jsm/loaders/MTLLoader';
+import { STLLoader } from 'three/examples/jsm/loaders/STLLoader';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils';
 import { PontoonType } from '../domain';
+
+export interface GenericAssetOptions {
+  id: string;
+  path: string;
+  format: 'obj' | 'stl';
+  mtlPath?: string;
+  axisPreference?: 'smallest' | 'largest';
+  inferredType?: ModelInfo['inferredType'];
+  materialColor?: string | number;
+}
 
 export interface ModelInfo {
   model: THREE.Group;
@@ -69,6 +80,92 @@ export class ModelLoader {
       center,
       originalScale: 1,
       meshCount: this.countMeshes(model),
+      inferredType,
+      baseQuaternion,
+      mergedGeometry
+    };
+
+    this.modelCache.set(cacheKey, info);
+    return info;
+  }
+
+  async loadAsset(options: GenericAssetOptions): Promise<ModelInfo> {
+    const {
+      id,
+      path,
+      format,
+      mtlPath,
+      axisPreference,
+      inferredType,
+      materialColor
+    } = options;
+
+    const cacheKey = `asset-${id}`;
+    if (this.modelCache.has(cacheKey)) {
+      return this.modelCache.get(cacheKey)!;
+    }
+
+    const info = format === 'stl'
+      ? await this.loadStlModel(cacheKey, path, {
+        axisPreference,
+        inferredType,
+        materialColor
+      })
+      : await this.loadObjModel(cacheKey, path, {
+        mtlPath,
+        axisPreference,
+        inferredType
+      });
+
+    // loadObjModel/loadStlModel already cache with cacheKey, but ensure alias map in case of reuse
+    this.modelCache.set(cacheKey, info);
+    return info;
+  }
+
+  private async loadStlModel(
+    cacheKey: string,
+    stlPath: string,
+    options: {
+      axisPreference?: 'smallest' | 'largest';
+      inferredType?: ModelInfo['inferredType'];
+      materialColor?: string | number;
+    } = {}
+  ): Promise<ModelInfo> {
+    if (this.modelCache.has(cacheKey)) {
+      return this.modelCache.get(cacheKey)!;
+    }
+
+    const { axisPreference, inferredType = 'unknown', materialColor } = options;
+
+    const stlLoader = new STLLoader();
+    const geometry = await stlLoader.loadAsync(stlPath);
+    geometry.computeBoundingBox();
+    geometry.computeBoundingSphere();
+    geometry.computeVertexNormals();
+
+    const fallbackColor = materialColor ?? 0xdddddd;
+    const mesh = new THREE.Mesh(
+      geometry,
+      new THREE.MeshStandardMaterial({
+        color: fallbackColor,
+        metalness: 0.15,
+        roughness: 0.85
+      })
+    );
+
+    const group = new THREE.Group();
+    group.add(mesh);
+
+    const { dimensions, center } = this.alignYUpAndCenter(group, { axisPreference });
+    const baseQuaternion = group.quaternion.clone();
+    const mergedGeometry = this.createMergedGeometry(group);
+
+    const info: ModelInfo = {
+      model: group,
+      dimensions,
+      center,
+      originalScale: 1,
+      meshCount: this.countMeshes(group),
       inferredType,
       baseQuaternion,
       mergedGeometry
@@ -250,6 +347,7 @@ export class ModelLoader {
       const model = await objLoader.loadAsync(objPath);
       const { dimensions, center } = this.alignYUpAndCenter(model, { axisPreference: 'largest' });
       const baseQuaternion = model.quaternion.clone();
+      const mergedGeometry = this.createMergedGeometry(model);
 
       const info: ModelInfo = {
         model,
@@ -258,7 +356,8 @@ export class ModelLoader {
         originalScale: 1,
         meshCount: this.countMeshes(model),
         inferredType: 'unknown',
-        baseQuaternion
+        baseQuaternion,
+        mergedGeometry
       };
 
       this.modelCache.set(cacheKey, info);

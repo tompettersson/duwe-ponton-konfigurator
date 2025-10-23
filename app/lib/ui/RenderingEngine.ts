@@ -18,7 +18,9 @@ import {
   getPontoonColorConfig
 } from '../domain';
 import { modelLoader, type ModelInfo } from './ModelLoader';
-import {
+import { SHOWCASE_ASSETS, type ShowcaseAssetDefinition } from './showcaseAssets';
+import { type AccessoryPlacement } from './accessoryPlanner';
+import { 
   computeConnectorPlacements,
   determineConnectorVariant,
   type ConnectorPlacement,
@@ -38,6 +40,12 @@ const DRAIN_PLUG_SURFACE_OFFSET_MM = 10; // push plug slightly outwards from pon
 const DRAIN_PLUG_VERTICAL_OFFSET_MM = -80; // relative to pontoon center (negative = towards waterline)
 const HOVER_CELL_SURFACE_OFFSET_MM = CoordinateCalculator.CONSTANTS.PONTOON_HEIGHT_MM / 2 + 5; // ~deck height plus margin
 const EDGE_LUG_PLANE_OFFSET_MM = 72.6; // Lug plane (through-holes) is ~72.6mm above pontoon center in the CAD model
+const PREVIEW_SURFACE_EPSILON_M = 0.002; // Lift previews slightly to prevent z-fighting with deck
+const PREVIEW_SCALE_FACTOR = 0.998; // Shrink preview mesh marginally so edges do not overlap
+const STANDARD_CONNECTOR_COLOR_HEX = '#4a75d6'; // Default plastic connector color (legacy blue tone)
+const CELL_SIZE_M = CoordinateCalculator.CONSTANTS.CELL_SIZE_MM / CoordinateCalculator.CONSTANTS.PRECISION_FACTOR;
+const LADDER_BRACKET_RADIUS_M = 0.06;
+const LADDER_BRACKET_HEIGHT_M = 0.14;
 
 export interface RenderingOptions {
   showGrid: boolean;
@@ -92,6 +100,8 @@ export class RenderingEngine {
   private pontoonGroup: THREE.Group;
   private connectorGroup: THREE.Group;
   private drainGroup: THREE.Group;
+  private accessoryGroup: THREE.Group;
+  private showcaseGroup: THREE.Group;
   private gridGroup: THREE.Group;
   private previewGroup: THREE.Group;
   private hoverCellGroup: THREE.Group;
@@ -109,10 +119,15 @@ export class RenderingEngine {
   private connectorScaleCache = new Map<string, number>();
   private pontoonMaterialCacheKeyPrefix = 'pontoon-standard-';
   private pontoonInstanceMeta = new Map<string, PontoonInstanceMeta>();
+  private showcaseAssetCache = new Map<string, { info: ModelInfo; scale: number; dimensions: THREE.Vector3 }>();
+  private labelCanvasCache = new Map<string, { texture: THREE.CanvasTexture; width: number; height: number }>();
   
   // Rendering state
   private currentGrid: Grid | null = null;
   private currentOptions: RenderingOptions;
+  private disposed = false;
+  private showcaseVisible = false;
+  private showcaseNeedsRefresh = false;
   
   // Performance tracking
   private renderStats = {
@@ -125,6 +140,7 @@ export class RenderingEngine {
   constructor(scene: THREE.Scene, options: Partial<RenderingOptions> = {}) {
     this.scene = scene;
     this.calculator = new CoordinateCalculator();
+    this.disposed = false;
     
     // Default rendering options
     this.currentOptions = {
@@ -158,8 +174,15 @@ export class RenderingEngine {
     selectionData?: SelectionData,
     supportData?: SupportData,
     placementDebugData?: PlacementDebugData,
-    hoveredPosition?: GridPosition | null
+    hoveredPosition?: GridPosition | null,
+    accessoryPlacements: AccessoryPlacement[] = [],
+    highlightedAccessoryId?: string | null,
+    placedAccessoryPlacements: AccessoryPlacement[] = []
   ): Promise<void> {
+    if (this.disposed) {
+      console.warn('🎨 RenderingEngine: render() called after dispose; ignoring frame');
+      return;
+    }
     const startTime = performance.now();
     
     // Update grid if changed
@@ -168,6 +191,9 @@ export class RenderingEngine {
       await this.renderPontoons(grid);
       await this.renderConnectors(grid);
       await this.renderDrainPlugs(grid);
+      if (this.showcaseVisible) {
+        await this.renderShowcaseAssets(grid);
+      }
       this.currentGrid = grid;
     }
     // Update placement debug overlay each frame
@@ -202,6 +228,12 @@ export class RenderingEngine {
       this.renderSupport(grid, supportData);
     } else {
       this.clearSupport();
+    }
+
+    this.renderAccessories(accessoryPlacements, placedAccessoryPlacements, highlightedAccessoryId ?? null);
+
+    if (this.showcaseVisible && this.showcaseNeedsRefresh) {
+      await this.renderShowcaseAssets(grid);
     }
     
     // Update statistics
@@ -509,63 +541,75 @@ export class RenderingEngine {
     const edgePlacements = placements.filter(p => p.lugCount >= 1 && p.lugCount <= 3);
 
     if (interiorPlacements.length) {
-      try {
-        const groupedByVariant: Record<ConnectorVariant, ConnectorPlacement[]> = {
-          standard: [],
-          long: []
-        };
-
-        for (const placement of interiorPlacements) {
-          const variant: ConnectorVariant = determineConnectorVariant(placement);
-          groupedByVariant[variant].push(placement);
-        }
-
-        for (const variant of Object.keys(groupedByVariant) as ConnectorVariant[]) {
-          const variantPlacements = groupedByVariant[variant];
-          if (!variantPlacements.length) continue;
-
-          const modelInfo = await this.loadConnectorModel(variant);
-          const targetHeight = variant === 'long' ? CONNECTOR_LONG_HEIGHT_MM : CONNECTOR_STANDARD_HEIGHT_MM;
-          const scaleFactor = this.getScaleFactorForHardware(`connector-${variant}`, modelInfo, targetHeight);
-          const connectorHeightM = modelInfo.dimensions.y * scaleFactor;
-
-          for (const placement of variantPlacements) {
-            console.debug('RenderingEngine: placing connector', {
-              variant,
-              level: placement.level,
-              hasLowerSupport: placement.hasLowerSupport,
-              lugCount: placement.lugCount,
-              targetHeight,
-              rawHeight: modelInfo.dimensions.y,
-              scaledHeightM: connectorHeightM
-            });
-            const mesh = modelLoader.cloneModel(modelInfo);
-            const base = placement.worldPosition;
-            const centerY = this.getConnectorCenterY(placement.level, connectorHeightM);
-            const position = new THREE.Vector3(base.x, centerY, base.z);
-
-            modelLoader.prepareModelForGrid(mesh, position, modelInfo, scaleFactor);
-            mesh.userData = {
-              connectorKey: placement.key,
-              level: placement.level,
-              lugCount: placement.lugCount,
-              variant
-            };
-
-            this.connectorGroup.add(mesh);
-          }
-        }
-      } catch (error) {
-        console.warn('RenderingEngine: Failed to render standard connectors – skipping these placements.', error);
-      }
+      await this.renderInteriorConnectorsInstanced(interiorPlacements);
     }
 
     if (edgePlacements.length) {
-      try {
-        await this.renderEdgeConnectors(edgePlacements);
-      } catch (error) {
-        console.warn('RenderingEngine: Failed to render edge connectors – skipping these placements.', error);
+      await this.renderEdgeConnectors(edgePlacements);
+    }
+  }
+
+  private async renderInteriorConnectorsInstanced(placements: ConnectorPlacement[]): Promise<void> {
+    const grouped: Record<ConnectorVariant, ConnectorPlacement[]> = {
+      standard: [],
+      long: []
+    };
+
+    for (const placement of placements) {
+      const variant = determineConnectorVariant(placement);
+      grouped[variant].push(placement);
+    }
+
+    const matrix = new THREE.Matrix4();
+    const translation = new THREE.Vector3();
+    const scale = new THREE.Vector3();
+
+    for (const variant of Object.keys(grouped) as ConnectorVariant[]) {
+      const bucket = grouped[variant];
+      if (!bucket.length) continue;
+
+      const modelInfo = await this.loadConnectorModel(variant);
+      if (!modelInfo.mergedGeometry) {
+        await Promise.all(bucket.map(async placement => {
+          const fallback = modelLoader.cloneModel(modelInfo);
+          const targetHeight = variant === 'long' ? CONNECTOR_LONG_HEIGHT_MM : CONNECTOR_STANDARD_HEIGHT_MM;
+          const scaleFactor = this.getScaleFactorForHardware(`connector-${variant}`, modelInfo, targetHeight);
+          const connectorHeightM = modelInfo.dimensions.y * scaleFactor;
+          const position = placement.worldPosition.clone();
+          position.y = this.getConnectorCenterY(placement.level, connectorHeightM);
+          modelLoader.prepareModelForGrid(fallback, position, modelInfo, scaleFactor);
+          this.connectorGroup.add(fallback);
+        }));
+        continue;
       }
+
+      const targetHeight = variant === 'long' ? CONNECTOR_LONG_HEIGHT_MM : CONNECTOR_STANDARD_HEIGHT_MM;
+      const scaleFactor = this.getScaleFactorForHardware(`connector-${variant}`, modelInfo, targetHeight);
+      scale.setScalar(scaleFactor);
+
+      const instanced = new THREE.InstancedMesh(
+        modelInfo.mergedGeometry.clone(),
+        this.getSharedHardwareMaterial('connector'),
+        bucket.length
+      );
+      instanced.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+      instanced.name = `connector-${variant}-instances`;
+
+      const centerOffset = modelInfo.center.clone().multiplyScalar(scaleFactor);
+      const connectorHeightM = modelInfo.dimensions.y * scaleFactor;
+
+      for (let index = 0; index < bucket.length; index++) {
+        const placement = bucket[index];
+        const base = placement.worldPosition;
+        const centerY = this.getConnectorCenterY(placement.level, connectorHeightM);
+        translation.set(base.x, centerY, base.z).sub(centerOffset);
+        matrix.compose(translation, modelInfo.baseQuaternion, scale);
+        instanced.setMatrixAt(index, matrix);
+      }
+
+      instanced.count = bucket.length;
+      instanced.instanceMatrix.needsUpdate = true;
+      this.connectorGroup.add(instanced);
     }
   }
 
@@ -589,7 +633,6 @@ export class RenderingEngine {
     const surfaceOffsetM = DRAIN_PLUG_SURFACE_OFFSET_MM / 1000;
     const verticalOffsetM = DRAIN_PLUG_VERTICAL_OFFSET_MM / 1000;
 
-    const localForwardOffset = cellSizeM / 2 + surfaceOffsetM;
     const rotationAxis = new THREE.Vector3(0, 1, 0);
 
     for (const pontoon of grid.pontoons.values()) {
@@ -597,7 +640,10 @@ export class RenderingEngine {
       const baseWorldVector = new THREE.Vector3(baseWorld.x, baseWorld.y, baseWorld.z);
       const center = this.applyFootprintOffsetByType(pontoon.type, pontoon.rotation, baseWorldVector);
 
-      const localOffset = new THREE.Vector3(0, verticalOffsetM, localForwardOffset);
+      const typeConfig = getPontoonTypeConfig(pontoon.type);
+      const halfWidth = (typeConfig.gridSize.x * cellSizeM) / 2;
+
+      const localOffset = new THREE.Vector3(-(halfWidth + surfaceOffsetM), verticalOffsetM, 0);
       const rotationRadians = THREE.MathUtils.degToRad(pontoon.rotation);
       localOffset.applyAxisAngle(rotationAxis, rotationRadians);
 
@@ -609,13 +655,361 @@ export class RenderingEngine {
 
       const plugMesh = modelLoader.cloneModel(drainInfo);
       modelLoader.prepareModelForGrid(plugMesh, position, drainInfo, scaleFactor);
-      plugMesh.rotation.y = rotationRadians;
+      plugMesh.rotation.y = rotationRadians - Math.PI / 2;
       plugMesh.userData = {
         pontoonId: pontoon.id,
         variant: 'drain-plug'
       };
       this.drainGroup.add(plugMesh);
     }
+  }
+
+  private async renderShowcaseAssets(grid: Grid): Promise<void> {
+    if (!this.showcaseVisible) {
+      this.showcaseNeedsRefresh = false;
+      return;
+    }
+
+    if (!SHOWCASE_ASSETS.length) {
+      this.clearGroup(this.showcaseGroup);
+      this.showcaseNeedsRefresh = false;
+      return;
+    }
+
+    const assetEntries = await Promise.all(
+      SHOWCASE_ASSETS.map(async asset => {
+        try {
+          const data = await this.ensureShowcaseAsset(asset);
+          return { asset, ...data };
+        } catch (error) {
+          console.warn('RenderingEngine: Failed to load showcase asset', asset.id, error);
+          return null;
+        }
+      })
+    );
+
+    const validEntries = assetEntries.filter(
+      (entry): entry is { asset: ShowcaseAssetDefinition; info: ModelInfo; scale: number; dimensions: THREE.Vector3 } =>
+        entry !== null
+    );
+
+    this.clearGroup(this.showcaseGroup);
+
+    if (!validEntries.length) {
+      this.showcaseNeedsRefresh = false;
+      return;
+    }
+
+    const baseSpacingM = 1.2;
+    const totalWidth = validEntries.reduce((acc, entry, index) => {
+      const spacing = index === 0 ? 0 : baseSpacingM;
+      return acc + entry.dimensions.x + spacing;
+    }, 0);
+    const startX = -totalWidth / 2;
+
+    const cellSizeM = CoordinateCalculator.CONSTANTS.CELL_SIZE_MM / CoordinateCalculator.CONSTANTS.PRECISION_FACTOR;
+    const halfGridDepthM = (grid.dimensions.height * cellSizeM) / 2;
+    const marginM = Math.max(cellSizeM, 1);
+    const baseZ = halfGridDepthM + marginM;
+    const deckTopM = (CoordinateCalculator.CONSTANTS.PONTOON_HEIGHT_MM / CoordinateCalculator.CONSTANTS.PRECISION_FACTOR) / 2;
+
+    let cursorX = startX;
+
+    for (let index = 0; index < validEntries.length; index++) {
+      const entry = validEntries[index];
+      const halfWidth = entry.dimensions.x / 2;
+      const positionX = cursorX + halfWidth;
+
+      const worldPosition = new THREE.Vector3(
+        positionX,
+        deckTopM + entry.dimensions.y / 2 + ((entry.asset.verticalOffsetMM ?? 0) / 1000),
+        baseZ
+      );
+
+      const showcaseMesh = modelLoader.cloneModel(entry.info);
+      modelLoader.prepareModelForGrid(showcaseMesh, worldPosition, entry.info, entry.scale);
+
+      if (entry.asset.rotationYDeg) {
+        showcaseMesh.rotation.y += THREE.MathUtils.degToRad(entry.asset.rotationYDeg);
+      }
+
+      showcaseMesh.userData = {
+        showcaseAssetId: entry.asset.id,
+        label: entry.asset.label
+      };
+
+      this.showcaseGroup.add(showcaseMesh);
+
+      const labelSprite = this.createShowcaseLabel(entry.asset.label, entry.asset.details ?? []);
+      if (labelSprite) {
+        const halfHeight = Math.max(entry.dimensions.y / 2, 0.08);
+        labelSprite.position.set(
+          worldPosition.x,
+          worldPosition.y + halfHeight + 0.25,
+          worldPosition.z
+        );
+        this.showcaseGroup.add(labelSprite);
+      }
+
+      cursorX = positionX + halfWidth + baseSpacingM;
+    }
+
+    this.showcaseNeedsRefresh = false;
+  }
+
+  private async ensureShowcaseAsset(
+    asset: ShowcaseAssetDefinition
+  ): Promise<{ info: ModelInfo; scale: number; dimensions: THREE.Vector3 }> {
+    const cached = this.showcaseAssetCache.get(asset.id);
+    if (cached) {
+      return cached;
+    }
+
+    const info = await modelLoader.loadAsset(asset);
+    const scale = this.computeShowcaseScale(asset, info);
+    const dimensions = info.dimensions.clone().multiplyScalar(scale);
+
+    const result = { info, scale, dimensions };
+    this.showcaseAssetCache.set(asset.id, result);
+    return result;
+  }
+
+  private computeShowcaseScale(asset: ShowcaseAssetDefinition, modelInfo: ModelInfo): number {
+    if (typeof asset.fixedScale === 'number' && isFinite(asset.fixedScale)) {
+      return asset.fixedScale;
+    }
+
+    const targetDimensionsMM: Array<{ target?: number; raw: number }> = [
+      { target: asset.targetHeightMM, raw: modelInfo.dimensions.y },
+      { target: asset.targetWidthMM, raw: modelInfo.dimensions.x },
+      { target: asset.targetDepthMM, raw: modelInfo.dimensions.z }
+    ];
+
+    for (const { target, raw } of targetDimensionsMM) {
+      if (typeof target === 'number' && target > 0 && raw > 0) {
+        return (target / 1000) / raw;
+      }
+    }
+
+    const maxDimension = Math.max(modelInfo.dimensions.x, modelInfo.dimensions.y, modelInfo.dimensions.z);
+    if (maxDimension > 10) {
+      return 1 / 1000;
+    }
+
+    return 1;
+  }
+
+  private createShowcaseLabel(title: string, details: string[] = []): THREE.Sprite | null {
+    if (typeof document === 'undefined') {
+      return null;
+    }
+
+    const cacheKey = [title, ...details].join('\n');
+    const existing = this.labelCanvasCache.get(cacheKey);
+    let texture: THREE.CanvasTexture;
+    let width: number;
+    let height: number;
+
+    if (existing) {
+      ({ texture, width, height } = existing);
+    } else {
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d');
+      if (!context) {
+        return null;
+      }
+
+      const paddingX = 32;
+      const paddingY = 28;
+      const titleFontSize = 46;
+      const bodyFontSize = 32;
+      const titleFont = `600 ${titleFontSize}px "Inter", "Segoe UI", sans-serif`;
+      const bodyFont = `400 ${bodyFontSize}px "Inter", "Segoe UI", sans-serif`;
+
+      let maxLineWidth = 0;
+      context.font = titleFont;
+      maxLineWidth = Math.max(maxLineWidth, context.measureText(title).width);
+      context.font = bodyFont;
+      for (const line of details) {
+        maxLineWidth = Math.max(maxLineWidth, context.measureText(line).width);
+      }
+
+      const titleLineHeight = titleFontSize + 6;
+      const bodyLineHeight = bodyFontSize + 6;
+      const gap = details.length ? 12 : 0;
+
+      width = Math.ceil(maxLineWidth + paddingX * 2);
+      height = Math.ceil(
+        paddingY * 2 + titleLineHeight + (details.length ? gap + bodyLineHeight * details.length : 0)
+      );
+
+      canvas.width = width;
+      canvas.height = height;
+
+      const backgroundRadius = 18;
+      context.font = titleFont;
+      context.fillStyle = 'rgba(22, 23, 26, 0.9)';
+      context.beginPath();
+      context.moveTo(backgroundRadius, 0);
+      context.lineTo(width - backgroundRadius, 0);
+      context.quadraticCurveTo(width, 0, width, backgroundRadius);
+      context.lineTo(width, height - backgroundRadius);
+      context.quadraticCurveTo(width, height, width - backgroundRadius, height);
+      context.lineTo(backgroundRadius, height);
+      context.quadraticCurveTo(0, height, 0, height - backgroundRadius);
+      context.lineTo(0, backgroundRadius);
+      context.quadraticCurveTo(0, 0, backgroundRadius, 0);
+      context.closePath();
+      context.fill();
+
+      let currentY = paddingY;
+      context.fillStyle = '#ffffff';
+      context.textBaseline = 'top';
+      context.font = titleFont;
+      context.fillText(title, paddingX, currentY);
+      currentY += titleLineHeight;
+
+      if (details.length) {
+        currentY += gap;
+        context.font = bodyFont;
+        context.fillStyle = '#d1d5db';
+        for (const line of details) {
+          context.fillText(line, paddingX, currentY);
+          currentY += bodyLineHeight;
+        }
+      }
+
+      context.fillStyle = '#ffffff';
+
+      texture = new THREE.CanvasTexture(canvas);
+      texture.anisotropy = 4;
+      texture.needsUpdate = true;
+      texture.encoding = THREE.sRGBEncoding;
+
+      this.labelCanvasCache.set(cacheKey, { texture, width, height });
+    }
+
+    const material = new THREE.SpriteMaterial({
+      map: texture,
+      transparent: true,
+      depthTest: false,
+      depthWrite: false
+    });
+
+    const sprite = new THREE.Sprite(material);
+    sprite.name = `showcase-label-${title}`;
+    sprite.center.set(0.5, 0);
+    sprite.renderOrder = 999;
+
+    const metersPerPixel = 0.002;
+    sprite.scale.set(width * metersPerPixel, height * metersPerPixel, 1);
+
+    return sprite;
+  }
+
+
+  private renderAccessories(
+    candidatePlacements: AccessoryPlacement[],
+    placedPlacements: AccessoryPlacement[],
+    highlightedId: string | null
+  ): void {
+    if (!candidatePlacements.length && !placedPlacements.length) {
+      this.clearAccessories();
+      return;
+    }
+
+    this.clearGroup(this.accessoryGroup);
+
+    const ladderGeometry = this.getGeometry('ladder-placeholder');
+    const ladderBracketGeometry = this.getGeometry('ladder-bracket');
+    const ladderHighlightMaterial = this.getMaterial('accessory-ladder-active');
+    const ladderPlacedMaterial = this.getMaterial('accessory-ladder-placed');
+    const ladderAvailableMaterial = this.getMaterial('accessory-ladder-available');
+    const ladderBracketHighlightMaterial = this.getMaterial('accessory-ladder-bracket-highlight');
+    const ladderBracketPlacedMaterial = this.getMaterial('accessory-ladder-bracket-placed');
+    const ladderBracketAvailableMaterial = this.getMaterial('accessory-ladder-bracket-available');
+
+    const placedIds = new Set<string>();
+    for (const placement of placedPlacements) {
+      placedIds.add(placement.id);
+      if (placement.type === 'ladder-placeholder') {
+        const group = new THREE.Group();
+        group.position.copy(placement.position);
+        group.rotation.y = placement.rotationY;
+
+        const span = placement.span ?? 1;
+        const baseMaterial = placement.id === highlightedId ? ladderHighlightMaterial : ladderPlacedMaterial;
+        const base = new THREE.Mesh(ladderGeometry, baseMaterial);
+        base.scale.set(span, 1, 1);
+        group.add(base);
+
+        const bracketOffsets: number[] = [];
+        for (let i = 0; i < span; i++) {
+          bracketOffsets.push((i - (span - 1) / 2) * CELL_SIZE_M);
+        }
+
+        const outward = placement.outward?.clone().normalize() ?? new THREE.Vector3(0, 0, 1);
+        const forwardComponent = Math.abs(outward.x) > Math.abs(outward.z) ? Math.sign(outward.x) : Math.sign(outward.z);
+        const forwardDistance = CELL_SIZE_M * 0.45 * forwardComponent;
+
+        for (const offset of bracketOffsets) {
+          const bracketMaterial = placement.id === highlightedId ? ladderBracketHighlightMaterial : ladderBracketPlacedMaterial;
+          const bracket = new THREE.Mesh(ladderBracketGeometry, bracketMaterial);
+          bracket.position.set(offset, -LADDER_BRACKET_HEIGHT_M / 2, forwardDistance);
+          group.add(bracket);
+        }
+
+        group.userData = { accessoryType: placement.type, state: 'placed' };
+        this.accessoryGroup.add(group);
+      }
+    }
+
+    for (const placement of candidatePlacements) {
+      if (placedIds.has(placement.id)) {
+        continue;
+      }
+      switch (placement.type) {
+        case 'ladder-placeholder': {
+          const group = new THREE.Group();
+          group.position.copy(placement.position);
+          group.rotation.y = placement.rotationY;
+
+          const span = placement.span ?? 1;
+          const baseMaterial = placement.id === highlightedId ? ladderHighlightMaterial : ladderAvailableMaterial;
+          const base = new THREE.Mesh(ladderGeometry, baseMaterial);
+          base.scale.set(span, 1, 1);
+          group.add(base);
+
+          const bracketOffsets: number[] = [];
+          for (let i = 0; i < span; i++) {
+            bracketOffsets.push((i - (span - 1) / 2) * CELL_SIZE_M);
+          }
+
+          const outward = placement.outward?.clone().normalize() ?? new THREE.Vector3(0, 0, 1);
+          const forwardComponent = Math.abs(outward.x) > Math.abs(outward.z) ? Math.sign(outward.x) : Math.sign(outward.z);
+          const forwardDistance = CELL_SIZE_M * 0.45 * forwardComponent;
+
+          for (const offset of bracketOffsets) {
+            const bracketMaterial = placement.id === highlightedId ? ladderBracketHighlightMaterial : ladderBracketAvailableMaterial;
+            const bracket = new THREE.Mesh(ladderBracketGeometry, bracketMaterial);
+            bracket.position.set(offset, -LADDER_BRACKET_HEIGHT_M / 2, forwardDistance);
+            group.add(bracket);
+          }
+
+          group.userData = { accessoryType: placement.type };
+          this.accessoryGroup.add(group);
+          break;
+        }
+        default: {
+          // Other accessory types will be rendered once design/spec is confirmed
+          break;
+        }
+      }
+    }
+  }
+
+  private clearAccessories(): void {
+    this.clearGroup(this.accessoryGroup);
   }
 
   /**
@@ -945,7 +1339,8 @@ export class RenderingEngine {
       rotation,
       new THREE.Vector3(worldPos.x, worldPos.y, worldPos.z)
     );
-    mesh.position.set(positioned.x, positioned.y, positioned.z);
+    mesh.position.set(positioned.x, positioned.y + PREVIEW_SURFACE_EPSILON_M, positioned.z);
+    mesh.scale.set(PREVIEW_SCALE_FACTOR, PREVIEW_SCALE_FACTOR, PREVIEW_SCALE_FACTOR);
     // Apply preview rotation to match placement orientation
     if (rotation !== 0) {
       mesh.rotation.y = (rotation * Math.PI) / 180;
@@ -1043,6 +1438,10 @@ export class RenderingEngine {
    * Update rendering options
    */
   updateOptions(options: Partial<RenderingOptions>): void {
+    if (this.disposed) {
+      console.warn('🎨 RenderingEngine: updateOptions() ignored after dispose');
+      return;
+    }
     this.currentOptions = { ...this.currentOptions, ...options };
     
     // Update material properties
@@ -1073,6 +1472,18 @@ export class RenderingEngine {
             }
           }
         } else if (material instanceof THREE.Material && !this.isCachedMaterial(material)) {
+          material.dispose();
+        }
+      } else if (child instanceof THREE.Sprite) {
+        const material = child.material;
+        if (material instanceof THREE.Material && !this.isCachedMaterial(material)) {
+          if ('map' in material && material.map instanceof THREE.Texture) {
+            // Keep cached label textures alive for reuse
+            const keepTexture = Array.from(this.labelCanvasCache.values()).some(entry => entry.texture === material.map);
+            if (!keepTexture) {
+              material.map.dispose();
+            }
+          }
           material.dispose();
         }
       }
@@ -1133,6 +1544,14 @@ export class RenderingEngine {
     this.drainGroup = new THREE.Group();
     this.drainGroup.name = 'drain-plugs';
     this.scene.add(this.drainGroup);
+
+    this.accessoryGroup = new THREE.Group();
+    this.accessoryGroup.name = 'accessories';
+    this.scene.add(this.accessoryGroup);
+
+    this.showcaseGroup = new THREE.Group();
+    this.showcaseGroup.name = 'showcase';
+    this.scene.add(this.showcaseGroup);
     
     this.gridGroup = new THREE.Group();
     this.gridGroup.name = 'grid';
@@ -1188,13 +1607,19 @@ export class RenderingEngine {
     this.materialCache.set('preview-valid', new THREE.MeshLambertMaterial({
       color: 0x00ff00,
       opacity: this.currentOptions.previewOpacity,
-      transparent: true
+      transparent: true,
+      polygonOffset: true,
+      polygonOffsetFactor: -1,
+      polygonOffsetUnits: -1
     }));
     
     this.materialCache.set('preview-invalid', new THREE.MeshLambertMaterial({
       color: 0xff0000,
       opacity: this.currentOptions.previewOpacity,
-      transparent: true
+      transparent: true,
+      polygonOffset: true,
+      polygonOffsetFactor: -1,
+      polygonOffsetUnits: -1
     }));
     
     // Selection material
@@ -1214,6 +1639,52 @@ export class RenderingEngine {
       color: 0xff0000,
       opacity: 0.5,
       transparent: true
+    }));
+
+    this.materialCache.set('accessory-ladder-available', new THREE.MeshStandardMaterial({
+      color: '#7dd3fc',
+      opacity: 0.55,
+      transparent: true,
+      metalness: 0.08,
+      roughness: 0.5,
+      polygonOffset: true,
+      polygonOffsetFactor: -1,
+      polygonOffsetUnits: -1
+    }));
+    this.materialCache.set('accessory-ladder-active', new THREE.MeshStandardMaterial({
+      color: '#facc65',
+      opacity: 0.85,
+      transparent: true,
+      metalness: 0.1,
+      roughness: 0.32,
+      polygonOffset: true,
+      polygonOffsetFactor: -1,
+      polygonOffsetUnits: -1
+    }));
+    this.materialCache.set('accessory-ladder-placed', new THREE.MeshStandardMaterial({
+      color: '#3b82f6',
+      opacity: 0.85,
+      transparent: true,
+      metalness: 0.15,
+      roughness: 0.3,
+      polygonOffset: true,
+      polygonOffsetFactor: -1,
+      polygonOffsetUnits: -1
+    }));
+    this.materialCache.set('accessory-ladder-bracket-available', new THREE.MeshStandardMaterial({
+      color: '#7dd3fc',
+      metalness: 0.2,
+      roughness: 0.55
+    }));
+    this.materialCache.set('accessory-ladder-bracket-highlight', new THREE.MeshStandardMaterial({
+      color: '#ffd166',
+      metalness: 0.2,
+      roughness: 0.5
+    }));
+    this.materialCache.set('accessory-ladder-bracket-placed', new THREE.MeshStandardMaterial({
+      color: '#1e3a8a',
+      metalness: 0.4,
+      roughness: 0.35
     }));
 
     // Text material
@@ -1238,6 +1709,23 @@ export class RenderingEngine {
     // Placement debug materials (used to visualize latest drop location)
     this.materialCache.set('placement-outline', new THREE.MeshBasicMaterial({ color: 0xff3366, wireframe: true }));
     this.materialCache.set('placement-fill', new THREE.MeshBasicMaterial({ color: 0xff3366, transparent: true, opacity: 0.18 }));
+
+    // Hardware shared materials
+    this.materialCache.set('hardware-connector', new THREE.MeshStandardMaterial({
+      color: STANDARD_CONNECTOR_COLOR_HEX,
+      metalness: 0.1,
+      roughness: 0.55
+    }));
+    this.materialCache.set('hardware-edge', new THREE.MeshStandardMaterial({
+      color: '#d0d0d0',
+      metalness: 0.5,
+      roughness: 0.45
+    }));
+    this.materialCache.set('hardware-drain', new THREE.MeshStandardMaterial({
+      color: '#2a2a2a',
+      metalness: 0.2,
+      roughness: 0.8
+    }));
   }
 
   private getSharedPontoonMaterial(color: PontoonColor): THREE.MeshStandardMaterial {
@@ -1251,6 +1739,17 @@ export class RenderingEngine {
       this.materialCache.set(key, material);
     }
     return material;
+  }
+
+  private getSharedHardwareMaterial(kind: 'connector' | 'edge' | 'drain'): THREE.MeshStandardMaterial {
+    const key = `hardware-${kind}`;
+    const material = this.materialCache.get(key) as THREE.MeshStandardMaterial | undefined;
+    if (material) return material;
+
+    const fallbackColor = kind === 'connector' ? STANDARD_CONNECTOR_COLOR_HEX : '#cccccc';
+    const fallback = new THREE.MeshStandardMaterial({ color: fallbackColor, metalness: kind === 'connector' ? 0.1 : 0.4, roughness: kind === 'connector' ? 0.55 : 0.5 });
+    this.materialCache.set(key, fallback);
+    return fallback;
   }
 
   /**
@@ -1268,9 +1767,13 @@ export class RenderingEngine {
     
     // Support indicator (small cylinder)
     this.geometryCache.set('support-indicator', new THREE.CylinderGeometry(0.1, 0.1, 0.05));
-    
+
     // Level indicator (small box)
     this.geometryCache.set('level-indicator', new THREE.BoxGeometry(0.2, 0.1, 0.2));
+
+    // Ladder placeholder indicator
+    this.geometryCache.set('ladder-placeholder', new THREE.BoxGeometry(0.5, 0.08, 0.18));
+    this.geometryCache.set('ladder-bracket', new THREE.CylinderGeometry(LADDER_BRACKET_RADIUS_M, LADDER_BRACKET_RADIUS_M, LADDER_BRACKET_HEIGHT_M, 12));
 
     // Plane representing a single grid cell (XZ plane)
     this.geometryCache.set('cell-plane', new THREE.PlaneGeometry(
@@ -1350,10 +1853,48 @@ export class RenderingEngine {
       / this.renderStats.totalRenders;
   }
 
+  async setShowcaseVisibility(visible: boolean, grid?: Grid): Promise<void> {
+    if (this.disposed) {
+      console.warn('🎨 RenderingEngine: setShowcaseVisibility() ignored after dispose');
+      return;
+    }
+
+    if (visible === this.showcaseVisible) {
+      if (visible && grid) {
+        this.showcaseNeedsRefresh = true;
+        await this.renderShowcaseAssets(grid);
+      }
+      return;
+    }
+
+    this.showcaseVisible = visible;
+
+    if (!visible) {
+      this.showcaseNeedsRefresh = false;
+      this.clearGroup(this.showcaseGroup);
+      console.log('🎨 RenderingEngine: Showcase hidden');
+      return;
+    }
+
+    this.showcaseNeedsRefresh = true;
+    if (grid) {
+      await this.renderShowcaseAssets(grid);
+    }
+    console.log('🎨 RenderingEngine: Showcase visible');
+  }
+
+  isShowcaseVisible(): boolean {
+    return this.showcaseVisible;
+  }
+
   /**
    * Toggle between 3D models and simple boxes
-   */
+  */
   async toggle3DModels(use3D: boolean, grid?: Grid): Promise<void> {
+    if (this.disposed) {
+      console.warn('🎨 RenderingEngine: toggle3DModels() ignored after dispose');
+      return;
+    }
     if (this.currentOptions.use3DModels === use3D) {
       return; // No change needed
     }
@@ -1412,11 +1953,17 @@ export class RenderingEngine {
    * Dispose all resources
    */
   dispose(): void {
+    if (this.disposed) {
+      return;
+    }
+    this.disposed = true;
     // Clear all groups
     this.disposePontoonInstances();
     this.clearGroup(this.pontoonGroup);
     this.clearGroup(this.connectorGroup);
     this.clearGroup(this.drainGroup);
+    this.clearGroup(this.accessoryGroup);
+    this.clearGroup(this.showcaseGroup);
     this.clearGroup(this.gridGroup);
     this.clearGroup(this.previewGroup);
     this.clearGroup(this.hoverCellGroup);
@@ -1435,7 +1982,15 @@ export class RenderingEngine {
       geometry.dispose();
     }
     this.geometryCache.clear();
-    
+    for (const entry of this.labelCanvasCache.values()) {
+      entry.texture.dispose();
+    }
+    this.labelCanvasCache.clear();
+
     console.log('🧹 RenderingEngine: All resources disposed');
+  }
+
+  isDisposed(): boolean {
+    return this.disposed;
   }
 }
