@@ -40,7 +40,7 @@ const DRAIN_PLUG_SURFACE_OFFSET_MM = 10; // push plug slightly outwards from pon
 const DRAIN_PLUG_VERTICAL_OFFSET_MM = 60; // relative to pontoon center (positive = towards deck)
 const DRAIN_PLUG_INSERT_MM = 15; // default insertion depth
 const DRAIN_PLUG_INSERT_BY_TYPE_MM: Record<PontoonType, number> = {
-  [PontoonType.SINGLE]: 6,
+  [PontoonType.SINGLE]: 10,
   [PontoonType.DOUBLE]: 15
 };
 const DRAIN_PLUG_VERTICAL_OFFSET_BY_TYPE_MM: Record<PontoonType, number> = {
@@ -57,6 +57,7 @@ const LADDER_BRACKET_RADIUS_M = 0.06;
 const LADDER_BRACKET_HEIGHT_M = 0.14;
 const DEBUG_ENABLE_DRAIN_MARKERS = false;
 const DRAIN_MARKER_RADIUS_M = 0.045;
+const CONNECTOR_LOCK_ROTATION_RAD = Math.PI / 4;
 
 export interface RenderingOptions {
   showGrid: boolean;
@@ -130,6 +131,7 @@ export class RenderingEngine {
   private connectorScaleCache = new Map<string, number>();
   private pontoonMaterialCacheKeyPrefix = 'pontoon-standard-';
   private pontoonInstanceMeta = new Map<string, PontoonInstanceMeta>();
+  private pontoonBaseQuaternionCache = new Map<PontoonType, THREE.Quaternion>();
   private showcaseAssetCache = new Map<string, { info: ModelInfo; scale: number; dimensions: THREE.Vector3 }>();
   private labelCanvasCache = new Map<string, { texture: THREE.CanvasTexture; width: number; height: number }>();
   
@@ -537,6 +539,18 @@ export class RenderingEngine {
     return `${type}-${color}`;
   }
 
+  private async getPontoonBaseQuaternion(type: PontoonType): Promise<THREE.Quaternion> {
+    const cached = this.pontoonBaseQuaternionCache.get(type);
+    if (cached) {
+      return cached.clone();
+    }
+
+    const modelInfo = await this.load3DModel(type);
+    const baseQuat = modelInfo.baseQuaternion.clone();
+    this.pontoonBaseQuaternionCache.set(type, baseQuat);
+    return baseQuat.clone();
+  }
+
   /**
    * Render automatically generated connectors between adjacent pontoons
    */
@@ -574,12 +588,14 @@ export class RenderingEngine {
     const matrix = new THREE.Matrix4();
     const translation = new THREE.Vector3();
     const scale = new THREE.Vector3();
+    const lockQuaternion = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), CONNECTOR_LOCK_ROTATION_RAD);
 
     for (const variant of Object.keys(grouped) as ConnectorVariant[]) {
       const bucket = grouped[variant];
       if (!bucket.length) continue;
 
       const modelInfo = await this.loadConnectorModel(variant);
+      const lockedBaseQuaternion = modelInfo.baseQuaternion.clone().multiply(lockQuaternion);
       if (!modelInfo.mergedGeometry) {
         await Promise.all(bucket.map(async placement => {
           const fallback = modelLoader.cloneModel(modelInfo);
@@ -589,6 +605,7 @@ export class RenderingEngine {
           const position = placement.worldPosition.clone();
           position.y = this.getConnectorCenterY(placement.level, connectorHeightM);
           modelLoader.prepareModelForGrid(fallback, position, modelInfo, scaleFactor);
+          fallback.setRotationFromQuaternion(lockedBaseQuaternion.clone());
           this.connectorGroup.add(fallback);
         }));
         continue;
@@ -614,7 +631,7 @@ export class RenderingEngine {
         const base = placement.worldPosition;
         const centerY = this.getConnectorCenterY(placement.level, connectorHeightM);
         translation.set(base.x, centerY, base.z).sub(centerOffset);
-        matrix.compose(translation, modelInfo.baseQuaternion, scale);
+        matrix.compose(translation, lockedBaseQuaternion, scale);
         instanced.setMatrixAt(index, matrix);
       }
 
@@ -644,6 +661,11 @@ export class RenderingEngine {
     const surfaceOffsetM = DRAIN_PLUG_SURFACE_OFFSET_MM / 1000;
 
     const rotationAxis = new THREE.Vector3(0, 1, 0);
+    const canonicalOutward = new THREE.Vector3(1, 0, 0);
+    const drainAxisLocal = new THREE.Vector3(0, 1, 0);
+    const drainBaseQuaternion = drainInfo.baseQuaternion.clone();
+    const drainAxisWorldBase = drainAxisLocal.clone().applyQuaternion(drainBaseQuaternion);
+    const baseQuaternionCache = new Map<PontoonType, THREE.Quaternion>();
 
     for (const pontoon of grid.pontoons.values()) {
       const baseWorld = grid.gridToWorld(pontoon.position);
@@ -656,23 +678,47 @@ export class RenderingEngine {
       const insertOffsetMM = DRAIN_PLUG_INSERT_BY_TYPE_MM[pontoon.type] ?? DRAIN_PLUG_INSERT_MM;
       const insertOffsetM = insertOffsetMM / 1000;
       const halfWidth = (typeConfig.gridSize.x * cellSizeM) / 2;
+      const horizontalDistance = halfWidth + surfaceOffsetM - insertOffsetM;
 
-      const localOffset = new THREE.Vector3(halfWidth + surfaceOffsetM - insertOffsetM, verticalOffsetM, 0);
+      let baseQuaternion = baseQuaternionCache.get(pontoon.type);
+      if (!baseQuaternion) {
+        baseQuaternion = await this.getPontoonBaseQuaternion(pontoon.type);
+        baseQuaternionCache.set(pontoon.type, baseQuaternion.clone());
+      } else {
+        baseQuaternion = baseQuaternion.clone();
+      }
+
       const rotationRadians = THREE.MathUtils.degToRad(pontoon.rotation);
-      localOffset.applyAxisAngle(rotationAxis, rotationRadians);
+      const combinedQuaternion = baseQuaternion.clone().multiply(
+        new THREE.Quaternion().setFromAxisAngle(rotationAxis, rotationRadians)
+      );
+
+      const outwardDirection = canonicalOutward
+        .clone()
+        .applyQuaternion(combinedQuaternion)
+        .setY(0);
+
+      if (outwardDirection.lengthSq() < 1e-6) {
+        outwardDirection.set(1, 0, 0);
+      }
+
+      outwardDirection.normalize();
 
       const position = new THREE.Vector3(
-        center.x + localOffset.x,
-        center.y + localOffset.y,
-        center.z + localOffset.z
+        center.x + outwardDirection.x * horizontalDistance,
+        center.y + verticalOffsetM,
+        center.z + outwardDirection.z * horizontalDistance
       );
 
       const plugMesh = modelLoader.cloneModel(drainInfo);
       modelLoader.prepareModelForGrid(plugMesh, position, drainInfo, scaleFactor);
-      plugMesh.rotation.set(0, 0, 0);
-      plugMesh.rotateZ(Math.PI / 2);
-      plugMesh.rotateY(Math.PI);
-      plugMesh.rotateY(rotationRadians - Math.PI / 2);
+
+      const alignQuaternion = new THREE.Quaternion().setFromUnitVectors(
+        drainAxisWorldBase.clone().normalize(),
+        outwardDirection.clone().multiplyScalar(-1)
+      );
+      const finalQuaternion = alignQuaternion.multiply(drainBaseQuaternion.clone());
+      plugMesh.setRotationFromQuaternion(finalQuaternion);
       plugMesh.userData = {
         pontoonId: pontoon.id,
         variant: 'drain-plug'
@@ -683,7 +729,11 @@ export class RenderingEngine {
         const markerGeometry = this.getGeometry('drain-marker');
         const markerMaterial = this.getMaterial('debug-drain-marker');
         const marker = new THREE.Mesh(markerGeometry, markerMaterial);
-        marker.position.set(position.x, position.y + DRAIN_MARKER_RADIUS_M * 1.6, position.z);
+        marker.position.set(
+          position.x,
+          position.y + DRAIN_MARKER_RADIUS_M * 1.6,
+          position.z
+        );
         marker.userData = { debug: 'drain-marker', pontoonId: pontoon.id };
         this.drainGroup.add(marker);
       }
