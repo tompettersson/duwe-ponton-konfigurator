@@ -37,7 +37,16 @@ const EDGE_SPACER_SINGLE_HEIGHT_MM = 16;
 const EDGE_NUT_COMPRESSION_MM = 3; // Allow nut to compress washer stack slightly so it sits flush
 const DRAIN_PLUG_HEIGHT_MM = 35;
 const DRAIN_PLUG_SURFACE_OFFSET_MM = 10; // push plug slightly outwards from pontoon face
-const DRAIN_PLUG_VERTICAL_OFFSET_MM = -80; // relative to pontoon center (negative = towards waterline)
+const DRAIN_PLUG_VERTICAL_OFFSET_MM = 60; // relative to pontoon center (positive = towards deck)
+const DRAIN_PLUG_INSERT_MM = 15; // default insertion depth
+const DRAIN_PLUG_INSERT_BY_TYPE_MM: Record<PontoonType, number> = {
+  [PontoonType.SINGLE]: 6,
+  [PontoonType.DOUBLE]: 15
+};
+const DRAIN_PLUG_VERTICAL_OFFSET_BY_TYPE_MM: Record<PontoonType, number> = {
+  [PontoonType.SINGLE]: 65,
+  [PontoonType.DOUBLE]: 60
+};
 const HOVER_CELL_SURFACE_OFFSET_MM = CoordinateCalculator.CONSTANTS.PONTOON_HEIGHT_MM / 2 + 5; // ~deck height plus margin
 const EDGE_LUG_PLANE_OFFSET_MM = 72.6; // Lug plane (through-holes) is ~72.6mm above pontoon center in the CAD model
 const PREVIEW_SURFACE_EPSILON_M = 0.002; // Lift previews slightly to prevent z-fighting with deck
@@ -46,6 +55,8 @@ const STANDARD_CONNECTOR_COLOR_HEX = '#4a75d6'; // Default plastic connector col
 const CELL_SIZE_M = CoordinateCalculator.CONSTANTS.CELL_SIZE_MM / CoordinateCalculator.CONSTANTS.PRECISION_FACTOR;
 const LADDER_BRACKET_RADIUS_M = 0.06;
 const LADDER_BRACKET_HEIGHT_M = 0.14;
+const DEBUG_ENABLE_DRAIN_MARKERS = false;
+const DRAIN_MARKER_RADIUS_M = 0.045;
 
 export interface RenderingOptions {
   showGrid: boolean;
@@ -631,7 +642,6 @@ export class RenderingEngine {
     const scaleFactor = this.getScaleFactorForHardware('drain-plug', drainInfo, DRAIN_PLUG_HEIGHT_MM);
     const cellSizeM = CoordinateCalculator.CONSTANTS.CELL_SIZE_MM / CoordinateCalculator.CONSTANTS.PRECISION_FACTOR;
     const surfaceOffsetM = DRAIN_PLUG_SURFACE_OFFSET_MM / 1000;
-    const verticalOffsetM = DRAIN_PLUG_VERTICAL_OFFSET_MM / 1000;
 
     const rotationAxis = new THREE.Vector3(0, 1, 0);
 
@@ -641,9 +651,13 @@ export class RenderingEngine {
       const center = this.applyFootprintOffsetByType(pontoon.type, pontoon.rotation, baseWorldVector);
 
       const typeConfig = getPontoonTypeConfig(pontoon.type);
+      const verticalOffsetMM = DRAIN_PLUG_VERTICAL_OFFSET_BY_TYPE_MM[pontoon.type] ?? DRAIN_PLUG_VERTICAL_OFFSET_MM;
+      const verticalOffsetM = verticalOffsetMM / 1000;
+      const insertOffsetMM = DRAIN_PLUG_INSERT_BY_TYPE_MM[pontoon.type] ?? DRAIN_PLUG_INSERT_MM;
+      const insertOffsetM = insertOffsetMM / 1000;
       const halfWidth = (typeConfig.gridSize.x * cellSizeM) / 2;
 
-      const localOffset = new THREE.Vector3(-(halfWidth + surfaceOffsetM), verticalOffsetM, 0);
+      const localOffset = new THREE.Vector3(halfWidth + surfaceOffsetM - insertOffsetM, verticalOffsetM, 0);
       const rotationRadians = THREE.MathUtils.degToRad(pontoon.rotation);
       localOffset.applyAxisAngle(rotationAxis, rotationRadians);
 
@@ -655,12 +669,24 @@ export class RenderingEngine {
 
       const plugMesh = modelLoader.cloneModel(drainInfo);
       modelLoader.prepareModelForGrid(plugMesh, position, drainInfo, scaleFactor);
-      plugMesh.rotation.y = rotationRadians - Math.PI / 2;
+      plugMesh.rotation.set(0, 0, 0);
+      plugMesh.rotateZ(Math.PI / 2);
+      plugMesh.rotateY(Math.PI);
+      plugMesh.rotateY(rotationRadians - Math.PI / 2);
       plugMesh.userData = {
         pontoonId: pontoon.id,
         variant: 'drain-plug'
       };
       this.drainGroup.add(plugMesh);
+
+      if (DEBUG_ENABLE_DRAIN_MARKERS) {
+        const markerGeometry = this.getGeometry('drain-marker');
+        const markerMaterial = this.getMaterial('debug-drain-marker');
+        const marker = new THREE.Mesh(markerGeometry, markerMaterial);
+        marker.position.set(position.x, position.y + DRAIN_MARKER_RADIUS_M * 1.6, position.z);
+        marker.userData = { debug: 'drain-marker', pontoonId: pontoon.id };
+        this.drainGroup.add(marker);
+      }
     }
   }
 
@@ -1726,6 +1752,12 @@ export class RenderingEngine {
       metalness: 0.2,
       roughness: 0.8
     }));
+
+    if (DEBUG_ENABLE_DRAIN_MARKERS) {
+      this.materialCache.set('debug-drain-marker', new THREE.MeshBasicMaterial({
+        color: 0xff3366
+      }));
+    }
   }
 
   private getSharedPontoonMaterial(color: PontoonColor): THREE.MeshStandardMaterial {
@@ -1780,6 +1812,10 @@ export class RenderingEngine {
       CoordinateCalculator.CONSTANTS.CELL_SIZE_MM / 1000,
       CoordinateCalculator.CONSTANTS.CELL_SIZE_MM / 1000
     ));
+
+    if (DEBUG_ENABLE_DRAIN_MARKERS) {
+      this.geometryCache.set('drain-marker', new THREE.SphereGeometry(DRAIN_MARKER_RADIUS_M, 16, 12));
+    }
   }
 
   /**
