@@ -57,6 +57,28 @@ const LADDER_BRACKET_RADIUS_M = 0.06;
 const LADDER_BRACKET_HEIGHT_M = 0.14;
 const DEBUG_ENABLE_DRAIN_MARKERS = false;
 const DRAIN_MARKER_RADIUS_M = 0.045;
+const DEBUG_ENABLE_LUG_MARKERS = true;
+const LUG_MARKER_RADIUS_M = 0.035;
+const LUG_LABEL_COLOR_HIGH = '#ff7f50';
+const LUG_LABEL_COLOR_LOW = '#4cc0ff';
+const LUG_LABEL_TEXT_COLOR = '#ffffff';
+
+const LUG_DEBUG_LAYOUT: Record<PontoonType, Array<{ id: string; offset: [number, number]; height: 'high' | 'low'; }>> = {
+  [PontoonType.SINGLE]: [
+    { id: '1', offset: [-1, -1], height: 'high' },
+    { id: '2', offset: [1, -1], height: 'low' },
+    { id: '3', offset: [1, 1], height: 'low' },
+    { id: '4', offset: [-1, 1], height: 'high' }
+  ],
+  [PontoonType.DOUBLE]: [
+    { id: '1', offset: [-1, -1], height: 'high' },
+    { id: '2', offset: [0, -1], height: 'low' },
+    { id: '3', offset: [1, -1], height: 'high' },
+    { id: '4', offset: [-1, 1], height: 'high' },
+    { id: '5', offset: [0, 1], height: 'low' },
+    { id: '6', offset: [1, 1], height: 'high' }
+  ]
+};
 const CONNECTOR_LOCK_ROTATION_RAD = Math.PI / 4;
 
 export interface RenderingOptions {
@@ -114,6 +136,7 @@ export class RenderingEngine {
   private drainGroup: THREE.Group;
   private accessoryGroup: THREE.Group;
   private showcaseGroup: THREE.Group;
+  private lugDebugGroup: THREE.Group;
   private gridGroup: THREE.Group;
   private previewGroup: THREE.Group;
   private hoverCellGroup: THREE.Group;
@@ -132,6 +155,7 @@ export class RenderingEngine {
   private pontoonMaterialCacheKeyPrefix = 'pontoon-standard-';
   private pontoonInstanceMeta = new Map<string, PontoonInstanceMeta>();
   private pontoonBaseQuaternionCache = new Map<PontoonType, THREE.Quaternion>();
+  private lugLabelTextureCache = new Map<string, THREE.CanvasTexture>();
   private showcaseAssetCache = new Map<string, { info: ModelInfo; scale: number; dimensions: THREE.Vector3 }>();
   private labelCanvasCache = new Map<string, { texture: THREE.CanvasTexture; width: number; height: number }>();
   
@@ -643,6 +667,9 @@ export class RenderingEngine {
 
   private async renderDrainPlugs(grid: Grid): Promise<void> {
     this.clearGroup(this.drainGroup);
+    if (DEBUG_ENABLE_LUG_MARKERS) {
+      this.clearGroup(this.lugDebugGroup);
+    }
 
     if (!this.currentOptions.use3DModels || grid.pontoons.size === 0) {
       return;
@@ -744,7 +771,98 @@ export class RenderingEngine {
         marker.userData = { debug: 'drain-marker', pontoonId: pontoon.id };
         this.drainGroup.add(marker);
       }
+
+      if (DEBUG_ENABLE_LUG_MARKERS) {
+        this.renderLugMarkers(pontoon, combinedQuaternion, center, typeConfig.gridSize, cellSizeM);
+      }
     }
+  }
+
+  private renderLugMarkers(
+    pontoon: Pontoon,
+    combinedQuaternion: THREE.Quaternion,
+    center: THREE.Vector3,
+    gridSize: { x: number; z: number },
+    cellSizeM: number
+  ): void {
+    const layout = LUG_DEBUG_LAYOUT[pontoon.type];
+    if (!layout || layout.length === 0) {
+      return;
+    }
+
+    const halfWidthX = (gridSize.x * cellSizeM) / 2;
+    const halfWidthZ = (gridSize.z * cellSizeM) / 2;
+    const lugPlaneOffsetM = EDGE_LUG_PLANE_OFFSET_MM / 1000;
+
+    for (const lug of layout) {
+      const local = new THREE.Vector3(
+        lug.offset[0] * halfWidthX,
+        lugPlaneOffsetM,
+        lug.offset[1] * halfWidthZ
+      );
+
+      local.applyQuaternion(combinedQuaternion);
+
+      const world = new THREE.Vector3(
+        center.x + local.x,
+        center.y + local.y,
+        center.z + local.z
+      );
+
+      const markerMaterialKey = lug.height === 'high' ? 'lug-marker-high' : 'lug-marker-low';
+      const marker = new THREE.Mesh(this.getGeometry('lug-marker'), this.getMaterial(markerMaterialKey));
+      marker.position.copy(world);
+      marker.userData = { debug: 'lug-marker', pontoonId: pontoon.id, lugId: lug.id };
+      this.lugDebugGroup.add(marker);
+
+      const labelSprite = this.createLugLabelSprite(lug.id, lug.height === 'high');
+      if (labelSprite) {
+        labelSprite.position.set(world.x, world.y + LUG_MARKER_RADIUS_M * 2.5, world.z);
+        this.lugDebugGroup.add(labelSprite);
+      }
+    }
+  }
+
+  private createLugLabelSprite(label: string, isHigh: boolean): THREE.Sprite | null {
+    if (typeof document === 'undefined') {
+      return null;
+    }
+
+    const cacheKey = `${label}-${isHigh ? 'high' : 'low'}`;
+    let texture = this.lugLabelTextureCache.get(cacheKey);
+    if (!texture) {
+      const canvas = document.createElement('canvas');
+      const size = 128;
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        return null;
+      }
+
+      ctx.clearRect(0, 0, size, size);
+      ctx.fillStyle = isHigh ? LUG_LABEL_COLOR_HIGH : LUG_LABEL_COLOR_LOW;
+      ctx.beginPath();
+      ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = LUG_LABEL_TEXT_COLOR;
+      ctx.font = 'bold 64px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(label, size / 2, size / 2);
+
+      texture = new THREE.CanvasTexture(canvas);
+      texture.needsUpdate = true;
+      this.lugLabelTextureCache.set(cacheKey, texture);
+    }
+
+    const material = new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: false });
+    const sprite = new THREE.Sprite(material);
+    sprite.center.set(0.5, 0);
+    const scale = 0.14;
+    sprite.scale.set(scale, scale, scale);
+    return sprite;
   }
 
   private async renderShowcaseAssets(grid: Grid): Promise<void> {
@@ -1632,6 +1750,10 @@ export class RenderingEngine {
     this.accessoryGroup.name = 'accessories';
     this.scene.add(this.accessoryGroup);
 
+    this.lugDebugGroup = new THREE.Group();
+    this.lugDebugGroup.name = 'lug-debug';
+    this.scene.add(this.lugDebugGroup);
+
     this.showcaseGroup = new THREE.Group();
     this.showcaseGroup.name = 'showcase';
     this.scene.add(this.showcaseGroup);
@@ -1815,6 +1937,11 @@ export class RenderingEngine {
         color: 0xff3366
       }));
     }
+
+    if (DEBUG_ENABLE_LUG_MARKERS) {
+      this.materialCache.set('lug-marker-high', new THREE.MeshBasicMaterial({ color: LUG_LABEL_COLOR_HIGH }));
+      this.materialCache.set('lug-marker-low', new THREE.MeshBasicMaterial({ color: LUG_LABEL_COLOR_LOW }));
+    }
   }
 
   private getSharedPontoonMaterial(color: PontoonColor): THREE.MeshStandardMaterial {
@@ -1872,6 +1999,10 @@ export class RenderingEngine {
 
     if (DEBUG_ENABLE_DRAIN_MARKERS) {
       this.geometryCache.set('drain-marker', new THREE.SphereGeometry(DRAIN_MARKER_RADIUS_M, 16, 12));
+    }
+
+    if (DEBUG_ENABLE_LUG_MARKERS) {
+      this.geometryCache.set('lug-marker', new THREE.SphereGeometry(LUG_MARKER_RADIUS_M, 12, 10));
     }
   }
 
@@ -2056,6 +2187,7 @@ export class RenderingEngine {
     this.clearGroup(this.connectorGroup);
     this.clearGroup(this.drainGroup);
     this.clearGroup(this.accessoryGroup);
+    this.clearGroup(this.lugDebugGroup);
     this.clearGroup(this.showcaseGroup);
     this.clearGroup(this.gridGroup);
     this.clearGroup(this.previewGroup);
@@ -2079,6 +2211,10 @@ export class RenderingEngine {
       entry.texture.dispose();
     }
     this.labelCanvasCache.clear();
+    for (const texture of this.lugLabelTextureCache.values()) {
+      texture.dispose();
+    }
+    this.lugLabelTextureCache.clear();
 
     console.log('🧹 RenderingEngine: All resources disposed');
   }
