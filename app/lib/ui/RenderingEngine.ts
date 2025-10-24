@@ -719,6 +719,13 @@ export class RenderingEngine {
       );
       const finalQuaternion = alignQuaternion.multiply(drainBaseQuaternion.clone());
       plugMesh.setRotationFromQuaternion(finalQuaternion);
+
+      const drainMaterial = this.getSharedPontoonMaterial(pontoon.color);
+      plugMesh.traverse((obj: any) => {
+        if (obj && obj.isMesh) {
+          (obj as THREE.Mesh).material = drainMaterial;
+        }
+      });
       plugMesh.userData = {
         pontoonId: pontoon.id,
         variant: 'drain-plug'
