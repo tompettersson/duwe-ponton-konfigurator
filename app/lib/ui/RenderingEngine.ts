@@ -1359,9 +1359,10 @@ export class RenderingEngine {
       const spacerHeightM = spacerInfo.dimensions.y * spacerScale;
 
       // Bolt (includes head) - top aligns with top of nut for visual clarity
-      const boltMesh = modelLoader.cloneModel(boltInfo);
-      const boltPositionY = this.computeModelPositionForPlane(boltInfo, boltScale, 0, deckPlaneM);
-      modelLoader.prepareModelForGrid(boltMesh, new THREE.Vector3(base.x, boltPositionY, base.z), boltInfo, boltScale);
+    const boltMesh = modelLoader.cloneModel(boltInfo);
+    const boltPositionY = this.computeModelPositionForPlane(boltInfo, boltScale, 0, deckPlaneM);
+    modelLoader.prepareModelForGrid(boltMesh, new THREE.Vector3(base.x, boltPositionY, base.z), boltInfo, boltScale);
+    this.applyEdgeMaterial(boltMesh, this.getEdgeComponentMaterial('bolt'));
       boltMesh.userData = {
         connectorKey: placement.key,
         level: placement.level,
@@ -1375,6 +1376,8 @@ export class RenderingEngine {
         const spacerMesh = modelLoader.cloneModel(spacerInfo);
         const spacerPositionY = this.computeModelPositionForPlane(spacerInfo, spacerScale, 0, deckPlaneM);
         modelLoader.prepareModelForGrid(spacerMesh, new THREE.Vector3(base.x, spacerPositionY, base.z), spacerInfo, spacerScale);
+        const spacerMaterial = this.getEdgeComponentMaterial(useDoubleSpacer ? 'spacer-double' : 'spacer-single');
+        this.applyEdgeMaterial(spacerMesh, spacerMaterial);
         spacerMesh.userData = {
           connectorKey: placement.key,
           level: placement.level,
@@ -1390,6 +1393,7 @@ export class RenderingEngine {
       const nutBaseM = deckPlaneM + spacerHeightM - nutCompressionM;
       const nutPositionY = this.computeModelPositionForPlane(nutInfo, nutScale, 0, nutBaseM);
       modelLoader.prepareModelForGrid(nutMesh, new THREE.Vector3(base.x, nutPositionY, base.z), nutInfo, nutScale);
+      this.applyEdgeMaterial(nutMesh, this.getEdgeComponentMaterial('nut'));
       nutMesh.userData = {
         connectorKey: placement.key,
         level: placement.level,
@@ -1966,6 +1970,39 @@ export class RenderingEngine {
     const fallback = new THREE.MeshStandardMaterial({ color: fallbackColor, metalness: kind === 'connector' ? 0.1 : 0.4, roughness: kind === 'connector' ? 0.55 : 0.5 });
     this.materialCache.set(key, fallback);
     return fallback;
+  }
+
+  private getEdgeComponentMaterial(
+    kind: 'bolt' | 'nut' | 'spacer-single' | 'spacer-double'
+  ): THREE.MeshStandardMaterial {
+    const key = `edge-component-${kind}`;
+    let material = this.materialCache.get(key) as THREE.MeshStandardMaterial | undefined;
+    if (material) {
+      return material;
+    }
+
+    const palette: Record<typeof kind, string> = {
+      bolt: '#1b1b1f',
+      nut: '#4b4b50',
+      'spacer-single': '#f4d06f',
+      'spacer-double': '#f28c28'
+    } as const;
+
+    material = new THREE.MeshStandardMaterial({
+      color: palette[kind],
+      metalness: kind === 'bolt' || kind === 'nut' ? 0.6 : 0.2,
+      roughness: kind === 'bolt' || kind === 'nut' ? 0.35 : 0.55
+    });
+    this.materialCache.set(key, material);
+    return material;
+  }
+
+  private applyEdgeMaterial(group: THREE.Object3D, material: THREE.Material): void {
+    group.traverse(obj => {
+      if ((obj as any).isMesh) {
+        (obj as THREE.Mesh).material = material;
+      }
+    });
   }
 
   /**
