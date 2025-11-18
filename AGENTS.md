@@ -69,6 +69,7 @@
 - Gruppe B benötigt definierte Montagepunkte (z. B. Ladder-Brackets, Fender-Halter) bevor Automatik möglich ist.
 - Für Gruppe C Entscheidung treffen: Konvertieren/prüfen, dokumentieren oder archivieren.
 - **Commit-Frequenz:** Nach jeder relevanten Änderung (Feature-Step, Fix, Doc) committen, um Debugging/Cherry-Pick zu erleichtern.
+- **Notizen 2025-03-27:** Pontons & Verbinder laufen jetzt über Instanced Rendering, riesige Layouts deutlich flüssiger. Offener Punkt: Verbinder (stand früher blau) nutzen aktuell `hardware-connector` Material und erscheinen grau → morgen prüfen, ob Farbzuordnung fehlen (ggf. `getSharedHardwareMaterial` farbabhängig machen oder UI-Option ergänzen). Nächste Optimierungen: (1) Drain Plugs & Rand-Hardware instanzieren, (2) Dirty-Update-Renderer vorbereiten (Instanzen nur delta-updaten), (3) Material/Farb-Steuerung für Hardware konsolidieren. Externe Modellvereinfachung (Blender/Draco) bleibt als separater Task.
 
 ### Lug-Indexierung & aktuelle Automatik
 - Lug-Referenz: Bei Rotation `NORTH` zeigt Lug 1 nach „Nord-West“ (−X/−Z), anschließend im Uhrzeigersinn (2 = +X/−Z, 3 = +X/+Z, 4 = −X/+Z). Drehungen der Pontons rotieren das Schema mit.
@@ -77,3 +78,21 @@
   - `lugCount = 3`: Randverbinder + Einzel-Scheibe (einfacher Spacer).
   - `lugCount ≤ 2`: Randverbinder + Scheibe (doppelter Spacer) – deckt jetzt auch exponierte Einzel-Lugs ab.
 - Jeder Ponton erhält automatisch eine Drain-/Entlüftungsschraube (`Flutschraube.obj`) auf der positiven Z-Seite seiner lokalen Achse; Drehung des Pontons orientiert die Schraube entsprechend.
+- **Lug-Höhen (Datenquelle: `LUG_DEBUG_LAYOUT` in `RenderingEngine.ts`):**
+  - *Einzel-Ponton (1×1, Rotation `NORTH`):*
+    - Lug 1 → (-X,-Z) **high**
+    - Lug 2 → (+X,-Z) **low**
+    - Lug 3 → (+X,+Z) **low**
+    - Lug 4 → (-X,+Z) **high**
+  - *Doppel-Ponton (2×1, Rotation `NORTH`):*
+    - Lug 1 → (-X,-Z) **high**
+    - Lug 2 → ( 0,-Z) **low**
+    - Lug 3 → (+X,-Z) **high**
+    - Lug 4 → (-X,+Z) **high**
+    - Lug 5 → ( 0,+Z) **low**
+    - Lug 6 → (+X,+Z) **high**
+  - Drehungen werden rein mathematisch angewandt: das Layout wird um 90°/180°/270° rotiert (EAST/WEST vertauscht X/Z, SOUTH invertiert beide Achsen). Damit lässt sich für jede Platzierung exakt bestimmen, welcher Lug auf welcher Höhe sitzt – unabhängig davon, ob es Single- oder Double-Pontoons sind.
+
+## Internal Notes (2025-10-23)
+- STEP→STL Konverter (`tools/convert_step.py`) nutzt `cadquery-ocp`. Workflow: `python3 -m pip install cadquery-ocp`, danach `python3 tools/convert_step.py` (Outputs: `public/3d/converted/*.stl`).
+- ToDo nächste Session: neu erzeugte STL-Meshes entlang der Bühnenkante platzieren, um alle gelieferten Objekte zu sichten.
