@@ -281,7 +281,7 @@ export class ModelLoader {
   }
   
   /**
-   * Load the single pontoon model (OBJ only, no MTL)
+   * Load the single pontoon model (pre-aligned OBJ, no runtime rotation needed)
    */
   async loadSinglePontoon(): Promise<ModelInfo> {
     if (this.modelCache.has('single-pontoon')) {
@@ -289,11 +289,19 @@ export class ModelLoader {
     }
     try {
       const objLoader = new OBJLoader();
-      // New models placed under /public/3d/neu
-      const model = await objLoader.loadAsync('/3d/neu/Ponton_single.obj');
+      // Use pre-aligned model (rotated during preprocessing to match Double Pontoon orientation)
+      const model = await objLoader.loadAsync('/3d/neu/Ponton_single_aligned.obj');
       
-      // Align orientation (Y-up) and center at origin
-      const { dimensions, center } = this.alignYUpAndCenter(model);
+      // Model is already aligned - just center it
+      // DO NOT call alignYUpAndCenter as it would rotate again
+      let box = new THREE.Box3().setFromObject(model);
+      const center = box.getCenter(new THREE.Vector3());
+      const dimensions = box.getSize(new THREE.Vector3());
+      
+      // Reset position to origin
+      model.position.set(0, 0, 0);
+      model.updateMatrixWorld(true);
+      
       const baseQuaternion = model.quaternion.clone();
       const mergedGeometry = this.createMergedGeometry(model);
       

@@ -1,5 +1,8 @@
 import { defineConfig, devices } from '@playwright/test';
 
+const PLAYWRIGHT_PORT = Number(process.env.PLAYWRIGHT_TEST_PORT ?? 3100);
+const PLAYWRIGHT_BASE_URL = `http://localhost:${PLAYWRIGHT_PORT}`;
+
 /**
  * Playwright Configuration for Pontoon Configurator Tests
  * 
@@ -14,7 +17,7 @@ export default defineConfig({
   workers: process.env.CI ? 1 : undefined,
   reporter: 'html',
   use: {
-    baseURL: 'http://localhost:3000',
+    baseURL: PLAYWRIGHT_BASE_URL,
     trace: 'on-first-retry',
     video: 'retain-on-failure',
     screenshot: 'only-on-failure',
@@ -37,7 +40,11 @@ export default defineConfig({
 
   webServer: {
     command: 'npm run dev',
-    url: 'http://localhost:3000',
+    url: PLAYWRIGHT_BASE_URL,
+    env: {
+      PORT: String(PLAYWRIGHT_PORT),
+      NEXT_PUBLIC_SHOW_DEMO_PONTOON: 'false',
+    },
     reuseExistingServer: !process.env.CI,
     timeout: 120 * 1000,
   },

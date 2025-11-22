@@ -15,19 +15,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Mission**: Professional 3D pontoon configurator for real-world manufacturing with mathematical precision and production-quality reliability.
 
-**Current Status**: New architecture implementation at `/test-new-architecture` with working Place and Delete tools. Pink rendering issue resolved, hover previews functional.
-
-## Dual Architecture Status (2025-06-28)
-
-**Two Versions Running:**
-- **Production Version**: `http://localhost:3000` (old Zustand-based)
-- **New Architecture**: `http://localhost:3000/test-new-architecture` (Domain-Driven Design)
-
-**Migration Status**: New architecture is 80% complete, core functionality working, ready to replace old version.
+**Current Status**: Legacy implementation removed. The application at `/` and `/test-new-architecture` now both run the domain-driven architecture powered by `RenderingEngine`.
 
 ## New Architecture Implementation (CURRENT WORK)
 
-**Location**: `/test-new-architecture` route
+**Location**: `/` (main entry) and `/test-new-architecture` (test harness)
 
 **✅ COMPLETED FEATURES:**
 - ✅ **Place Tool**: Precise pontoon placement with coordinate validation
@@ -40,17 +32,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - ✅ **Error Handling**: Graceful failures with user feedback
 
 **🔧 TECHNICAL FIXES COMPLETED:**
-- ✅ **Pink Rendering Issue**: RenderingEngine disabled, using fallback Three.js rendering
+- ✅ **Rendering Engine**: RenderingEngine restored as primary path; legacy fallback removed
 - ✅ **Phantom Pontoon**: Removed via proper bounds checking and validation
 - ✅ **Missing Methods**: Added `removePontoonAt()` to Grid domain class
 - ✅ **Coordinate System**: Unified 3D raycasting for precise click/hover matching
 
 **📁 NEW ARCHITECTURE FILES:**
-- `app/components/NewPontoonConfigurator.tsx` - Main new architecture component
-- `app/lib/domain/` - Domain-Driven Design entities (Grid, Pontoon, etc.)
-- `app/lib/ui/` - UI layer services (tools, rendering, interaction)
-- `tests/debug-phantom-pontoon.spec.ts` - Playwright debugging tests
-- `tests/delete-tool.spec.ts` - Delete tool functionality tests
+- `app/components/NewPontoonConfigurator.tsx` - Main application component
+- `app/lib/domain/` - Domain services (Grid, Pontoon, validators)
+- `app/lib/ui/` - RenderingEngine + interaction scaffolding
+- `tests/` - Playwright specs targeting the new architecture only
 
 ## Domain-Driven Design Architecture
 
@@ -64,9 +55,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `PlacementValidator.ts` - Business logic for placement rules
 
 **UI Layer** (`app/lib/ui/`):
-- `InteractionController.ts` - Mouse/touch input handling
-- `RenderingEngine.ts` - 3D visualization (currently disabled due to material issues)
-- `ToolSystem.ts` - Tool management and lifecycle
+- `InteractionController.ts` - Mouse/touch input handling (not yet wired into UI)
+- `RenderingEngine.ts` - Active Three.js renderer for grid, pontoons, hover
+- `ToolSystem.ts` - Tool management (future integration)
 
 **Key Design Patterns**:
 - **Immutable State**: All operations return new instances
@@ -90,7 +81,6 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - 🔲 **Performance Optimization**: Large grid handling (>50x50)
 - 🔲 **Mobile Support**: Touch gestures and responsive UI
 - 🔲 **Error Recovery**: Robust error handling and user guidance
-- 🔲 **Final Migration**: Replace old version entirely
 
 ## 3D Models Available
 

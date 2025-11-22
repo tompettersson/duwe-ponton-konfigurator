@@ -13,7 +13,9 @@ import {
   Rotation, 
   PontoonId,
   getPontoonTypeConfig,
-  getPontoonColorConfig
+  getPontoonColorConfig,
+  LugLayer,
+  PONTOON_LUG_CONFIGS
 } from './PontoonTypes';
 
 export class Pontoon {
@@ -213,6 +215,66 @@ export class Pontoon {
       dimensions: this.physicalDimensions.toStringMeters(),
       level: this.position.y
     };
+  }
+
+  /**
+   * Get the lug layer at a specific grid intersection (corner)
+   * @param gridX The global grid X coordinate of the intersection
+   * @param gridZ The global grid Z coordinate of the intersection
+   */
+  getLugLayerAt(gridX: number, gridZ: number): LugLayer | null {
+    // 1. Calculate local coordinates relative to the pontoon's origin
+    const localX = gridX - this.position.x;
+    const localZ = gridZ - this.position.z;
+
+    // 2. Get the unrotated config
+    const config = getPontoonTypeConfig(this.type);
+    const lugConfig = PONTOON_LUG_CONFIGS[this.type];
+    
+    // 3. Inverse rotate the local coordinates to match the NORTH-based config
+    // We need to find which "original" corner corresponds to the requested (localX, localZ)
+    
+    let originalX = localX;
+    let originalZ = localZ;
+    
+    // Grid dimensions for rotation (width/height in cells)
+    // Note: Corners are indices 0..Size. So a size 1 pontoon has corners 0 and 1.
+    const width = config.gridSize.x;
+    const height = config.gridSize.z;
+
+    switch (this.rotation) {
+      case Rotation.EAST:
+        // Rotate -90 degrees (or 270)
+        // New X = Old Z
+        // New Z = Width - Old X
+        originalX = localZ;
+        originalZ = width - localX;
+        break;
+      case Rotation.SOUTH:
+        // Rotate 180
+        // New X = Width - Old X
+        // New Z = Height - Old Z
+        originalX = width - localX;
+        originalZ = height - localZ;
+        break;
+      case Rotation.WEST:
+        // Rotate 90 (or -270)
+        // New X = Height - Old Z
+        // New Z = Old X
+        originalX = height - localZ;
+        originalZ = localX;
+        break;
+      case Rotation.NORTH:
+      default:
+        // No change
+        break;
+    }
+
+    // 4. Lookup in config
+    const key = `${originalX},${originalZ}`;
+    const lug = lugConfig[key];
+
+    return lug ? lug.layer : null;
   }
 
   /**

@@ -142,6 +142,73 @@ export const PONTOON_TYPE_CONFIGS: Record<PontoonType, PontoonTypeConfig> = {
 };
 
 /**
+ * Lug (Lasche) Layer Definition
+ * 1 = Bottom-most
+ * 4 = Top-most
+ * 2, 3 = Middle layers
+ */
+export type LugLayer = 1 | 2 | 3 | 4;
+
+/**
+ * Configuration for a single lug at a specific corner
+ */
+export interface LugDefinition {
+  layer: LugLayer;
+}
+
+/**
+ * Map of local corner coordinates to lug definitions
+ * Key format: "x,z" where x,z are local grid offsets (0 or 1 for single)
+ */
+export type LugConfig = Record<string, LugDefinition>;
+
+/**
+ * Lug configurations for each pontoon type (Rotation: NORTH)
+ * Based on standard JetFloat/FloatCube patterns:
+ * - Side A: Layers 1 & 4
+ * - Side B: Layers 2 & 3
+ */
+export const PONTOON_LUG_CONFIGS: Record<PontoonType, LugConfig> = {
+  [PontoonType.SINGLE]: {
+    // Heights from pre-aligned OBJ model (Ponton_single_aligned.obj)
+    // Model is pre-rotated, so OBJ coordinates = World coordinates
+    // Peak heights (analysis: scripts/analyze-single-pontoon.ts):
+    // NW (1,0): 280mm → Layer 4
+    // SW (0,0): 264mm → Layer 3
+    // SE (0,1): 248mm → Layer 2
+    // NE (1,1): 232mm → Layer 1
+    
+    // West Side (Z=0)
+    '0,0': { layer: 3 }, // SW: 264mm
+    '1,0': { layer: 4 }, // NW: 280mm
+    
+    // East Side (Z=1)
+    '0,1': { layer: 2 }, // SE: 248mm
+    '1,1': { layer: 1 }  // NE: 232mm
+  },
+  [PontoonType.DOUBLE]: {
+    // 2x1 Pontoon
+    // Heights extracted from OBJ model analysis (scripts/analyze-pontoon-lugs.ts):
+    // NW: 266mm → Layer 4
+    // W: 266mm → Layer 4
+    // SW: 250mm → Layer 3
+    // SO: 234mm → Layer 2
+    // O: 216.5mm → Layer 1
+    // NO: 216.5mm → Layer 1
+    
+    // West Side (Z=0)
+    '0,0': { layer: 3 }, // SW: 250mm
+    '1,0': { layer: 4 }, // W: 266mm
+    '2,0': { layer: 4 }, // NW: 266mm
+    
+    // East Side (Z=1)
+    '0,1': { layer: 2 }, // SO: 234mm
+    '1,1': { layer: 1 }, // O: 216.5mm
+    '2,1': { layer: 1 }  // NO: 216.5mm
+  }
+};
+
+/**
  * Pontoon color configurations
  */
 export const PONTOON_COLOR_CONFIGS: Record<PontoonColor, { hex: string; name: string }> = {

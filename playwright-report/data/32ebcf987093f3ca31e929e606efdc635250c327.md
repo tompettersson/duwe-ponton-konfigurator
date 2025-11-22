@@ -1,0 +1,55 @@
+# Page snapshot
+
+```yaml
+- img "Logo"
+- text: Werkzeuge
+- button "Auswählen"
+- button "Platzieren"
+- button "Löschen"
+- button "Drehen"
+- button "Malen"
+- button "Multi-Drop"
+- button "Verschieben"
+- text: Level
+- button "Level 0"
+- button "Level 1"
+- button "Level 2"
+- text: Typ
+- button "■■ Doppel"
+- button "■ Einzel"
+- text: Farbe
+- button "Blau"
+- button "Schwarz"
+- button "Grau"
+- button "Sand"
+- button "Raster umschalten (G)"
+- button "2D/3D Ansicht umschalten"
+- button "Alles löschen"
+- button "🏗️ 3D-Modelle Toggle"
+- button "✨ Showcase anzeigen"
+- text: Zubehör
+- button "🪜 Badeleiter"
+- text: "Pontons: 1 Ausgewählt: 0 Level: 0"
+- heading "Materialliste" [level=3]
+- text: 5 Pontoons
+- list:
+  - listitem: Doppelelement (Blau) 1
+- text: Edge Hardware
+- list:
+  - listitem: Distanzscheibe (doppelt) 4
+  - listitem: Randverbinder (Bolzen) 4
+  - listitem: Randverbinder-Mutter 4
+- text: Accessories
+- list:
+  - listitem: Drain-/Flutschraube 1
+- button "Materialliste"
+- heading "Debug Info" [level=3]
+- text: "Hover: (10, 0, 16) Grid-Cell-Can-Place: ❌ Pontoon-Here: YES Pontoon-Rotation: 0° Pontoon-Color: blue Last-Click: SUCCESS Tool: place Level: 0 Rotation: 0° Current-Color: blue Selected-Pontoons: 0 Move-State: none Drag-State: none Accessory-Tool: none Accessory-Hover: none Accessories-Placed: 0 Preview-Pontoons: 0"
+- button "Edge Debug"
+- status:
+  - img
+  - text: Static route
+  - button "Hide static indicator":
+    - img
+- alert
+```

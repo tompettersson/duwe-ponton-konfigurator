@@ -58,27 +58,15 @@ const LADDER_BRACKET_HEIGHT_M = 0.14;
 const DEBUG_ENABLE_DRAIN_MARKERS = false;
 const DRAIN_MARKER_RADIUS_M = 0.045;
 const DEBUG_ENABLE_LUG_MARKERS = true;
+const DEBUG_ENABLE_ORIENTATION_MARKERS = true;
 const LUG_MARKER_RADIUS_M = 0.035;
-const LUG_LABEL_COLOR_HIGH = '#ff7f50';
-const LUG_LABEL_COLOR_LOW = '#4cc0ff';
-const LUG_LABEL_TEXT_COLOR = '#ffffff';
-
-const LUG_DEBUG_LAYOUT: Record<PontoonType, Array<{ id: string; offset: [number, number]; height: 'high' | 'low'; }>> = {
-  [PontoonType.SINGLE]: [
-    { id: '1', offset: [-1, -1], height: 'high' },
-    { id: '2', offset: [1, -1], height: 'low' },
-    { id: '3', offset: [1, 1], height: 'low' },
-    { id: '4', offset: [-1, 1], height: 'high' }
-  ],
-  [PontoonType.DOUBLE]: [
-    { id: '1', offset: [-1, -1], height: 'high' },
-    { id: '2', offset: [0, -1], height: 'low' },
-    { id: '3', offset: [1, -1], height: 'high' },
-    { id: '4', offset: [-1, 1], height: 'high' },
-    { id: '5', offset: [0, 1], height: 'low' },
-    { id: '6', offset: [1, 1], height: 'high' }
-  ]
+const LUG_LAYER_COLORS: Record<number, string> = {
+  1: '#4cc0ff', // Bottom - Blue
+  2: '#90ee90', // Middle-Low - Light Green
+  3: '#ffd700', // Middle-High - Gold
+  4: '#ff7f50'  // Top - Coral
 };
+const LUG_LABEL_TEXT_COLOR = '#000000';
 const CONNECTOR_LOCK_ROTATION_RAD = Math.PI / 4;
 
 export interface RenderingOptions {
@@ -387,6 +375,7 @@ export class RenderingEngine {
     } else {
       this.renderPontoonBoxes(grid);
     }
+
   }
 
   private async renderPontoonsInstanced(grid: Grid): Promise<void> {
@@ -422,7 +411,7 @@ export class RenderingEngine {
         // Fallback to discrete meshes if instancing is unavailable for this type
         const worldPromises = pontoons.map(async pontoon => {
           const worldPos = grid.gridToWorld(pontoon.position);
-          await this.render3DPontoon(pontoon, worldPos);
+          await this.render3DPontoon(pontoon, new THREE.Vector3(worldPos.x, worldPos.y, worldPos.z));
         });
         await Promise.all(worldPromises);
         continue;
@@ -444,7 +433,11 @@ export class RenderingEngine {
         const positioned = this.applyFootprintOffsetByType(
           pontoon.type,
           pontoon.rotation,
-          grid.gridToWorld(pontoon.position)
+          new THREE.Vector3(
+            grid.gridToWorld(pontoon.position).x,
+            grid.gridToWorld(pontoon.position).y,
+            grid.gridToWorld(pontoon.position).z
+          )
         );
 
         translation.set(
@@ -474,7 +467,7 @@ export class RenderingEngine {
     this.clearGroup(this.pontoonGroup);
     for (const pontoon of grid.pontoons.values()) {
       const worldPos = grid.gridToWorld(pontoon.position);
-      this.renderBoxPontoon(pontoon, worldPos);
+      this.renderBoxPontoon(pontoon, new THREE.Vector3(worldPos.x, worldPos.y, worldPos.z));
     }
   }
 
@@ -775,6 +768,10 @@ export class RenderingEngine {
       if (DEBUG_ENABLE_LUG_MARKERS) {
         this.renderLugMarkers(pontoon, combinedQuaternion, center, typeConfig.gridSize, cellSizeM);
       }
+
+      if (DEBUG_ENABLE_ORIENTATION_MARKERS) {
+        this.renderOrientationMarker(pontoon, grid);
+      }
     }
   }
 
@@ -785,54 +782,298 @@ export class RenderingEngine {
     gridSize: { x: number; z: number },
     cellSizeM: number
   ): void {
-    const layout = LUG_DEBUG_LAYOUT[pontoon.type];
-    if (!layout || layout.length === 0) {
-      return;
-    }
-
     const halfWidthX = (gridSize.x * cellSizeM) / 2;
     const halfWidthZ = (gridSize.z * cellSizeM) / 2;
     const lugPlaneOffsetM = EDGE_LUG_PLANE_OFFSET_MM / 1000;
 
-    for (const lug of layout) {
-      const local = new THREE.Vector3(
-        lug.offset[0] * halfWidthX,
-        lugPlaneOffsetM,
-        lug.offset[1] * halfWidthZ
-      );
+    // Iterate through all corners of the pontoon
+    // We need to check each corner of the occupied grid cells
+    // A pontoon of size X,Z has (X+1)*(Z+1) potential corners, but we only care about the outer ones usually.
+    // However, the getLugLayerAt method works with global grid coordinates.
+    
+    // Let's iterate through the local corners relative to the pontoon
+    // For a 1x1 pontoon, corners are (0,0), (1,0), (0,1), (1,1)
+    // For a 2x1 pontoon, corners are (0,0), (1,0), (2,0)... etc.
+    
+    // We need to map these local corners to the physical 3D world relative to the center
+    
+    // Pontoon position (min corner) in world space
+    // The 'center' passed here is the physical center of the pontoon.
+    
+    // Let's reconstruct the grid coordinates for the corners
+    const config = getPontoonTypeConfig(pontoon.type);
+    // Note: config.gridSize is unrotated. We need the effective size.
+    // But getLugLayerAt handles rotation internally if we pass global grid coords.
+    
+    // We need to know the effective dimensions to iterate the correct range
+    let effectiveSizeX = config.gridSize.x;
+    let effectiveSizeZ = config.gridSize.z;
+    
+    if (pontoon.rotation === Rotation.EAST || pontoon.rotation === Rotation.WEST) {
+      effectiveSizeX = config.gridSize.z;
+      effectiveSizeZ = config.gridSize.x;
+    }
 
-      local.applyQuaternion(combinedQuaternion);
+    // Iterate over all corners
+    for (let x = 0; x <= effectiveSizeX; x++) {
+      for (let z = 0; z <= effectiveSizeZ; z++) {
+        // Get the layer for this corner
+        const globalGridX = pontoon.position.x + x;
+        const globalGridZ = pontoon.position.z + z;
+        
+        const layer = pontoon.getLugLayerAt(globalGridX, globalGridZ);
+        
+        if (layer === null) continue; // No lug at this corner (internal corner or undefined)
 
-      const world = new THREE.Vector3(
-        center.x + local.x,
-        center.y + local.y,
-        center.z + local.z
-      );
+        // Calculate physical position relative to center
+        // Center is at (width/2, height/2) in local grid units
+        const localGridCenterX = effectiveSizeX / 2;
+        const localGridCenterZ = effectiveSizeZ / 2;
+        
+        const offsetX = (x - localGridCenterX) * cellSizeM;
+        const offsetZ = (z - localGridCenterZ) * cellSizeM;
+        
+        // Apply rotation to the offset vector? 
+        // No, 'center' is already the rotated center, but the offsets x,z are aligned with the pontoon's local axes?
+        // Wait, 'center' is the world position. 
+        // If we use the 'combinedQuaternion' (which includes rotation), we should calculate offsets in LOCAL space (unrotated)
+        // and then apply the quaternion.
+        
+        // But here we are iterating in EFFECTIVE (rotated) grid space.
+        // So x and z are already aligned with the world axes (relative to the pontoon's start position).
+        // So we don't need to apply the quaternion if we just add to the world center?
+        // NO. The 'center' includes the rotation offset.
+        
+        // Let's use a simpler approach:
+        // 1. Calculate the world position of this specific corner directly from the grid
+        // 2. Add the vertical offset
+        
+        // But we want to use the 'center' and 'quaternion' to be consistent with the pontoon mesh?
+        // Actually, rendering markers at the exact grid corners is probably safer and more correct for debugging.
+        
+        // World X of corner = (GlobalGridX - Width/2) * CellSize ? No.
+        // Grid (0,0) is at World (-Width/2, -Height/2) usually?
+        // Let's look at renderGrid: worldX = (x - width/2) * 0.5
+        
+        // So:
+        // const worldX = (globalGridX - grid.width/2) * cellSizeM;
+        // const worldZ = (globalGridZ - grid.height/2) * cellSizeM;
+        // This assumes the grid is centered at 0,0,0.
+        
+        // Let's try to use the passed 'center' and 'combinedQuaternion' to be safe with how the pontoon is rendered.
+        // We need to know the LOCAL coordinate of this corner in the UNROTATED pontoon space.
+        // Then apply quaternion.
+        
+        // We need to find which "original" corner corresponds to this "effective" corner (x,z).
+        // Actually, getLugLayerAt does the inverse.
+        // Here we want to render the lug at (x,z) relative to the pontoon's current orientation.
+        
+        // So (x,z) are offsets from the pontoon's min corner in World Space (since effectiveSize is rotated).
+        // So relative to the center:
+        const dx = (x - effectiveSizeX / 2) * cellSizeM;
+        const dz = (z - effectiveSizeZ / 2) * cellSizeM;
+        
+        // Since x,z are aligned with the grid (and thus the world, mostly), 
+        // and the pontoon is rotated, 'dx' and 'dz' are actually World Axis offsets relative to the center.
+        // So we don't need to apply the pontoon's rotation quaternion to them.
+        
+        const worldPos = new THREE.Vector3(
+          center.x + dx,
+          center.y + lugPlaneOffsetM,
+          center.z + dz
+        );
 
-      const markerMaterialKey = lug.height === 'high' ? 'lug-marker-high' : 'lug-marker-low';
-      const marker = new THREE.Mesh(this.getGeometry('lug-marker'), this.getMaterial(markerMaterialKey));
-      marker.position.copy(world);
-      marker.userData = { debug: 'lug-marker', pontoonId: pontoon.id, lugId: lug.id };
-      this.lugDebugGroup.add(marker);
+        const markerMaterialKey = `lug-marker-${layer}`;
+        // Create material on the fly if needed or assume it exists?
+        // Better to ensure it exists.
+        
+        // For now, let's just use a color directly or ensure materials are created.
+        // We'll assume getMaterial handles it or we add it to createMaterials.
+        
+        // Actually, let's just create a mesh with a new material for simplicity in this debug method, 
+        // or use a cached one if we can.
+        // But we need to update createMaterials to include these 4 colors.
+        // For now, let's hack it by setting the color on the mesh if possible, or just use the sprite.
+        
+        // Let's use the sprite primarily.
+    // Calculate inverse rotation to get the original local (x,z) key
+    // config is already defined above
+    const width = config.gridSize.x;
+    const height = config.gridSize.z;
+    
+    let originalX = x;
+    let originalZ = z;
+    
+    switch (pontoon.rotation) {
+      case Rotation.EAST:
+        originalX = z;
+        originalZ = width - x;
+        break;
+      case Rotation.SOUTH:
+        originalX = width - x;
+        originalZ = height - z;
+        break;
+      case Rotation.WEST:
+        originalX = height - z;
+        originalZ = x;
+        break;
+      case Rotation.NORTH:
+      default:
+        break;
+    }
 
-      const labelSprite = this.createLugLabelSprite(lug.id, lug.height === 'high');
-      if (labelSprite) {
-        labelSprite.position.set(world.x, world.y + LUG_MARKER_RADIUS_M * 2.5, world.z);
-        this.lugDebugGroup.add(labelSprite);
+    // Map local coordinates to German Cardinal Directions
+    // Internal North is at X=2 (Red Ball position)
+    // Z=0 is West (Left), Z=1 is East (Right)
+    
+    // Double Pontoon (2x1 cells)
+    // 2,0 (NW) | 2,1 (NO)
+    // 1,0 (W)  | 1,1 (O)
+    // 0,0 (SW) | 0,1 (SO)
+    
+    let labelText = `${originalX},${originalZ}`; // Fallback
+    
+    if (pontoon.type === PontoonType.DOUBLE) {
+      if (originalZ === 0) { // West Side (Left)
+        if (originalX === 0) labelText = "SW";
+        else if (originalX === 1) labelText = "W";
+        else if (originalX === 2) labelText = "NW";
+      } else if (originalZ === 1) { // East Side (Right)
+        if (originalX === 0) labelText = "SO";
+        else if (originalX === 1) labelText = "O";
+        else if (originalX === 2) labelText = "NO";
+      }
+    } else if (pontoon.type === PontoonType.SINGLE) {
+      // Single Pontoon (1x1 cells)
+      // X+ is North, Z+ is East
+      // Grid: (0,0)=SW | (1,0)=NW
+      //       (0,1)=SE | (1,1)=NE
+      if (originalZ === 0) { // West Side (Z=0)
+        if (originalX === 0) labelText = "SW";
+        else if (originalX === 1) labelText = "NW";
+      } else if (originalZ === 1) { // East Side (Z=1)
+        if (originalX === 0) labelText = "SE";
+        else if (originalX === 1) labelText = "NE";
       }
     }
-  }
 
-  private createLugLabelSprite(label: string, isHigh: boolean): THREE.Sprite | null {
+    const isNW = labelText === "NW";
+
+    // Add label with Direction ONLY (e.g. "NW")
+    /*
+    const labelSprite = this.createLugLabelSprite(labelText, layer, isNW ? '#ff00ff' : undefined);
+    if (labelSprite) {
+      labelSprite.position.copy(worldPos);
+      // Move ball significantly higher as requested
+      labelSprite.position.y += LUG_MARKER_RADIUS_M * 2.5; 
+      // Reduce scale slightly as requested ("Schrift zu groß")
+      labelSprite.scale.set(0.2, 0.2, 0.2);
+      this.lugDebugGroup.add(labelSprite);
+    }
+    */    
+
+    // Add Horizontal Line at actual lug height
+    // Heights extracted directly from OBJ model analysis
+    // See: scripts/analyze-pontoon-lugs.ts (Double) and scripts/analyze-single-pontoon.ts (Single)
+    
+    // Double Pontoon layer heights (Layer 1-4):
+    // Layer 1: 216.5mm (NO, O)
+    // Layer 2: 234mm (SO)
+    // Layer 3: 250mm (SW)
+    // Layer 4: 266mm (NW, W)
+    const doublePontoonHeights = [216.5, 234, 250, 266];
+    
+    // Single Pontoon layer heights (Layer 1-4):
+    // From pre-aligned model (no runtime rotation needed)
+    // Layer 1: 232mm (NE)
+    // Layer 2: 248mm (SE)
+    // Layer 3: 264mm (SW)
+    // Layer 4: 280mm (NW)
+    const singlePontoonHeights = [232, 248, 264, 280];
+    
+    const layerHeights = pontoon.type === PontoonType.DOUBLE 
+      ? doublePontoonHeights 
+      : singlePontoonHeights;
+    
+    const layerHeightMM = layerHeights[layer - 1];
+    const layerHeightM = layerHeightMM / 1000;
+    
+    if (isNW) {
+      console.log(`DEBUG: NW Marker Layer: ${layer}, Height: ${layerHeightMM}mm`);
+    }
+    const debugColor = isNW ? '#ff00ff' : LUG_LAYER_COLORS[layer];
+
+    // Draw a small horizontal plane/line
+    const lineGeo = new THREE.PlaneGeometry(0.2, 0.02); // 20cm wide line
+    const lineMat = new THREE.MeshBasicMaterial({ 
+      color: debugColor, 
+      side: THREE.DoubleSide 
+    });
+    const lineMesh = new THREE.Mesh(lineGeo, lineMat);
+    
+    // Position at the corner, at the specific layer height
+    // We need to rotate it to face outward or be visible. 
+    // For simplicity, let's make it look at the camera or just flat?
+    // User said "horizontal Striche". Let's make it flat (XZ plane) or Billboard?
+    // Let's try a Billboard-style sprite or just a flat mesh facing up?
+    // "Horizontal Striche" usually means a dash seen from the side.
+    // Let's make it a small box to be visible from all sides.
+    const dashGeo = new THREE.BoxGeometry(0.15, 0.02, 0.02); // 15cm long dash
+    const dashMesh = new THREE.Mesh(dashGeo, lineMat);
+    
+    // Position: Center of the corner + height
+    dashMesh.position.set(
+      worldPos.x,
+      // Base of pontoon is at worldPos.y - lugPlaneOffsetM (which was top)
+      // Wait, worldPos.y was "lugPlaneOffsetM" relative to center?
+      // Let's look at how worldPos was calc: center.y + lugPlaneOffsetM.
+      // center.y is the pontoon center.
+      // Pontoon height is 400mm. Center is at 200mm.
+      // We want height relative to bottom.
+      // Bottom is center.y - 0.2.
+      (center.y - 0.2) + layerHeightM,
+      worldPos.z
+    );
+    this.lugDebugGroup.add(dashMesh);
+
+    // Add Layer Number near the line
+    /*
+    const numberSprite = this.createLugLabelSprite(layer.toString(), layer);
+    if (numberSprite) {
+      numberSprite.position.copy(dashMesh.position);
+      numberSprite.position.y += 0.05; // Slightly above the line
+      numberSprite.scale.set(0.15, 0.15, 0.15); // Smaller than the main ball
+      this.lugDebugGroup.add(numberSprite);
+    }
+    */
+
+    // Optional: Add a small sphere marker at the original "top" position just to mark the corner?
+    // Maybe not needed if we have the high ball.
+    // Let's keep the original marker code but maybe make it smaller or hidden?
+    // The user said "in die großen Bälle... schreiben wir nur die Himmelsrichtung".
+    // So the "marker" variable below was the ball. 
+    // I'll comment out the extra sphere to avoid clutter.
+    /*
+    const geometry = this.getGeometry('lug-marker');
+    const material = new THREE.MeshBasicMaterial({ color: LUG_LAYER_COLORS[layer] });
+    const marker = new THREE.Mesh(geometry, material);
+    marker.position.copy(worldPos);
+    this.lugDebugGroup.add(marker);
+    */
+  }
+}
+}
+
+  private createLugLabelSprite(label: string, layer: number, colorOverride?: string): THREE.Sprite | null {
     if (typeof document === 'undefined') {
       return null;
     }
 
-    const cacheKey = `${label}-${isHigh ? 'high' : 'low'}`;
+    const cacheKey = `lug-${label}-${layer}`;
     let texture = this.lugLabelTextureCache.get(cacheKey);
     if (!texture) {
       const canvas = document.createElement('canvas');
-      const size = 128;
+      const size = 128; // Reduced resolution slightly
       canvas.width = size;
       canvas.height = size;
       const ctx = canvas.getContext('2d');
@@ -841,16 +1082,17 @@ export class RenderingEngine {
       }
 
       ctx.clearRect(0, 0, size, size);
-      ctx.fillStyle = isHigh ? LUG_LABEL_COLOR_HIGH : LUG_LABEL_COLOR_LOW;
+      ctx.fillStyle = colorOverride || LUG_LAYER_COLORS[layer] || '#ffffff';
       ctx.beginPath();
       ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
       ctx.fill();
 
       ctx.fillStyle = LUG_LABEL_TEXT_COLOR;
-      ctx.font = 'bold 64px sans-serif';
+      ctx.font = 'bold 80px sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(label, size / 2, size / 2);
+      // Adjust text Y slightly to center visually
+      ctx.fillText(label, size / 2, size / 2 + 5);
 
       texture = new THREE.CanvasTexture(canvas);
       texture.needsUpdate = true;
@@ -859,10 +1101,54 @@ export class RenderingEngine {
 
     const material = new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: false });
     const sprite = new THREE.Sprite(material);
-    sprite.center.set(0.5, 0);
-    const scale = 0.14;
+    sprite.center.set(0.5, 0.5);
+    const scale = 0.15;
     sprite.scale.set(scale, scale, scale);
     return sprite;
+  }
+
+  private renderOrientationMarker(pontoon: Pontoon, grid: Grid): void {
+    const worldPos = grid.gridToWorld(pontoon.position);
+    const positioned = this.applyFootprintOffsetByType(
+      pontoon.type,
+      pontoon.rotation,
+      new THREE.Vector3(worldPos.x, worldPos.y, worldPos.z)
+    );
+
+    // Use the same height as lug markers for visibility
+    const lugPlaneOffsetM = EDGE_LUG_PLANE_OFFSET_MM / 1000;
+    
+    // Calculate North position (0.6m "Right" from center to match physical arrow)
+    // User feedback: "The North of the pontoon is on the right side now... So 90 degrees to the right."
+    // We use local X+ axis for this "Physical North"
+    const northOffset = new THREE.Vector3(0.6, 0, 0); 
+    northOffset.applyAxisAngle(new THREE.Vector3(0, 1, 0), THREE.MathUtils.degToRad(pontoon.rotation));
+    
+    const markerPos = new THREE.Vector3(
+      positioned.x + northOffset.x,
+      positioned.y + lugPlaneOffsetM,
+      positioned.z + northOffset.z
+    );
+
+    // Create a red ball marker (reusing lug marker geometry)
+    const geometry = this.getGeometry('lug-marker');
+    const material = new THREE.MeshBasicMaterial({ color: 0xff0000 }); // Red
+    const marker = new THREE.Mesh(geometry, material);
+    marker.position.copy(markerPos);
+    
+    // Scale it up slightly to distinguish from lugs
+    marker.scale.set(1.2, 1.2, 1.2);
+    
+    this.lugDebugGroup.add(marker);
+    
+    // Add "N" label on top
+    const labelSprite = this.createLugLabelSprite("N", 4); // Use color 4 (Coral) for visibility
+    if (labelSprite) {
+      labelSprite.position.copy(markerPos);
+      labelSprite.position.y += LUG_MARKER_RADIUS_M * 1.5; // Sit on top of the ball
+      labelSprite.scale.set(0.25, 0.25, 0.25);
+      this.lugDebugGroup.add(labelSprite);
+    }
   }
 
   private async renderShowcaseAssets(grid: Grid): Promise<void> {
@@ -1085,7 +1371,7 @@ export class RenderingEngine {
       texture = new THREE.CanvasTexture(canvas);
       texture.anisotropy = 4;
       texture.needsUpdate = true;
-      texture.encoding = THREE.sRGBEncoding;
+      texture.colorSpace = THREE.SRGBColorSpace;
 
       this.labelCanvasCache.set(cacheKey, { texture, width, height });
     }
@@ -1221,10 +1507,10 @@ export class RenderingEngine {
     
     if (this.currentOptions.use3DModels) {
       // Use 3D model
-      await this.render3DPontoon(pontoon, worldPos);
+      await this.render3DPontoon(pontoon, new THREE.Vector3(worldPos.x, worldPos.y, worldPos.z));
     } else {
       // Use simple box geometry
-      this.renderBoxPontoon(pontoon, worldPos);
+      this.renderBoxPontoon(pontoon, new THREE.Vector3(worldPos.x, worldPos.y, worldPos.z));
     }
   }
 
@@ -1565,7 +1851,11 @@ export class RenderingEngine {
       if (!pontoon) continue;
       
       const worldPos = grid.gridToWorld(pontoon.position);
-      const positioned = this.applyFootprintOffsetByType(pontoon.type, pontoon.rotation, worldPos);
+      const positioned = this.applyFootprintOffsetByType(
+        pontoon.type, 
+        pontoon.rotation, 
+        new THREE.Vector3(worldPos.x, worldPos.y, worldPos.z)
+      );
       const geometry = this.getGeometry('selection-outline');
       const material = this.getMaterial('selection');
       
@@ -1943,8 +2233,9 @@ export class RenderingEngine {
     }
 
     if (DEBUG_ENABLE_LUG_MARKERS) {
-      this.materialCache.set('lug-marker-high', new THREE.MeshBasicMaterial({ color: LUG_LABEL_COLOR_HIGH }));
-      this.materialCache.set('lug-marker-low', new THREE.MeshBasicMaterial({ color: LUG_LABEL_COLOR_LOW }));
+      for (const [layer, color] of Object.entries(LUG_LAYER_COLORS)) {
+        this.materialCache.set(`lug-marker-${layer}`, new THREE.MeshBasicMaterial({ color }));
+      }
     }
   }
 

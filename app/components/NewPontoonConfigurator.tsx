@@ -29,6 +29,7 @@ import {
   type SelectionData,
   type PlacementDebugData
 } from '../lib/ui';
+import { computeConnectorPlacements } from '../lib/ui/connectorPlanner';
 import { ConfiguratorService } from '../lib/application';
 import Image from 'next/image';
 import {
@@ -54,7 +55,8 @@ import { computeAccessoryPlacements, type AccessoryPlacement } from '../lib/ui/a
 
 const PLACEMENT_DEBUG_HIDE_DELAY_MS = 1500;
 const MATERIAL_CATEGORY_ORDER: MaterialCategory[] = ['Pontoons', 'Connectors', 'Edge Hardware', 'Accessories'];
-const SHOW_DEBUG_PANEL = false;
+const SHOW_DEBUG_PANEL = process.env.NEXT_PUBLIC_SHOW_DEBUG_PANEL !== 'false';
+const ENABLE_DEMO_PONTOON = process.env.NEXT_PUBLIC_SHOW_DEMO_PONTOON !== 'false';
 
 interface MaterialGroup {
   category: MaterialCategory;
@@ -92,6 +94,16 @@ interface ConfiguratorUIState {
   // Placement debug helpers
   lastPlacementCells: GridPosition[];
   lastPlacementTimestamp: number | null;
+}
+
+interface EdgePlacementDiagnostic {
+  key: string;
+  level: number;
+  corner: { x: number; z: number };
+  lugCount: number;
+  missingLugs: number;
+  usesDoubleSpacer: boolean;
+  pontoonIds: string[];
 }
 
 function getNewPlacementCells(
@@ -452,21 +464,23 @@ export function NewPontoonConfigurator({
     // Create initial grid
     let initialGrid = Grid.createEmpty(initialGridSize.width, initialGridSize.height, initialGridSize.levels);
     
-    // Add demo pontoon in center to showcase 3D model
-    const centerPosition = new GridPosition(
-      Math.floor(initialGridSize.width / 2),
-      0,
-      Math.floor(initialGridSize.height / 2)
-    );
-    try {
-      initialGrid = initialGrid.placePontoon(
-        centerPosition,
-        PontoonType.DOUBLE,
-        PontoonColor.BLUE,
-        Rotation.NORTH
+    if (ENABLE_DEMO_PONTOON) {
+      // Optional demo pontoon for manual sessions (disabled in tests via env flag)
+      const centerPosition = new GridPosition(
+        Math.floor(initialGridSize.width / 2),
+        0,
+        Math.floor(initialGridSize.height / 2)
       );
-    } catch {
-      // ignore demo placement errors
+      try {
+        initialGrid = initialGrid.placePontoon(
+          centerPosition,
+          PontoonType.DOUBLE,
+          PontoonColor.BLUE,
+          Rotation.NORTH
+        );
+      } catch {
+        // ignore demo placement errors
+      }
     }
     
     return {
@@ -512,6 +526,7 @@ export function NewPontoonConfigurator({
   const [is3DModelsEnabled, setIs3DModelsEnabled] = useState(false);
   const [isShowcaseVisible, setIsShowcaseVisible] = useState(false);
   const [isMaterialPanelOpen, setIsMaterialPanelOpen] = useState(true);
+  const [isEdgeDebugOpen, setIsEdgeDebugOpen] = useState(false);
   useEffect(() => {
     return () => {
       if (renderingEngineRef.current) {
@@ -556,6 +571,22 @@ export function NewPontoonConfigurator({
         items: map.get(category)!
       }));
   }, [materialSummary]);
+
+  const connectorPlacements = useMemo(() => computeConnectorPlacements(uiState.grid), [uiState.grid]);
+  const edgeDiagnostics = useMemo<EdgePlacementDiagnostic[]>(() => {
+    return connectorPlacements
+      .filter(placement => placement.lugCount >= 1 && placement.lugCount <= 3)
+      .map(placement => ({
+        key: placement.key,
+        level: placement.level,
+        corner: placement.corner,
+        lugCount: placement.lugCount,
+        missingLugs: Math.max(0, 4 - placement.lugCount),
+        usesDoubleSpacer: placement.lugCount <= 2,
+        pontoonIds: placement.pontoonIds
+      }));
+  }, [connectorPlacements]);
+  const edgeDiagnosticsForLevel = useMemo(() => edgeDiagnostics.filter(entry => entry.level === uiState.currentLevel), [edgeDiagnostics, uiState.currentLevel]);
 
   const allAccessoryPlacements = useMemo<AccessoryPlacement[]>(() => {
     return computeAccessoryPlacements(uiState.grid);
@@ -1349,8 +1380,8 @@ export function NewPontoonConfigurator({
 
 
       {SHOW_DEBUG_PANEL && (
-        <div className="absolute bottom-4 left-4 z-10" data-testid="debug-panel">
-          <div className="bg-black bg-opacity-80 text-white rounded-lg shadow-lg p-4 font-mono text-xs">
+        <div className="absolute bottom-4 left-4 md:left-72 z-10" data-testid="debug-panel">
+          <div className="bg-black bg-opacity-80 text-white rounded-lg shadow-lg p-4 font-mono text-xs max-h-[70vh] overflow-y-auto">
             <h3 className="text-sm font-semibold mb-2">Debug Info</h3>
             <div className="space-y-1">
               {uiState.hoveredCell ? (
@@ -1403,6 +1434,48 @@ export function NewPontoonConfigurator({
           </div>
         </div>
       )}
+
+      <div className="absolute bottom-4 right-4 z-10 flex items-end gap-2">
+        {isEdgeDebugOpen && (
+          <div className="bg-white/95 backdrop-blur rounded-lg shadow-lg border border-gray-200 w-80 max-h-[50vh] overflow-y-auto p-4">
+            <div className="flex items-start justify-between mb-2">
+              <div>
+                <h3 className="text-sm font-semibold text-gray-900">Edge Hardware Debug</h3>
+                <p className="text-xs text-gray-500">Level {uiState.currentLevel} · {edgeDiagnosticsForLevel.length} Platzierungen</p>
+              </div>
+              <span className="text-[10px] text-gray-500">≤2 Lugs ⇒ Doppel</span>
+            </div>
+            {edgeDiagnosticsForLevel.length === 0 ? (
+              <p className="text-xs text-gray-500">Keine Rand-Platzierungen auf diesem Level.</p>
+            ) : (
+              <ul className="space-y-2">
+                {edgeDiagnosticsForLevel.map(entry => (
+                  <li key={entry.key} className="border border-gray-200 rounded-md px-2 py-1 text-xs">
+                    <div className="flex items-center justify-between font-mono text-[11px] text-gray-900">
+                      <span>({entry.corner.x}, {entry.corner.z})</span>
+                      <span>{entry.lugCount} Lugs</span>
+                    </div>
+                    <div className="flex items-center justify-between text-[10px] text-gray-600 mt-1">
+                      <span>Fehlend: {entry.missingLugs}</span>
+                      <span>{entry.usesDoubleSpacer ? 'Doppelscheibe' : 'Einzelscheibe'}</span>
+                    </div>
+                    {entry.pontoonIds.length > 0 && (
+                      <div className="text-[10px] text-gray-500 mt-1">Pontons: {entry.pontoonIds.join(', ')}</div>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
+        <button
+          onClick={() => setIsEdgeDebugOpen(prev => !prev)}
+          className="bg-white/90 backdrop-blur border border-gray-200 rounded-md shadow px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-white transition-colors"
+          title="Edge-Hardware-Debugpanel ein-/ausblenden"
+        >
+          Edge Debug
+        </button>
+      </div>
 
     </div>
   );

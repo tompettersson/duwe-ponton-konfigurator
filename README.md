@@ -1,108 +1,70 @@
-# Ponton-Konfigurator
+# Pontoon Configurator (Next.js 15)
 
-Ein interaktiver 3D-Konfigurator für Pontons, basierend auf React, Next.js und Three.js mit React Three Fiber.
+A domain-driven pontoon configurator focused on millimeter precision, built with Next.js 15, React 19, and Three.js. The application now runs exclusively on the new architecture that unifies rendering, validation, and interaction around a single `RenderingEngine`.
 
-## Projektübersicht
+## Key Features
 
-Der Ponton-Konfigurator ermöglicht es Kunden, maßgeschneiderte Ponton-Konfigurationen zu erstellen und zu visualisieren. Das Tool bietet sowohl eine 2D- als auch eine 3D-Ansicht und erlaubt es, verschiedene Pontontypen in einem Raster zu platzieren, um individuelle Lösungen zu entwerfen.
+- **Single Source of Truth** for hover, preview, and placement feedback via the domain layer (`app/lib/domain`)
+- **RenderingEngine** (Three.js) handles grid, pontoons, connectors, and hover overlays without legacy fallbacks
+- **Play/Debug Panel** exposes machine-readable state for automated tests and rapid QA
+- **OrbitControls Navigation** with quick 2D/3D toggling and multi-level support
+- **Playwright Test Suite** validating click precision, multi-drop, rotation, paint, move, and selection tools
 
-### Hauptfunktionen
-
-- Interaktive 2D- und 3D-Ansicht des Konfigurators
-- Platzierung von einzelnen und doppelten Pontons auf einem Raster
-- Mehrere Ebenen für komplexe Strukturen (inklusive Unterwasserbereich)
-- Echtzeit-Visualisierung mit realistischer Wasserdarstellung
-- Berechnung von Größen und Kosten basierend auf der Konfiguration
-- Exportierbare Ergebnistabelle für Kunden
-
-## Technologie-Stack
-
-- **Frontend**: Next.js 15 (App Router)
-- **Rendering**: React 19
-- **3D-Visualisierung**: Three.js und React Three Fiber/Drei
-- **UI**: Tailwind CSS
-- **Interaktivität**: React DnD (Drag and Drop)
-
-## Projektstruktur
+## Project Layout
 
 ```
 app/
-├── components-src/      # Hauptkomponenten des Konfigurators
-│   ├── App.jsx          # Hauptanwendungskomponente
-│   ├── PontoonScene.jsx # Steuerung der Szene und Zustand
-│   ├── Scene.jsx        # Three.js Canvas und Kameraeinstellungen
-│   ├── Toolbar.jsx      # Werkzeugleiste für die Interaktion
-│   ├── Grid.jsx         # Rastergitter für Platzierung
-│   ├── GridCell.jsx     # Einzelne Zelle im Raster
-│   ├── GridElement.jsx  # Pontonelemente (Einzeln/Doppelt)
-│   ├── SimpleWater.jsx  # Wasservisualisierung
-│   └── Sun.jsx          # Lichtquelle für die Szene
+  components/
+    NewPontoonConfigurator.tsx   # Unified React entry point
+  lib/
+    domain/                      # Immutable grid/pontoon services
+    ui/                           # RenderingEngine + interaction services
+  test-new-architecture/         # Dedicated route for automated testing
+public/                          # Assets and 3D models
+tests/                           # Playwright specs (new architecture only)
 ```
 
-## Installation und Einrichtung
+The legacy implementation (`app/components/configurator`, `app/store`, etc.) has been removed. A full snapshot of the previous tree is available as `project-backup-<timestamp>.tar.gz` in the repository root if you need to inspect or restore pieces of the old code.
 
-Zuerst das Repository klonen und in das Projektverzeichnis wechseln:
-
-```bash
-git clone [repository-url]
-cd ponton-konfigurator
-```
-
-Abhängigkeiten installieren:
+## Getting Started
 
 ```bash
 npm install
-```
-
-Entwicklungsserver starten:
-
-```bash
 npm run dev
 ```
 
-Die Anwendung ist nun unter [http://localhost:3000](http://localhost:3000) verfügbar.
+- Development server: http://localhost:3000
+- Test route used by the suite: http://localhost:3000/test-new-architecture
 
-## Entwicklungsworkflow
+## Debug & Demo Toggles
 
-### Pontons platzieren und bearbeiten
+- The data-rich debug panel (used heavily by the Playwright suite) is enabled by default in all non-production builds.  
+  Set `NEXT_PUBLIC_SHOW_DEBUG_PANEL=false` in `.env.local` if you need to hide it for demos or screenshots; rerun `npm run dev` after changing the flag.
+- Manual sessions boot with a centered demo pontoon for visual reference.  
+  Set `NEXT_PUBLIC_SHOW_DEMO_PONTOON=false` when you need an empty grid (all automated tests do this).
 
-Der Konfigurator verwendet ein Raster-basiertes System mit den folgenden Werkzeugen:
+## Linting & Tests
 
-- **Einzel-Ponton**: Platziert einen quadratischen 1x1 Ponton
-- **Doppel-Ponton**: Platziert einen rechteckigen 2x1 Ponton
-- **Löschen**: Entfernt platzierte Pontons
+```bash
+npm run lint
+npm test          # Playwright headless
+npm run test:ui   # Playwright UI mode
+```
 
-### Ebenen
+Linting is configured via flat ESLint config (`eslint.config.mjs`) and now targets only the active code paths.
 
-Der Konfigurator unterstützt verschiedene Ebenen:
+- The Playwright helper server binds to `http://localhost:3100` to avoid clashing with manual `npm run dev` sessions.  
+  Override with `PLAYWRIGHT_TEST_PORT=<port>` if you need a different target.
 
-- **Ebene -1**: Unterwasserbereich
-- **Ebene 0**: Grundebene (Wasserlinie)
-- **Ebene 1**: Erste Ebene über Wasser
-- **Ebene 2**: Zweite Ebene über Wasser
+## Next Steps
 
-### Kameraansichten
+- Flesh out unfinished tools (select/move/rotate/paint) inside `NewPontoonConfigurator`
+- Extend domain services with export, undo/redo, and manufacturing data hooks
+- Continue migrating Playwright coverage as new features land
 
-- **2D-Ansicht**: Orthografische Top-Down-Ansicht (ideal für präzise Platzierung)
-- **3D-Ansicht**: Perspektivische Ansicht mit OrbitControls (zum Erkunden der Konfiguration)
+## Backup & Rollback
 
-## Datenmodell
+- Snapshot: `project-backup-YYYYMMDD-HHMMSS.tar.gz`
+- Rollback guide: `docs/rendering-engine-rollback.md`
 
-Das Datenmodell für Pontonelemente basiert auf:
-
-- **Position**: [x, y, z] Koordinaten im Raum
-- **Typ**: "single" oder "double" für verschiedene Pontongrößen
-- **Ebene**: Die vertikale Ebene, auf der der Ponton platziert ist
-
-## Zukünftige Funktionen
-
-- Integration realer Daten zu Größen und Kosten
-- Exportfunktion für Kundentabellen
-- Speichern und Laden von Konfigurationen
-- Erweiterte Material- und Farboptionen
-- Physikbasierte Simulation (Schwimmfähigkeit, Balance)
-- Mobile Optimierung
-
-## Lizenz
-
-[Lizenzinformationen einfügen]
+These artifacts let you recover the legacy project if required while keeping the active codebase clean and focused on the new architecture.
