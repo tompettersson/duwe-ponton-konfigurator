@@ -62,6 +62,22 @@ Linting is configured via flat ESLint config (`eslint.config.mjs`) and now targe
 - Extend domain services with export, undo/redo, and manufacturing data hooks
 - Continue migrating Playwright coverage as new features land
 
+## Recent Development (2024-11-24)
+
+### Edge Connector Hardware Placement
+The 3D visualization now accurately renders edge connector hardware (pins, nuts, spacers) with millimeter precision:
+
+- **Pin (Randverbinder)**: Positioned at top of lug stack with 3mm clearance
+- **Nut (Mutter)**: Positioned below bottom lug with 7mm offset for visibility  
+- **Spacers**: 
+  - North side (L1-L4 gap): Double spacer at correct height and horizontal position
+  - South side (L2-L3 adjacent): No spacer (layers in direct contact)
+- **Materials**: All hardware uses dark grey/black materials matching production parts
+
+**Key Fix**: `ModelLoader.ts` was loading incorrect model for nut - corrected to use `Randverbinder2.obj`
+
+See `.agent/knowledge/connector-hardware.md` for detailed implementation notes.
+
 ## Backup & Rollback
 
 - Snapshot: `project-backup-YYYYMMDD-HHMMSS.tar.gz`

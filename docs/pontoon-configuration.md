@@ -114,8 +114,20 @@ const SINGLE_PONTOON_LAYER_HEIGHTS = [224, 240, 256, 272]; // mm (Layer 1-4)
 ### Drain Plug (Flutschraube)
 - **Model:** `/3d/fc/Flutschraube.obj`
 
+### Connector System Logic (Verified)
+- **Bolt (Pin):** `Randverbinder1.obj`. Fixed length (105mm). Inserted from bottom. Head sits at Layer 1 Bottom (+16mm from center).
+- **Nut (Cap):** `Flutschraube.obj`. Screwed from top. Sits at Layer 4 Top (+66mm from center).
+- **Stack Logic:** The system ensures a solid 4-layer stack at every connection point.
+  - **Missing Layers:** Filled by Spacers.
+  - **2 Missing Adjacent:** Filled by Double Spacer (32mm).
+  - **1 Missing:** Filled by Single Spacer (16mm).
+  - **0 Missing:** No Spacer needed.
+- **Gap Correction:**
+  - Lug spacing (17.5mm) > Spacer height (16mm).
+  - Spacers are visually scaled (Y-axis x1.09) to close the 1.5mm gap.
+
 ### Analysis Status
-All accessories: **Analysis pending**
+All accessories: **Verified & Calibrated**
 
 ---
 

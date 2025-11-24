@@ -77,8 +77,18 @@ export function calculateMaterialSummary(grid: Grid): MaterialSummaryItem[] {
 
   if (edgePlacements.length > 0) {
     const boltCount = edgePlacements.length;
-    const doubleWasherCount = edgePlacements.filter(p => p.lugCount <= 2).length;
-    const singleWasherCount = boltCount - doubleWasherCount;
+    const doubleWasherCount = edgePlacements.reduce(
+      (count, placement) =>
+        count +
+        placement.spacers.filter(spacer => spacer.type === 'double').length,
+      0
+    );
+    const singleWasherCount = edgePlacements.reduce(
+      (count, placement) =>
+        count +
+        placement.spacers.filter(spacer => spacer.type === 'single').length,
+      0
+    );
 
     items.push({
       id: 'edge-bolt',
@@ -95,7 +105,7 @@ export function calculateMaterialSummary(grid: Grid): MaterialSummaryItem[] {
         category: 'Edge Hardware'
       });
     }
-
+ 
     if (singleWasherCount > 0) {
       items.push({
         id: 'edge-washer-single',

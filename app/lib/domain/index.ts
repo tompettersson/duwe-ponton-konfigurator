@@ -17,6 +17,7 @@ export {
   ValidationErrorType,
   PONTOON_TYPE_CONFIGS,
   PONTOON_COLOR_CONFIGS,
+  PONTOON_LUG_CONFIGS,
   getPontoonTypeConfig,
   getPontoonColorConfig,
   isValidPontoonType,
