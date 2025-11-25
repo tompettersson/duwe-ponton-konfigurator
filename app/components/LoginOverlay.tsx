@@ -67,14 +67,14 @@ export function LoginOverlay({ children }: LoginOverlayProps) {
     <div
       className="fixed inset-0 flex items-center justify-center p-4"
       style={{
-        backgroundImage: 'url(/water/water-normal.jpg)',
+        backgroundImage: 'url(/images/bg.jpg)',
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         backgroundColor: '#4a90c5'
       }}
     >
       {/* Semi-transparent overlay for better readability */}
-      <div className="absolute inset-0 bg-gradient-to-br from-blue-500/30 to-cyan-600/40 backdrop-blur-sm" />
+      <div className="absolute inset-0 bg-black/20" />
 
       <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full relative z-10">
         <div className="text-center mb-8">
