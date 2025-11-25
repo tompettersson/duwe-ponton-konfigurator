@@ -9,6 +9,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Image from 'next/image';
 
 const VALID_USERNAME = 'duwe';
 const VALID_PASSWORD = 'preview';
@@ -63,15 +64,32 @@ export function LoginOverlay({ children }: LoginOverlayProps) {
 
   // Show login form
   return (
-    <div className="fixed inset-0 bg-gradient-to-br from-blue-600 to-blue-800 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full">
+    <div
+      className="fixed inset-0 flex items-center justify-center p-4"
+      style={{
+        backgroundImage: 'url(/water/water-normal.jpg)',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundColor: '#4a90c5'
+      }}
+    >
+      {/* Semi-transparent overlay for better readability */}
+      <div className="absolute inset-0 bg-gradient-to-br from-blue-500/30 to-cyan-600/40 backdrop-blur-sm" />
+
+      <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full relative z-10">
         <div className="text-center mb-8">
-          <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg className="w-10 h-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-            </svg>
+          {/* Duwe Logo */}
+          <div className="flex justify-center mb-6">
+            <Image
+              src="/logoheader.png"
+              alt="Duwe Logo"
+              width={240}
+              height={84}
+              className="object-contain"
+              priority
+            />
           </div>
-          <h1 className="text-3xl font-bold text-gray-800 mb-2">Pontoon Konfigurator</h1>
+          <h1 className="text-2xl font-bold text-gray-800 mb-2">Pontoon Konfigurator</h1>
           <p className="text-gray-600">Bitte melden Sie sich an</p>
         </div>
 
