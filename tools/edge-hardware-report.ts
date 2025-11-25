@@ -119,7 +119,7 @@ function summarizeEdges(grid: Grid): EdgeSummary[] {
         level: placement.level,
         corner: `(${placement.corner.x},${placement.corner.z})`,
         lugCount: placement.lugCount,
-        spacer: placement.lugCount <= 2 ? 'double' : 'single',
+        spacer: (placement.lugCount <= 2 ? 'double' : 'single') as 'double' | 'single',
         variant,
         hasLowerSupport: placement.hasLowerSupport,
         pontoonIds: Array.from(placement.pontoonIds),

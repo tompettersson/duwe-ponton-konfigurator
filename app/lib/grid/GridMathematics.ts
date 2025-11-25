@@ -7,8 +7,24 @@
 
 import * as THREE from 'three';
 import { GRID_CONSTANTS } from '../constants';
-import { metersToMM, mmToMeters, snapToGrid } from '../utils/precision';
-import type { GridPosition, PreciseGridPosition } from '../../types';
+import { metersToMM, mmToMeters } from '../utils/precision';
+
+// Local type definitions to avoid circular dependencies with domain layer
+interface GridPosition {
+  x: number;
+  y: number;
+  z: number;
+}
+
+interface PreciseGridPosition extends GridPosition {
+  cellOffsetX: number;
+  cellOffsetZ: number;
+  worldPosition: {
+    x: number;
+    y: number;
+    z: number;
+  };
+}
 
 export class GridMathematics {
   private readonly cellSizeMM: number;

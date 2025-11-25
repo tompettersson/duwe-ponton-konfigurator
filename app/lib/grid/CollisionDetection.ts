@@ -7,7 +7,22 @@
 
 import { SpatialHashGrid } from './SpatialHashGrid';
 import { GridMathematics } from './GridMathematics';
-import type { GridPosition, PontoonElement, ValidationResult } from '../../types';
+
+// Local type definitions to avoid circular dependencies with domain layer
+interface GridPosition {
+  x: number;
+  y: number;
+  z: number;
+}
+
+interface PontoonElement {
+  type: 'single' | 'double';
+}
+
+interface ValidationResult {
+  valid: boolean;
+  errors: string[];
+}
 
 export class CollisionDetection {
   private spatialGrid: SpatialHashGrid;

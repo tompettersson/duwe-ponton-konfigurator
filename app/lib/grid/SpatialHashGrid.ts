@@ -7,7 +7,19 @@
 
 import { GridMathematics } from './GridMathematics';
 import { GRID_CONSTANTS } from '../constants';
-import type { GridPosition, SpatialElement } from '../../types';
+
+// Local type definitions to avoid circular dependencies with domain layer
+interface GridPosition {
+  x: number;
+  y: number;
+  z: number;
+}
+
+interface SpatialElement {
+  id: string;
+  position: GridPosition;
+  bounds: GridPosition;
+}
 
 export class SpatialHashGrid {
   private grid: Map<string, Set<string>>;
