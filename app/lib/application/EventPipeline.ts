@@ -40,6 +40,7 @@ export interface ProcessingContext {
   currentTool: string;
   currentPontoonType: PontoonType;
   currentPontoonColor: PontoonColor;
+  selectedPontoonIds?: Set<string>;
 }
 
 export interface ProcessingResult {
@@ -668,7 +669,9 @@ export class EventPipeline {
     // the move state would be managed by the UI layer or a dedicated move service
     
     // For now, we'll check if there's a single selected pontoon to move
-    const selectedPontoons = Array.from(context.selectedPontoonIds || []);
+    const selectedPontoons = Array.from(
+      context.selectedPontoonIds ?? new Set<string>()
+    );
     
     if (selectedPontoons.length === 0) {
       // No pontoon selected - try to select one at the clicked position

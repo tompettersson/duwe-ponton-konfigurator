@@ -342,7 +342,8 @@ export class InteractionController {
       currentLevel: 0,
       currentTool: 'place',
       currentPontoonType: PontoonType.SINGLE,
-      currentPontoonColor: PontoonColor.BLUE
+      currentPontoonColor: PontoonColor.BLUE,
+      selectedPontoonIds: new Set(this.state.selectedPontoonIds)
     };
   }
 
