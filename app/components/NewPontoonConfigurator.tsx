@@ -459,6 +459,9 @@ export function NewPontoonConfigurator({
   onGridChange,
   onError
 }: NewPontoonConfiguratorProps) {
+  // Keyboard shortcuts overlay state
+  const [showKeyboardShortcuts, setShowKeyboardShortcuts] = useState(true);
+
   // Core state
   const [uiState, setUIState] = useState<ConfiguratorUIState>(() => {
     // Create initial grid
@@ -493,7 +496,7 @@ export function NewPontoonConfigurator({
       hoveredCell: null,
       selectedPontoonIds: new Set(),
       isGridVisible: true,
-      viewMode: '2d', // Start with 2D view as default
+      viewMode: '3d', // Start with 3D view as default
       showPreview: true,
       showSelection: true,
       showSupport: false,
@@ -920,6 +923,76 @@ export function NewPontoonConfigurator({
 
   return (
     <div className="relative w-full h-screen bg-gray-100">
+      {/* Keyboard Shortcuts Overlay */}
+      {showKeyboardShortcuts && uiState.viewMode === '3d' && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-2xl p-8 max-w-lg w-full mx-4">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold text-gray-800">3D-Navigation</h2>
+              <button
+                onClick={() => setShowKeyboardShortcuts(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+                aria-label="Schließen"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="space-y-4 text-gray-700">
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
+                  <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122" />
+                  </svg>
+                </div>
+                <div className="flex-1">
+                  <p className="font-semibold mb-1">Ansicht drehen</p>
+                  <p className="text-sm text-gray-600">Linke Maustaste gedrückt halten und ziehen</p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
+                  <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 11l5-5m0 0l5 5m-5-5v12" />
+                  </svg>
+                </div>
+                <div className="flex-1">
+                  <p className="font-semibold mb-1">Ansicht verschieben</p>
+                  <p className="text-sm text-gray-600">
+                    <kbd className="px-2 py-1 bg-gray-100 border border-gray-300 rounded text-xs font-mono">
+                      {typeof navigator !== 'undefined' && navigator.platform.includes('Mac') ? '⌘' : 'Strg'}
+                    </kbd>
+                    {' '}+ Linke Maustaste gedrückt halten und ziehen
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center">
+                  <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM13 10H7" />
+                  </svg>
+                </div>
+                <div className="flex-1">
+                  <p className="font-semibold mb-1">Zoomen</p>
+                  <p className="text-sm text-gray-600">Mausrad scrollen</p>
+                </div>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setShowKeyboardShortcuts(false)}
+              className="mt-6 w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg transition-colors"
+            >
+              Verstanden
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Three.js Canvas */}
       <Canvas
         data-testid="3d-canvas"
