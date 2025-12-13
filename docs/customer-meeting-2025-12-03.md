@@ -17,6 +17,12 @@ Quelle: Meeting-Transkript (Robert Duwe & Boris Kube), 3. Dez. 2025, 10:05 CET.
 - Fehlende Artikel ergänzen; optional Kette zwischen zwei Schienen visualisieren
 - Flutschraube nicht in Materialliste
 
+## Produktanforderung (intern, bestätigt)
+Das aktuelle Login ist nur Preview. Ziel ist ein echtes System mit:
+- Kunden-Accounts: Konfigurationen erstellen, speichern, laden, teilen
+- Admin-Accounts (Duwe & Partner): Kunden/Projekte administrieren, Inhalte/Showcase steuern
+- Persistenz über Datenbank (voraussichtlich Postgres)
+
 ## Abgleich mit aktuellem Repo (Ist-Stand)
 - Login: clientseitig `duwe/preview` (`app/components/LoginOverlay.tsx`)
 - Debug-UI: Debug-Panel per Env-Flag, „Edge Debug“ aktuell immer sichtbar (`app/components/NewPontoonConfigurator.tsx`)
@@ -41,21 +47,25 @@ Quelle: Meeting-Transkript (Robert Duwe & Boris Kube), 3. Dez. 2025, 10:05 CET.
 - Wasseroberfläche Toggle (ohne Interaktionsprobleme)
 - Showcase: Auto-Zoom/Fit beim Aktivieren (Grid + Showcase sichtbar)
 
-### Phase 3 — Produktisierung (P2)
-- Rollen (Admin/User): Debug/Showcase-Inhalte nach Profil
+### Phase 3 — Plattform (P2)
+- Auth + Rollen (Kunde/Admin) inkl. Mandantenfähigkeit (Kunden sehen nur eigene Projekte)
+- Persistenz: Projekte/Konfigurationen speichern & laden (DB)
+- Admin-UI: Projekte/Kunden verwalten, Berechtigungen steuern
+
+### Phase 4 — Produktisierung (P3)
 - Arbeitsfläche nachträglich vergrößern (Dropdown, expand-only oder mit Validierungsdialog)
 - Export: Materialliste (Copy/Print) + Screenshot/PDF
 - Save/Load (lokal) + optional Share-Code (Backend-Entscheidung)
 
-### Phase 4 — Content (P3)
+### Phase 5 — Content (P4)
 - Fehlende Artikel beschaffen/konvertieren/einbinden (Assets, Montagepunkte, Regeln)
 - Ketten-Visualisierung zwischen Schienen (benötigt Schienen-Placement + Befestigungspunkte)
 
 ## Backlog (To‑Do mit Akzeptanzkriterien)
 
 ### P0 — Blocker
-- [ ] Login: `User/preview` unterstützen und Profil speichern (mind. `admin|user`)
-  - AK: User sieht keine Debug-Overlays/Debug-Buttons; Admin schon.
+- [ ] Preview/Debug-Trennung (bis echte Auth live ist)
+  - AK: In „Kundenmodus“ sind Debug-Overlays/Debug-Buttons aus; in Dev/Admin weiterhin verfügbar.
 - [ ] Debug entfernen/abschalten für User
   - AK: Kein „Debug Info“-Panel/„Edge Debug“-Button sichtbar für User; Logs reduziert (kein spam).
 - [ ] Sand entfernen (Pontons + Hardware-Farbwahl auf Blau/Schwarz/Grau)
@@ -78,6 +88,10 @@ Quelle: Meeting-Transkript (Robert Duwe & Boris Kube), 3. Dez. 2025, 10:05 CET.
   - AK: Beim Aktivieren ist Grid+Showcase komplett im View; beim Deaktivieren Rückkehr zur vorherigen Ansicht.
 
 ### P2 — Produktisierung
+- [ ] Auth + Datenbank (Kunde/Admin, Projekte speichern/laden)
+  - AK: Kunden können Projekte anlegen, speichern, laden (DB); Admin kann Projekte/Kunden verwalten.
+- [ ] Rollen & Berechtigungen im Showcase/Katalog
+  - AK: Items sind nach Profil (Admin/User/Kunde) filterbar; nicht freigegebene Artikel bleiben verborgen.
 - [ ] Showcase als Katalog (Dropdown/Kategorien, Klick selektiert platzierbares Objekt)
   - AK: Auswahl im Showcase setzt „aktives Objekt“; Platzieren möglich; Rollenfilter greift.
 - [ ] Arbeitsflächengröße nachträglich ändern
@@ -98,6 +112,4 @@ Quelle: Meeting-Transkript (Robert Duwe & Boris Kube), 3. Dez. 2025, 10:05 CET.
 ## Offene Fragen an Kunde (für Priorisierung/Scope)
 - Verbinder-Farbe: globales Setting oder pro Teil/Artikel? Muss BOM farbgetrennt sein?
 - Randverbinder-Toggle: nur visuell oder auch aus Materialliste/BOM entfernen?
-- Save/Share: reicht lokal (Browser/Datei) oder serverseitig teilbar/editierbar?
 - „Vorne/Hinten/Links/Rechts“: welche Achsen-/Orientierungsdefinition gilt im Projekt?
-
