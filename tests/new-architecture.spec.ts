@@ -10,6 +10,10 @@
 import { test, expect } from '@playwright/test';
 
 test.describe('New Architecture - Critical Tests', () => {
+  // These tests interact with a heavy WebGL scene; running them serially reduces flakiness,
+  // especially for timing-sensitive assertions.
+  test.describe.configure({ mode: 'serial' });
+
   test.beforeEach(async ({ page }) => {
     // Navigate to new architecture test page
     await page.goto('/test-new-architecture');
@@ -338,12 +342,12 @@ test.describe('New Architecture - Critical Tests', () => {
     
     // Test 5 different positions - each should work on first try
     const positions = [
-      // Avoid overlay UI (toolbar/material panel) which sits on top of the canvas.
-      { x: canvasBox.width * 0.35, y: canvasBox.height * 0.35 },
-      { x: canvasBox.width * 0.65, y: canvasBox.height * 0.35 },
-      { x: canvasBox.width * 0.35, y: canvasBox.height * 0.65 },
-      { x: canvasBox.width * 0.65, y: canvasBox.height * 0.65 },
-      { x: canvasBox.width * 0.5, y: canvasBox.height * 0.5 }
+      // Use positions relative to center to stay within the grid and avoid overlay UI.
+      { x: targetPos.x - 200, y: targetPos.y - 200 },
+      { x: targetPos.x + 200, y: targetPos.y - 200 },
+      { x: targetPos.x - 200, y: targetPos.y + 200 },
+      { x: targetPos.x + 200, y: targetPos.y + 200 },
+      { x: targetPos.x, y: targetPos.y }
     ];
     
     for (let i = 0; i < positions.length; i++) {
