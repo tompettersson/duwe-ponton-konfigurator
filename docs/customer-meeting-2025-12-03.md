@@ -33,6 +33,33 @@ Das aktuelle Login ist nur Preview. Ziel ist ein echtes System mit:
 - Showcase: Dev-Showcase an Bühnenkante mit Toggle, aber ohne Auto-Kamera-Fit/Rollenfilter/Katalog-UI (`app/lib/ui/RenderingEngine.ts`, `app/lib/ui/showcaseAssets.ts`)
 - Grid: Domain ist serialisierbar (`Grid.toJSON/fromJSON`), aber keine UI für Save/Load/Resize (`app/lib/domain/Grid.ts`)
 
+## Vorgehen (2 Schritte)
+
+### Schritt 1 — Konfigurator-Fixes & UX (ohne echtes Backend/Auth)
+Ziel: Alle im Meeting genannten sichtbaren/technischen Korrekturen am Konfigurator umsetzen und per Playwright
+validieren, während das aktuelle Preview-Login weiter genutzt werden kann.
+
+- Debug/Preview sauber trennen (Kundenmodus vs Dev/Admin), inkl. „Edge Debug“-Button & Console-Noise
+- Farbpalette bereinigen: „Sand“ entfernen; Verbinder/Verbinderlang farbsteuerbar (Blau/Schwarz/Grau)
+- Multi‑Drop: Drag-Area sichtbar markieren (nicht als Debug-Overlay „versteckt“)
+- Materialliste: Flutschraube entfernen; Doppeldistanzscheiben-Zählung korrekt + Testfälle
+- Randverbinder Toggle (mind. visuell)
+- Standardansichten („Ansichten“-Sektion) + Wasseroberfläche Toggle
+- Showcase-UX: Auto-Fit beim Aktivieren
+
+Hinweis: Test-Route/Playwright sollte nicht vom Preview-Login blockiert werden (technisch: Bypass per Env/Route),
+damit wir Fixes zuverlässig regressionssichern können.
+
+### Schritt 2 — Supabase (Auth + Persistenz + Admin)
+Ziel: Produktionsfähige Benutzerverwaltung (Kunde/Admin) und Speichern/Laden von Konfigurationen in Postgres
+(Supabase) + Grundlagen für Exporte (Screenshot/Materialliste/PDF später).
+
+- Supabase Projekt + Postgres Schema (Profiles/Rollen, Projekte, Konfig-JSON, Exporte)
+- RLS: Kunden sehen nur eigene Projekte; Admin sieht alle
+- Auth Flow: Signup/Login/Logout (z.B. Email+Passwort oder Magic Link), Session via SSR/Middleware
+- UI: „Meine Projekte“ (Create/Save/Load/Rename/Delete) + Admin-Übersicht
+- Storage: Upload für Screenshot/PDF-Exports (wenn benötigt) + Verknüpfung am Projekt
+
 ## Roadmap (Etappen)
 
 ### Phase 1 — Demo/UX-Blocker (P0)
