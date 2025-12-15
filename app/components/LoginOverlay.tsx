@@ -14,6 +14,7 @@ import Image from 'next/image';
 const VALID_USERNAME = 'duwe';
 const VALID_PASSWORD = 'preview';
 const LOGIN_SESSION_KEY = 'pontoon_configurator_auth';
+const DISABLE_LOGIN_OVERLAY = process.env.NEXT_PUBLIC_DISABLE_LOGIN_OVERLAY === 'true';
 
 interface LoginOverlayProps {
   children: React.ReactNode;
@@ -34,6 +35,10 @@ export function LoginOverlay({ children }: LoginOverlayProps) {
     }
     setIsChecking(false);
   }, []);
+
+  if (DISABLE_LOGIN_OVERLAY) {
+    return <>{children}</>;
+  }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
