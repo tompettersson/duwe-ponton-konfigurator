@@ -1454,7 +1454,7 @@ export function NewPontoonConfigurator({
 
 
       {SHOW_DEBUG_PANEL && (
-        <div className="absolute bottom-4 left-4 md:left-72 z-10" data-testid="debug-panel">
+        <div className="absolute bottom-4 left-4 md:left-72 z-10 pointer-events-none" data-testid="debug-panel">
           <div className="bg-black bg-opacity-80 text-white rounded-lg shadow-lg p-4 font-mono text-xs max-h-[70vh] overflow-y-auto">
             <h3 className="text-sm font-semibold mb-2">Debug Info</h3>
             <div className="space-y-1">
