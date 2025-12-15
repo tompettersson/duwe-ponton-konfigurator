@@ -45,6 +45,7 @@ export default defineConfig({
       PORT: String(PLAYWRIGHT_PORT),
       NEXT_PUBLIC_SHOW_DEMO_PONTOON: 'false',
       NEXT_PUBLIC_DISABLE_LOGIN_OVERLAY: 'true',
+      NEXT_PUBLIC_SHOW_KEYBOARD_SHORTCUTS_OVERLAY: 'false',
     },
     reuseExistingServer: !process.env.CI,
     timeout: 120 * 1000,

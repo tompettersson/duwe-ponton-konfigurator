@@ -57,6 +57,7 @@ const PLACEMENT_DEBUG_HIDE_DELAY_MS = 1500;
 const MATERIAL_CATEGORY_ORDER: MaterialCategory[] = ['Pontoons', 'Connectors', 'Edge Hardware', 'Accessories'];
 const SHOW_DEBUG_PANEL = process.env.NEXT_PUBLIC_SHOW_DEBUG_PANEL !== 'false';
 const ENABLE_DEMO_PONTOON = process.env.NEXT_PUBLIC_SHOW_DEMO_PONTOON !== 'false';
+const SHOW_KEYBOARD_SHORTCUTS_OVERLAY = process.env.NEXT_PUBLIC_SHOW_KEYBOARD_SHORTCUTS_OVERLAY !== 'false';
 
 interface MaterialGroup {
   category: MaterialCategory;
@@ -460,7 +461,7 @@ export function NewPontoonConfigurator({
   onError
 }: NewPontoonConfiguratorProps) {
   // Keyboard shortcuts overlay state
-  const [showKeyboardShortcuts, setShowKeyboardShortcuts] = useState(true);
+  const [showKeyboardShortcuts, setShowKeyboardShortcuts] = useState(SHOW_KEYBOARD_SHORTCUTS_OVERLAY);
 
   // Core state
   const [uiState, setUIState] = useState<ConfiguratorUIState>(() => {
