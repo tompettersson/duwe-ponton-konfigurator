@@ -34,13 +34,18 @@ export class CoordinateCalculator {
     gridDimensions: GridDimensions,
     currentLevel: number
   ): GridPosition | null {
-    const cacheKey = this.createCacheKey('screenToGrid', screenPos, currentLevel);
-    
-    if (this.memoCache.has(cacheKey)) {
-      return this.memoCache.get(cacheKey);
+    // NOTE: Do not memoize screen→grid results.
+    // Mapping depends on camera matrices + viewport and changes constantly with user interaction
+    // (orbit controls, resize, device pixel ratio). Caching can "lock in" transient nulls and
+    // reintroduce the "click around until it works" regression.
+    if (viewport.width <= 0 || viewport.height <= 0) {
+      return null;
     }
 
     try {
+      // Ensure camera matrices are current for raycasting outside of render ticks.
+      camera.updateMatrixWorld();
+
       // 1. Screen to normalized device coordinates
       const ndc = this.screenToNDC(screenPos, viewport);
       
@@ -48,18 +53,13 @@ export class CoordinateCalculator {
       const worldPos = this.raycastToLevel(ndc, camera, currentLevel);
       
       if (!worldPos) {
-        this.memoCache.set(cacheKey, null);
         return null;
       }
       
       // 3. World to grid coordinates
-      const gridPos = this.worldToGrid(worldPos, gridDimensions, currentLevel);
-      
-      this.memoCache.set(cacheKey, gridPos);
-      return gridPos;
+      return this.worldToGrid(worldPos, gridDimensions, currentLevel);
     } catch (error) {
       console.warn('CoordinateCalculator.screenToGrid failed:', error);
-      this.memoCache.set(cacheKey, null);
       return null;
     }
   }
@@ -140,7 +140,7 @@ export class CoordinateCalculator {
     worldPos: WorldPosition,
     gridDimensions: GridDimensions,
     currentLevel: number
-  ): GridPosition {
+  ): GridPosition | null {
     // Calculate grid center in meters
     const gridCenterX = (gridDimensions.width * this.CELL_SIZE_MM / 2) / this.PRECISION_FACTOR;
     const gridCenterZ = (gridDimensions.height * this.CELL_SIZE_MM / 2) / this.PRECISION_FACTOR;
@@ -152,6 +152,13 @@ export class CoordinateCalculator {
     const x = Math.floor((worldPos.x + gridCenterX) / cellSizeM);
     const z = Math.floor((worldPos.z + gridCenterZ) / cellSizeM);
     
+    if (x < 0 || z < 0 || x >= gridDimensions.width || z >= gridDimensions.height) {
+      return null;
+    }
+    if (currentLevel < 0 || currentLevel >= gridDimensions.levels) {
+      return null;
+    }
+
     // CRITICAL FIX: Always use currentLevel (eliminates Y-coordinate inconsistency)
     return new GridPosition(x, currentLevel, z);
   }

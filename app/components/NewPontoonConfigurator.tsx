@@ -436,8 +436,12 @@ function screenToGridPosition(
   canvasElement?: HTMLCanvasElement | null
 ): GridPosition | null {
   try {
+    const preferredCanvas =
+      canvasElement && canvasElement.getAttribute('data-pontoon-canvas') === 'true'
+        ? canvasElement
+        : null;
     const targetCanvas =
-      canvasElement ??
+      preferredCanvas ??
       (typeof document !== 'undefined'
         ? (document.querySelector(
             'canvas[data-pontoon-canvas="true"]'
