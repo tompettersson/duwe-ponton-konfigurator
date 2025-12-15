@@ -436,7 +436,13 @@ function screenToGridPosition(
   canvasElement?: HTMLCanvasElement | null
 ): GridPosition | null {
   try {
-    const targetCanvas = canvasElement ?? (typeof document !== 'undefined' ? document.querySelector('canvas') : null);
+    const targetCanvas =
+      canvasElement ??
+      (typeof document !== 'undefined'
+        ? (document.querySelector(
+            'canvas[data-pontoon-canvas="true"]'
+          ) as HTMLCanvasElement | null) ?? document.querySelector('canvas')
+        : null);
     if (!targetCanvas) return null;
     const rect = targetCanvas.getBoundingClientRect();
 
@@ -1650,6 +1656,7 @@ function SceneContent({
   // Add interaction handlers with drag support
   useEffect(() => {
     if (!gl.domElement) return;
+    gl.domElement.setAttribute('data-pontoon-canvas', 'true');
 
     const dragThreshold = 5; // pixels
 
