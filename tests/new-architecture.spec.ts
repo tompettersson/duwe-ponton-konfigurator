@@ -162,13 +162,6 @@ test.describe('New Architecture - Critical Tests', () => {
     pontoonCount = await page.locator('[data-testid="pontoon-count"]').textContent();
     expect(parseInt(pontoonCount || '0')).toBe(2);
     console.log('✅ Level 1 placement without support correctly failed');
-    
-    // Check debug panel confirms the validation
-    const debugPanel = page.locator('[data-testid="debug-panel"]');
-    if (await debugPanel.isVisible()) {
-      const supportText = await debugPanel.locator('text=Support-L0:').textContent();
-      console.log('Support validation:', supportText);
-    }
   });
 
   test('CRITICAL: Double pontoon support validation', async ({ page }) => {
@@ -345,10 +338,11 @@ test.describe('New Architecture - Critical Tests', () => {
     
     // Test 5 different positions - each should work on first try
     const positions = [
-      { x: canvasBox.width * 0.2, y: canvasBox.height * 0.2 },
-      { x: canvasBox.width * 0.8, y: canvasBox.height * 0.2 },
-      { x: canvasBox.width * 0.2, y: canvasBox.height * 0.8 },
-      { x: canvasBox.width * 0.8, y: canvasBox.height * 0.8 },
+      // Avoid overlay UI (toolbar/material panel) which sits on top of the canvas.
+      { x: canvasBox.width * 0.35, y: canvasBox.height * 0.35 },
+      { x: canvasBox.width * 0.65, y: canvasBox.height * 0.35 },
+      { x: canvasBox.width * 0.35, y: canvasBox.height * 0.65 },
+      { x: canvasBox.width * 0.65, y: canvasBox.height * 0.65 },
       { x: canvasBox.width * 0.5, y: canvasBox.height * 0.5 }
     ];
     
