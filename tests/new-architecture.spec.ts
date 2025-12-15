@@ -312,6 +312,8 @@ test.describe('New Architecture - Critical Tests', () => {
 
     await page.click('[data-testid="tool-place"]', { timeout: 5000 });
     await page.click('[data-testid="level-0"]', { timeout: 5000 });
+    // Use single pontoons to avoid edge-of-grid failures for double width placements.
+    await page.click('[data-testid="pontoon-single"]', { timeout: 5000 });
     
     const canvas = page.locator('canvas').first();
     const canvasBox = await canvas.boundingBox();
@@ -339,6 +341,7 @@ test.describe('New Architecture - Critical Tests', () => {
     await page.waitForTimeout(200);
     
     await page.click('[data-testid="tool-place"]', { timeout: 5000 });
+    await page.click('[data-testid="pontoon-single"]', { timeout: 5000 });
     
     // Test 5 different positions - each should work on first try
     const positions = [
